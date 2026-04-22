@@ -1,7 +1,7 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
-  workspaceChatConversations,
   workspaceChatAttachments,
+  workspaceChatConversations,
   workspaceChatMessageParts,
   workspaceChatMessages,
 } from "@otto/feature-integrations-runtime/db/schema"
@@ -230,7 +230,9 @@ export async function listWorkspaceChatAttachmentsByIds(input: {
   return rows satisfies WorkspaceChatAttachmentRecord[]
 }
 
-export async function getWorkspaceChatAttachmentIdsForMessage(messageId: string) {
+export async function getWorkspaceChatAttachmentIdsForMessage(
+  messageId: string,
+) {
   const db = getDb()
   const rows = await db
     .select({

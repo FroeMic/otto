@@ -1,30 +1,30 @@
-import { and, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, sql } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
-import { jobEvents, jobRuns } from "../../db/schema";
-import { getEnv } from "../env";
+import { getDb } from "../../db/client"
+import { jobEvents, jobRuns } from "../../db/schema"
+import { getEnv } from "../env"
 
 import {
   getJobTypesForLane,
   getTenantMutexGuardJobTypesForLane,
   type JobLane,
   laneUsesTenantMutex,
-} from "./lanes";
-import { getJobStaleTimeoutMs } from "./stale";
-import type { ClaimedJob, ControlPlaneJobPayload } from "./types";
-import { JOB_STATUSES } from "./types";
+} from "./lanes"
+import { getJobStaleTimeoutMs } from "./stale"
+import type { ClaimedJob, ControlPlaneJobPayload } from "./types"
+import { JOB_STATUSES } from "./types"
 
 export async function enqueueJob(
   job: ControlPlaneJobPayload,
   options?: {
-    availableAt?: Date;
+    availableAt?: Date
   },
 ): Promise<string> {
-  const db = getDb();
+  const db = getDb()
   const tenantId =
     "tenantId" in job.payload && typeof job.payload.tenantId === "string"
       ? job.payload.tenantId
-      : null;
+      : null
 
   const [createdJob] = await db
     .insert(jobRuns)
@@ -37,16 +37,16 @@ export async function enqueueJob(
     })
     .returning({
       id: jobRuns.id,
-    });
+    })
 
   await appendJobEvent(
     createdJob.id,
     JOB_STATUSES.queued,
     "Job queued for execution",
     { jobType: job.jobType },
-  );
+  )
 
-  return createdJob.id;
+  return createdJob.id
 }
 
 export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
@@ -55,31 +55,31 @@ export async function claimAvailableJobs(limit: number): Promise<ClaimedJob[]> {
     limit,
     tenantMutexJobTypes: [],
     useTenantMutex: false,
-  });
+  })
 }
 
 export async function claimAvailableJobsForLane(input: {
-  lane: JobLane;
-  limit: number;
+  lane: JobLane
+  limit: number
 }): Promise<ClaimedJob[]> {
-  const tenantMutexJobTypes = getTenantMutexGuardJobTypesForLane(input.lane);
+  const tenantMutexJobTypes = getTenantMutexGuardJobTypesForLane(input.lane)
 
   return claimJobs({
     jobTypes: getJobTypesForLane(input.lane),
     limit: input.limit,
     tenantMutexJobTypes,
     useTenantMutex: laneUsesTenantMutex(input.lane),
-  });
+  })
 }
 
 export async function reclaimStaleRunningJobsForLane(input: {
-  lane: JobLane;
-  now?: Date;
+  lane: JobLane
+  now?: Date
 }): Promise<number> {
-  const db = getDb();
-  const now = input.now ?? new Date();
-  const defaultStaleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
-  const jobTypes = getJobTypesForLane(input.lane);
+  const db = getDb()
+  const now = input.now ?? new Date()
+  const defaultStaleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS
+  const jobTypes = getJobTypesForLane(input.lane)
 
   const runningJobs = await db
     .select({
@@ -97,26 +97,26 @@ export async function reclaimStaleRunningJobsForLane(input: {
         inArray(jobRuns.jobType, jobTypes),
         isNotNull(jobRuns.startedAt),
       ),
-    );
+    )
 
-  let reclaimedCount = 0;
+  let reclaimedCount = 0
 
   for (const job of runningJobs) {
     if (!job.startedAt) {
-      continue;
+      continue
     }
 
-    const payload = parsePayload(job.payload);
+    const payload = parsePayload(job.payload)
     const staleTimeoutMs = getJobStaleTimeoutMs(
       {
         jobType: job.jobType as ClaimedJob["jobType"],
         payload,
       },
       defaultStaleTimeoutMs,
-    );
+    )
 
     if (now.getTime() - job.startedAt.getTime() < staleTimeoutMs) {
-      continue;
+      continue
     }
 
     const reclaimed = await db
@@ -138,13 +138,13 @@ export async function reclaimStaleRunningJobsForLane(input: {
       )
       .returning({
         id: jobRuns.id,
-      });
+      })
 
     if (reclaimed.length === 0) {
-      continue;
+      continue
     }
 
-    reclaimedCount += 1;
+    reclaimedCount += 1
 
     await appendJobEvent(
       job.id,
@@ -155,14 +155,14 @@ export async function reclaimStaleRunningJobsForLane(input: {
         staleTimeoutMs,
         tenantId: job.tenantId,
       },
-    );
+    )
   }
 
-  return reclaimedCount;
+  return reclaimedCount
 }
 
 export async function listQueuedOrRunningJobsByType(jobType: string) {
-  const db = getDb();
+  const db = getDb()
   const jobs = await db
     .select({
       id: jobRuns.id,
@@ -176,61 +176,61 @@ export async function listQueuedOrRunningJobsByType(jobType: string) {
         eq(jobRuns.jobType, jobType),
         inArray(jobRuns.status, [JOB_STATUSES.queued, JOB_STATUSES.running]),
       ),
-    );
+    )
 
   return jobs.map((job) => ({
     ...job,
     payload: parsePayload(job.payload),
-  }));
+  }))
 }
 
 export async function hasQueuedOrRunningJobOfType(jobType: string) {
-  const [job] = await listQueuedOrRunningJobsByType(jobType);
-  return Boolean(job);
+  const [job] = await listQueuedOrRunningJobsByType(jobType)
+  return Boolean(job)
 }
 
 async function claimJobs(input: {
-  jobTypes: string[] | null;
-  limit: number;
-  tenantMutexJobTypes: string[];
-  useTenantMutex: boolean;
+  jobTypes: string[] | null
+  limit: number
+  tenantMutexJobTypes: string[]
+  useTenantMutex: boolean
 }): Promise<ClaimedJob[]> {
   if (input.limit <= 0) {
-    return [];
+    return []
   }
 
-  const db = getDb();
-  const staleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS;
+  const db = getDb()
+  const staleTimeoutMs = getEnv().WORKER_STALE_JOB_TIMEOUT_MS
   const staleRunningCutoffIso = new Date(
     Date.now() - staleTimeoutMs,
-  ).toISOString();
+  ).toISOString()
   const laneJobTypesSql =
     input.jobTypes && input.jobTypes.length > 0
       ? sql.join(
           input.jobTypes.map((jobType) => sql`${jobType}`),
           sql`, `,
         )
-      : null;
+      : null
   const laneJobTypesFilterSql = laneJobTypesSql
     ? sql`and ${jobRuns.jobType} in (${laneJobTypesSql})`
-    : sql``;
+    : sql``
   const tenantMutexJobTypesSql =
     input.tenantMutexJobTypes.length > 0
       ? sql.join(
           input.tenantMutexJobTypes.map((jobType) => sql`${jobType}`),
           sql`, `,
         )
-      : null;
-  const tenantMutexCandidateLimit = Math.max(input.limit * 8, input.limit);
+      : null
+  const tenantMutexCandidateLimit = Math.max(input.limit * 8, input.limit)
 
   const claimedJobs = input.useTenantMutex
     ? await db.execute<{
-        attempt: number;
-        id: string;
-        jobType: string;
-        payload: Record<string, unknown>;
-        previousStatus: string;
-        tenantId: string | null;
+        attempt: number
+        id: string
+        jobType: string
+        payload: Record<string, unknown>
+        previousStatus: string
+        tenantId: string | null
       }>(sql`
         with running_tenants as (
           select distinct ${jobRuns.tenantId} as tenant_id
@@ -336,12 +336,12 @@ async function claimJobs(input: {
           claimed.previous_status as "previousStatus"
       `)
     : await db.execute<{
-        attempt: number;
-        id: string;
-        jobType: string;
-        payload: Record<string, unknown>;
-        previousStatus: string;
-        tenantId: string | null;
+        attempt: number
+        id: string
+        jobType: string
+        payload: Record<string, unknown>
+        previousStatus: string
+        tenantId: string | null
       }>(sql`
         with claimable as (
           select
@@ -386,7 +386,7 @@ async function claimJobs(input: {
           ${jobRuns.attempt} as attempt,
           ${jobRuns.payloadJson} as payload,
           claimable.previous_status as "previousStatus"
-      `);
+      `)
 
   const jobs = claimedJobs.map((job) => ({
     attempt: job.attempt,
@@ -395,7 +395,7 @@ async function claimJobs(input: {
     payload: parsePayload(job.payload),
     previousStatus: job.previousStatus,
     tenantId: job.tenantId,
-  }));
+  }))
 
   await Promise.all(
     jobs.map((job) =>
@@ -412,16 +412,16 @@ async function claimJobs(input: {
         },
       ),
     ),
-  );
+  )
 
-  return jobs.map(({ previousStatus: _previousStatus, ...job }) => job);
+  return jobs.map(({ previousStatus: _previousStatus, ...job }) => job)
 }
 
 export async function markJobSucceeded(
   jobId: string,
   result?: Record<string, unknown>,
 ): Promise<void> {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(jobRuns)
@@ -431,7 +431,7 @@ export async function markJobSucceeded(
       finishedAt: new Date(),
       updatedAt: new Date(),
     })
-    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)));
+    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)))
 }
 
 export async function markJobFailed(
@@ -439,8 +439,8 @@ export async function markJobFailed(
   error: string,
   retryAt?: Date,
 ): Promise<void> {
-  const db = getDb();
-  const shouldRetry = Boolean(retryAt);
+  const db = getDb()
+  const shouldRetry = Boolean(retryAt)
 
   await db
     .update(jobRuns)
@@ -451,7 +451,7 @@ export async function markJobFailed(
       finishedAt: shouldRetry ? null : new Date(),
       updatedAt: new Date(),
     })
-    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)));
+    .where(and(eq(jobRuns.id, jobId), eq(jobRuns.status, JOB_STATUSES.running)))
 }
 
 export async function requeueJob(
@@ -459,7 +459,7 @@ export async function requeueJob(
   payload: Record<string, unknown>,
   availableAt: Date,
 ): Promise<void> {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(jobRuns)
@@ -470,7 +470,7 @@ export async function requeueJob(
       status: JOB_STATUSES.queued,
       updatedAt: new Date(),
     })
-    .where(eq(jobRuns.id, jobId));
+    .where(eq(jobRuns.id, jobId))
 }
 
 export async function appendJobEvent(
@@ -479,20 +479,20 @@ export async function appendJobEvent(
   message: string,
   data?: Record<string, unknown>,
 ): Promise<void> {
-  const db = getDb();
+  const db = getDb()
 
   await db.insert(jobEvents).values({
     jobRunId: jobId,
     eventType,
     message,
     dataJson: data,
-  });
+  })
 }
 
 function parsePayload(payload: unknown): Record<string, unknown> {
   if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
-    return {};
+    return {}
   }
 
-  return payload as Record<string, unknown>;
+  return payload as Record<string, unknown>
 }

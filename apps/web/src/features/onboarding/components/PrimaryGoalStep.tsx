@@ -2,7 +2,10 @@
 
 import type { WorkspaceOnboardingRunSummary } from "@otto/feature-workspace-onboarding"
 
-import { OnboardingOptionButton, OnboardingStepLayout } from "./OnboardingStepLayout"
+import {
+  OnboardingOptionButton,
+  OnboardingStepLayout,
+} from "./OnboardingStepLayout"
 
 const primaryGoalOptions: Array<{
   description: string
@@ -10,22 +13,26 @@ const primaryGoalOptions: Array<{
   value: WorkspaceOnboardingRunSummary["answers"]["primary_goal"]
 }> = [
   {
-    description: "Turn an early idea into a clearer offer, audience, and first action plan.",
+    description:
+      "Turn an early idea into a clearer offer, audience, and first action plan.",
     label: "Start a new business",
     value: "start_new_business",
   },
   {
-    description: "Research, compare, and narrow down which direction is worth pursuing.",
+    description:
+      "Research, compare, and narrow down which direction is worth pursuing.",
     label: "Compare business ideas",
     value: "compare_business_ideas",
   },
   {
-    description: "Save time by handing off recurring workflows and operational tasks.",
+    description:
+      "Save time by handing off recurring workflows and operational tasks.",
     label: "Automate repetitive work",
     value: "automate_repetitive_work",
   },
   {
-    description: "Find opportunities across sales, marketing, operations, and execution.",
+    description:
+      "Find opportunities across sales, marketing, operations, and execution.",
     label: "Improve an existing company",
     value: "improve_existing_company",
   },
@@ -33,7 +40,9 @@ const primaryGoalOptions: Array<{
 
 export interface PrimaryGoalStepProps {
   onSelect: (
-    primaryGoal: NonNullable<WorkspaceOnboardingRunSummary["answers"]["primary_goal"]>,
+    primaryGoal: NonNullable<
+      WorkspaceOnboardingRunSummary["answers"]["primary_goal"]
+    >,
   ) => Promise<void> | void
   selectedPrimaryGoal?: WorkspaceOnboardingRunSummary["answers"]["primary_goal"]
 }

@@ -12,14 +12,13 @@ import { fetchApiResponse } from "@/features/workspace/api/workspace"
 export function workspaceScheduledTasksQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"]["scheduled-tasks"].tasks.$get(
-          {
-            param: {
-              orgSlug,
-            },
-          },
-        )
+      const response = await apiClient.api.workspace[":orgSlug"][
+        "scheduled-tasks"
+      ].tasks.$get({
+        param: {
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceScheduledTasksListResponseSchema.parse(data),
@@ -33,14 +32,13 @@ export function workspaceScheduledTasksQueryOptions(orgSlug: string) {
 export function workspaceScheduledTaskRunsQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"]["scheduled-tasks"][
-          "task-runs"
-        ].$get({
-          param: {
-            orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[":orgSlug"][
+        "scheduled-tasks"
+      ]["task-runs"].$get({
+        param: {
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceScheduledTaskRunsResponseSchema.parse(data),
@@ -57,15 +55,14 @@ export function workspaceScheduledTaskDetailQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"]["scheduled-tasks"].tasks[
-          ":taskKey"
-        ].$get({
-          param: {
-            orgSlug: input.orgSlug,
-            taskKey: input.taskKey,
-          },
-        })
+      const response = await apiClient.api.workspace[":orgSlug"][
+        "scheduled-tasks"
+      ].tasks[":taskKey"].$get({
+        param: {
+          orgSlug: input.orgSlug,
+          taskKey: input.taskKey,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceScheduledTaskDetailResponseSchema.parse(data),
@@ -82,15 +79,15 @@ export function workspaceScheduledTaskDetailQueryOptions(input: {
 }
 
 export async function refreshWorkspaceScheduledTasks(orgSlug: string) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"]["scheduled-tasks"].refresh.$post({
-      param: {
-        orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"][
+    "scheduled-tasks"
+  ].refresh.$post({
+    param: {
+      orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceScheduledTasksRefreshResponseSchema.parse(data),
   )
 }
-

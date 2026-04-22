@@ -104,10 +104,7 @@ export function ConversationAssistantTrace({
       <CollapsibleContent className="pt-1">
         <div className="flex flex-col gap-0 rounded-2xl bg-muted/25 px-3 py-2">
           {visibleEntries.map((entry) => (
-            <ConversationTraceEntry
-              entry={entry}
-              key={entry.id}
-            />
+            <ConversationTraceEntry entry={entry} key={entry.id} />
           ))}
         </div>
       </CollapsibleContent>
@@ -137,17 +134,15 @@ function ConversationTraceEntry({ entry }: ConversationTraceEntryProps) {
         <TraceCaretIcon className="transition-transform duration-150 group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
       <CollapsibleContent className="pt-0.5 pb-1">
-        <ConversationTraceEntrySummary>{entry.summary}</ConversationTraceEntrySummary>
+        <ConversationTraceEntrySummary>
+          {entry.summary}
+        </ConversationTraceEntrySummary>
       </CollapsibleContent>
     </Collapsible>
   )
 }
 
-function ConversationTraceEntrySummary({
-  children,
-}: {
-  children: string
-}) {
+function ConversationTraceEntrySummary({ children }: { children: string }) {
   return (
     <blockquote className="ml-2 border-l border-border/65 pl-3 text-xs leading-5 text-muted-foreground/88">
       {children}
@@ -158,8 +153,6 @@ function ConversationTraceEntrySummary({
 function getEntryTitleClassName(entry: WorkspaceChatActivityEntry) {
   return cn(
     "text-xs leading-5",
-    entry.status === "failed"
-      ? "text-foreground/66"
-      : "text-foreground/74",
+    entry.status === "failed" ? "text-foreground/66" : "text-foreground/74",
   )
 }

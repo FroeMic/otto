@@ -17,9 +17,7 @@ export interface WorkspaceSettingsPageProps {
   orgSlug: string
 }
 
-export function WorkspaceSettingsPage({
-  orgSlug,
-}: WorkspaceSettingsPageProps) {
+export function WorkspaceSettingsPage({ orgSlug }: WorkspaceSettingsPageProps) {
   const { data } = useSuspenseQuery(shellBootstrapQueryOptions(orgSlug))
 
   return (

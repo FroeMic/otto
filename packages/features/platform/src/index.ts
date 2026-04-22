@@ -339,7 +339,9 @@ export const platformJobCancelResponseSchema =
     orgSlug: z.string(),
   })
 
-export type PlatformActionResponse = z.infer<typeof platformActionResponseSchema>
+export type PlatformActionResponse = z.infer<
+  typeof platformActionResponseSchema
+>
 export type PlatformBootstrap = z.infer<typeof platformBootstrapSchema>
 export type PlatformCreateOrganizationInput = z.infer<
   typeof platformCreateOrganizationSchema

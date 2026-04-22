@@ -46,4 +46,3 @@ export function ScheduledTaskRunsPage({ orgSlug }: ScheduledTaskRunsPageProps) {
     </ScheduledTasksShell>
   )
 }
-

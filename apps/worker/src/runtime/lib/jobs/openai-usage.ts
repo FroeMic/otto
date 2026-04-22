@@ -5,15 +5,15 @@ import {
   markProviderUsageSyncFailed,
   markProviderUsageSyncSucceeded,
   upsertProviderUsageBuckets,
-} from "../../db/provider-usage";
-import { OpenAiUsageCollector } from "../providers/openai/usage";
+} from "../../db/provider-usage"
+import { OpenAiUsageCollector } from "../providers/openai/usage"
 import {
   PROVIDER_USAGE_BUCKET_WIDTHS,
   PROVIDER_USAGE_GROUP_BY_FIELDS,
   PROVIDER_USAGE_TYPES,
   type ProviderUsageGroupByField,
   type ProviderUsageType,
-} from "../providers/types";
+} from "../providers/types"
 
 import {
   appendJobEvent,
@@ -22,24 +22,24 @@ import {
   markJobFailed,
   markJobSucceeded,
   requeueJob,
-} from "./queue";
+} from "./queue"
 import {
   type ClaimedJob,
   JOB_TYPES,
   type ScheduleOpenAiUsageSyncPayload,
   type SyncOpenAiUsageTargetPayload,
-} from "./types";
+} from "./types"
 
-const openAiUsageCollector = new OpenAiUsageCollector();
+const openAiUsageCollector = new OpenAiUsageCollector()
 
-const OPENAI_USAGE_POLL_INTERVAL_MS = 60_000;
-const OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS = 30_000;
-const OPENAI_USAGE_INITIAL_LOOKBACK_MINUTES = 60;
-const OPENAI_USAGE_OVERLAP_LOOKBACK_MINUTES = 15;
+const OPENAI_USAGE_POLL_INTERVAL_MS = 60_000
+const OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS = 30_000
+const OPENAI_USAGE_INITIAL_LOOKBACK_MINUTES = 60
+const OPENAI_USAGE_OVERLAP_LOOKBACK_MINUTES = 15
 
 const OPENAI_USAGE_CONFIGS: Array<{
-  groupBy: ProviderUsageGroupByField[];
-  usageType: ProviderUsageType;
+  groupBy: ProviderUsageGroupByField[]
+  usageType: ProviderUsageType
 }> = [
   {
     groupBy: [
@@ -97,7 +97,7 @@ const OPENAI_USAGE_CONFIGS: Array<{
     groupBy: [PROVIDER_USAGE_GROUP_BY_FIELDS.projectId],
     usageType: PROVIDER_USAGE_TYPES.codeInterpreterSessions,
   },
-];
+]
 
 export async function processScheduleOpenAiUsageSyncJob(
   job: ClaimedJob,
@@ -105,13 +105,13 @@ export async function processScheduleOpenAiUsageSyncJob(
   if (job.jobType !== JOB_TYPES.scheduleOpenAiUsageSync) {
     throw new Error(
       `Unsupported job type for OpenAI usage scheduler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseScheduleOpenAiUsageSyncPayload(job.payload);
+  const payload = parseScheduleOpenAiUsageSyncPayload(job.payload)
 
   try {
-    const queuedCount = await scheduleOpenAiUsageSyncJobs();
+    const queuedCount = await scheduleOpenAiUsageSyncJobs()
 
     await appendJobEvent(
       job.id,
@@ -120,25 +120,25 @@ export async function processScheduleOpenAiUsageSyncJob(
       {
         queuedCount,
       },
-    );
+    )
     await requeueJob(
       job.id,
       payload,
       new Date(Date.now() + OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS),
-    );
+    )
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
       "openai_usage_scheduler_failed",
       `OpenAI usage scheduler failed: ${message}`,
-    );
+    )
     await markJobFailed(
       job.id,
       message,
       new Date(Date.now() + OPENAI_USAGE_SCHEDULER_SWEEP_INTERVAL_MS),
-    );
+    )
   }
 }
 
@@ -148,31 +148,31 @@ export async function processSyncOpenAiUsageTargetJob(
   if (job.jobType !== JOB_TYPES.syncOpenAiUsageTarget) {
     throw new Error(
       `Unsupported job type for OpenAI usage sync target: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseSyncOpenAiUsageTargetPayload(job.payload);
+  const payload = parseSyncOpenAiUsageTargetPayload(job.payload)
 
   if (!payload) {
     throw new Error(
       "OpenAI usage sync job payload is missing providerAccountId or usageType",
-    );
+    )
   }
   const usageConfig = OPENAI_USAGE_CONFIGS.find(
     (config) => config.usageType === payload.usageType,
-  );
+  )
 
   if (!usageConfig) {
     throw new Error(
       `Unsupported OpenAI usage type in sync payload: ${payload.usageType}`,
-    );
+    )
   }
 
   try {
     const target = await getOpenAiUsageSyncTargetByProviderAccountId({
       providerAccountId: payload.providerAccountId,
       usageType: payload.usageType,
-    });
+    })
 
     if (
       !target ||
@@ -188,13 +188,13 @@ export async function processSyncOpenAiUsageTargetJob(
           providerAccountId: payload.providerAccountId,
           usageType: payload.usageType,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         providerAccountId: payload.providerAccountId,
         skipped: true,
         usageType: payload.usageType,
-      });
-      return;
+      })
+      return
     }
 
     await appendJobEvent(
@@ -205,7 +205,7 @@ export async function processSyncOpenAiUsageTargetJob(
         providerAccountId: target.providerAccountId,
         usageType: payload.usageType,
       },
-    );
+    )
 
     const rowCount = await syncOpenAiUsageTarget({
       externalProjectId: target.externalProjectId,
@@ -215,7 +215,7 @@ export async function processSyncOpenAiUsageTargetJob(
       providerAccountId: target.providerAccountId,
       tenantId: target.tenantId,
       usageType: payload.usageType,
-    });
+    })
 
     await appendJobEvent(
       job.id,
@@ -226,14 +226,14 @@ export async function processSyncOpenAiUsageTargetJob(
         rowCount,
         usageType: payload.usageType,
       },
-    );
+    )
     await markJobSucceeded(job.id, {
       providerAccountId: target.providerAccountId,
       rowCount,
       usageType: payload.usageType,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
@@ -243,86 +243,86 @@ export async function processSyncOpenAiUsageTargetJob(
         providerAccountId: payload.providerAccountId,
         usageType: payload.usageType,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 async function scheduleOpenAiUsageSyncJobs() {
   const activeJobs = await listQueuedOrRunningJobsByType(
     JOB_TYPES.syncOpenAiUsageTarget,
-  );
-  const activeKeys = new Set<string>();
+  )
+  const activeKeys = new Set<string>()
 
   for (const activeJob of activeJobs) {
     const payload = parseSyncOpenAiUsageTargetPayload(activeJob.payload, {
       allowInvalid: true,
-    });
+    })
 
     if (!payload) {
-      continue;
+      continue
     }
 
-    activeKeys.add(buildUsageTargetKey(payload));
+    activeKeys.add(buildUsageTargetKey(payload))
   }
 
-  let queuedCount = 0;
+  let queuedCount = 0
 
   for (const usageConfig of OPENAI_USAGE_CONFIGS) {
     const dueTargets = await listDueOpenAiUsageSyncTargets({
       pollIntervalMs: OPENAI_USAGE_POLL_INTERVAL_MS,
       usageType: usageConfig.usageType,
-    });
+    })
 
     for (const dueTarget of dueTargets) {
       if (!dueTarget.externalProjectId) {
-        continue;
+        continue
       }
       const jobPayload: SyncOpenAiUsageTargetPayload = {
         providerAccountId: dueTarget.providerAccountId,
         usageType: usageConfig.usageType,
-      };
-      const key = buildUsageTargetKey(jobPayload);
+      }
+      const key = buildUsageTargetKey(jobPayload)
 
       if (activeKeys.has(key)) {
-        continue;
+        continue
       }
 
       await enqueueJob({
         jobType: JOB_TYPES.syncOpenAiUsageTarget,
         payload: jobPayload,
-      });
-      activeKeys.add(key);
-      queuedCount += 1;
+      })
+      activeKeys.add(key)
+      queuedCount += 1
     }
   }
 
-  return queuedCount;
+  return queuedCount
 }
 
 async function syncOpenAiUsageTarget(input: {
-  externalProjectId: string;
-  groupBy: ProviderUsageGroupByField[];
-  lastSuccessfulEndAt: Date | null;
-  pollIntervalSeconds: number;
-  providerAccountId: string;
-  tenantId: string;
-  usageType: ProviderUsageType;
+  externalProjectId: string
+  groupBy: ProviderUsageGroupByField[]
+  lastSuccessfulEndAt: Date | null
+  pollIntervalSeconds: number
+  providerAccountId: string
+  tenantId: string
+  usageType: ProviderUsageType
 }) {
-  const window = determineUsageWindow(input.lastSuccessfulEndAt);
+  const window = determineUsageWindow(input.lastSuccessfulEndAt)
 
   await beginProviderUsageSyncAttempt({
     pollIntervalSeconds: input.pollIntervalSeconds,
     providerAccountId: input.providerAccountId,
     tenantId: input.tenantId,
     usageType: input.usageType,
-  });
+  })
 
-  let rowCount = 0;
+  let rowCount = 0
 
   try {
-    let nextPage: string | null = null;
+    let nextPage: string | null = null
 
     do {
       const usagePage = await openAiUsageCollector.fetchUsageBuckets({
@@ -333,37 +333,37 @@ async function syncOpenAiUsageTarget(input: {
         projectId: input.externalProjectId,
         startTime: window.startTime,
         usageType: input.usageType,
-      });
+      })
 
       rowCount += await upsertProviderUsageBuckets({
         buckets: usagePage.buckets,
         providerAccountId: input.providerAccountId,
         tenantId: input.tenantId,
         usageType: input.usageType,
-      });
-      nextPage = usagePage.nextPage;
-    } while (nextPage);
+      })
+      nextPage = usagePage.nextPage
+    } while (nextPage)
 
     await markProviderUsageSyncSucceeded({
       lastSuccessfulEndAt: window.endTime,
       providerAccountId: input.providerAccountId,
       rowCount,
       usageType: input.usageType,
-    });
+    })
   } catch (error) {
     await markProviderUsageSyncFailed({
       error: getErrorMessage(error),
       providerAccountId: input.providerAccountId,
       usageType: input.usageType,
-    });
-    throw error;
+    })
+    throw error
   }
 
-  return rowCount;
+  return rowCount
 }
 
 function determineUsageWindow(previousSuccessfulEndAt: Date | null) {
-  const endTime = floorDateToMinute(new Date());
+  const endTime = floorDateToMinute(new Date())
   const startTime = previousSuccessfulEndAt
     ? new Date(
         previousSuccessfulEndAt.getTime() -
@@ -371,28 +371,28 @@ function determineUsageWindow(previousSuccessfulEndAt: Date | null) {
       )
     : new Date(
         endTime.getTime() - OPENAI_USAGE_INITIAL_LOOKBACK_MINUTES * 60_000,
-      );
+      )
 
   return {
     endTime,
     startTime,
-  };
+  }
 }
 
 function parseScheduleOpenAiUsageSyncPayload(
   payload: Record<string, unknown>,
 ): ScheduleOpenAiUsageSyncPayload {
-  return payload as ScheduleOpenAiUsageSyncPayload;
+  return payload as ScheduleOpenAiUsageSyncPayload
 }
 
 function parseSyncOpenAiUsageTargetPayload(
   payload: Record<string, unknown>,
   options?: {
-    allowInvalid?: boolean;
+    allowInvalid?: boolean
   },
 ): SyncOpenAiUsageTargetPayload | null {
-  const providerAccountId = payload.providerAccountId;
-  const usageType = payload.usageType;
+  const providerAccountId = payload.providerAccountId
+  const usageType = payload.usageType
 
   if (
     typeof providerAccountId !== "string" ||
@@ -401,42 +401,42 @@ function parseSyncOpenAiUsageTargetPayload(
     !isProviderUsageType(usageType)
   ) {
     if (options?.allowInvalid) {
-      return null;
+      return null
     }
 
     throw new Error(
       "OpenAI usage sync job payload is missing providerAccountId or usageType",
-    );
+    )
   }
 
   return {
     providerAccountId,
     usageType,
-  };
+  }
 }
 
 function isProviderUsageType(value: string): value is ProviderUsageType {
   return Object.values(PROVIDER_USAGE_TYPES).includes(
     value as (typeof PROVIDER_USAGE_TYPES)[keyof typeof PROVIDER_USAGE_TYPES],
-  );
+  )
 }
 
 function buildUsageTargetKey(input: SyncOpenAiUsageTargetPayload) {
-  return `${input.providerAccountId}:${input.usageType}`;
+  return `${input.providerAccountId}:${input.usageType}`
 }
 
 function floorDateToMinute(value: Date) {
-  const floored = new Date(value);
+  const floored = new Date(value)
 
-  floored.setSeconds(0, 0);
+  floored.setSeconds(0, 0)
 
-  return floored;
+  return floored
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.length > 0) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown OpenAI usage ingestion error";
+  return "Unknown OpenAI usage ingestion error"
 }

@@ -60,7 +60,9 @@ export function formatBraveAvailabilityLabel(
   return availability === "available" ? "Available" : "Unavailable"
 }
 
-export function buildBraveDefaultRows(config: BraveRuntimeConfig): BraveConfigRow[] {
+export function buildBraveDefaultRows(
+  config: BraveRuntimeConfig,
+): BraveConfigRow[] {
   return [
     {
       title: "Default results",
@@ -86,7 +88,9 @@ export function buildBraveDefaultRows(config: BraveRuntimeConfig): BraveConfigRo
   ]
 }
 
-export function buildBraveProviderRows(config: BraveRuntimeConfig): BraveConfigRow[] {
+export function buildBraveProviderRows(
+  config: BraveRuntimeConfig,
+): BraveConfigRow[] {
   const rows: BraveConfigRow[] = [
     {
       description: "The workspace keeps the provider API key in this env var.",

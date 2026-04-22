@@ -173,15 +173,20 @@ function createDbDetailMock() {
 }
 
 function createSelectChain(result: unknown[]) {
+  const resolvedResult = Promise.resolve(result)
   const chain = {
     from: vi.fn(() => chain),
     innerJoin: vi.fn(() => chain),
     leftJoin: vi.fn(() => chain),
     limit: vi.fn().mockResolvedValue(result),
     orderBy: vi.fn(() => chain),
-    then: Promise.resolve(result).then.bind(Promise.resolve(result)),
     where: vi.fn(() => chain),
   }
+
+  // biome-ignore lint/suspicious/noThenProperty: Drizzle query-builder mocks need to be awaitable in these tests.
+  Object.defineProperty(chain, "then", {
+    value: resolvedResult.then.bind(resolvedResult),
+  })
 
   return chain
 }
@@ -556,7 +561,9 @@ describe("api managed skill data", () => {
   })
 
   it("reprojects seeded default-installed system skills that are missing from desired state", async () => {
-    getDb.mockReturnValue(createReadyRuntimeDbMockForSeededDefaultSkillReprojection())
+    getDb.mockReturnValue(
+      createReadyRuntimeDbMockForSeededDefaultSkillReprojection(),
+    )
 
     const result = await syncDefaultTenantManagedSkillsForTenant({
       tenantId: "tenant_123",

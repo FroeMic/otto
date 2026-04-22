@@ -37,10 +37,7 @@ export interface SkillOverviewCardProps {
   orgSlug: string
 }
 
-export function SkillOverviewCard({
-  detail,
-  orgSlug,
-}: SkillOverviewCardProps) {
+export function SkillOverviewCard({ detail, orgSlug }: SkillOverviewCardProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isPending, startTransition] = useTransition()
@@ -114,7 +111,9 @@ export function SkillOverviewCard({
 
   return (
     <div className="flex flex-col gap-6">
-      {isPending ? <IntegrationFloatingStatusChip message="Applying Changes" /> : null}
+      {isPending ? (
+        <IntegrationFloatingStatusChip message="Applying Changes" />
+      ) : null}
 
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -124,7 +123,9 @@ export function SkillOverviewCard({
           <Badge variant={skillStatusBadgeVariant[detail.status]}>
             {formatSkillStatusLabel(detail.status)}
           </Badge>
-          <Badge variant="secondary">{formatSkillOriginLabel(detail.origin)}</Badge>
+          <Badge variant="secondary">
+            {formatSkillOriginLabel(detail.origin)}
+          </Badge>
         </div>
         <p className="max-w-4xl text-sm text-muted-foreground">
           {detail.description}
@@ -133,7 +134,9 @@ export function SkillOverviewCard({
 
       <Alert>
         <AlertTitle>Current status</AlertTitle>
-        <AlertDescription>{getSkillStatusDescription(detail.status)}</AlertDescription>
+        <AlertDescription>
+          {getSkillStatusDescription(detail.status)}
+        </AlertDescription>
       </Alert>
 
       {detail.summary ? (
@@ -166,7 +169,12 @@ export function SkillOverviewCard({
           <AlertTitle>Skill actions</AlertTitle>
           <AlertDescription className="flex flex-wrap gap-3">
             {resettableFiles.length > 0 ? (
-              <Button disabled={isPending} onClick={handleRestoreDefaults} type="button" variant="outline">
+              <Button
+                disabled={isPending}
+                onClick={handleRestoreDefaults}
+                type="button"
+                variant="outline"
+              >
                 Restore defaults
               </Button>
             ) : null}

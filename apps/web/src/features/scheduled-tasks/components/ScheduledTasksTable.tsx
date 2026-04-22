@@ -1,15 +1,12 @@
+import { Link } from "@tanstack/react-router"
 import type { ColumnDef } from "@tanstack/react-table"
 import { useMemo, useState } from "react"
-import { Link } from "@tanstack/react-router"
 
 import { DataTable } from "@/components/data-table"
 import { DataTableColumnHeader } from "@/components/data-table-column-header"
 import { ToolbarSearchInput } from "@/components/toolbar-search-input"
 import { Badge } from "@/components/ui/badge"
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 import type { WorkspaceDateTimePreferences } from "@/features/workspace/date-time"
 
 import { describeScheduledTaskSchedule } from "../lib/cron-description"
@@ -116,7 +113,10 @@ function createColumns(input: {
       accessorFn: (row) => row.lastRunAt?.getTime() ?? 0,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatShortDateTime(row.original.lastRunAt, input.dateTimePreferences)}
+          {formatShortDateTime(
+            row.original.lastRunAt,
+            input.dateTimePreferences,
+          )}
         </span>
       ),
       header: ({ column }) => (
@@ -129,7 +129,10 @@ function createColumns(input: {
       accessorFn: (row) => row.nextRunAt?.getTime() ?? 0,
       cell: ({ row }) => (
         <span className="text-sm text-muted-foreground whitespace-nowrap">
-          {formatShortDateTime(row.original.nextRunAt, input.dateTimePreferences)}
+          {formatShortDateTime(
+            row.original.nextRunAt,
+            input.dateTimePreferences,
+          )}
         </span>
       ),
       header: ({ column }) => (
@@ -282,4 +285,3 @@ function formatStatusLabel(status: string) {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ")
 }
-

@@ -1,5 +1,3 @@
-import { saveMediaBuffer } from "openclaw/plugin-sdk/media-runtime";
-
 import { fetchWorkspaceChatAttachment } from "./control-plane-client.js";
 
 export async function prepareWorkspaceChatInboundParts(input, dependencies = {}) {
@@ -95,6 +93,9 @@ function normalizeWorkspaceChatAudioMimeType(mimeType) {
 }
 
 async function saveWorkspaceChatAttachmentBuffer(input) {
+  const { saveMediaBuffer } = await import(
+    "openclaw/plugin-sdk/media-runtime"
+  );
   const saved = await saveMediaBuffer(
     input.bytes,
     input.mimeType,

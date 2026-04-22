@@ -1,15 +1,15 @@
-import { eq } from "drizzle-orm";
+import { eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
-import { organizations, tenantServers, tenants } from "../../db/schema";
-import { HetznerApiError, HetznerClient } from "../hetzner/client";
+import { getDb } from "../../db/client"
+import { organizations, tenantServers, tenants } from "../../db/schema"
+import { HetznerApiError, HetznerClient } from "../hetzner/client"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   type ClaimedJob,
   type DeleteTenantServerPayload,
   JOB_TYPES,
-} from "./types";
+} from "./types"
 
 const DELETE_TENANT_SERVER_EVENTS = {
   deletingHetznerServer: "deleting_hetzner_server",
@@ -21,7 +21,7 @@ const DELETE_TENANT_SERVER_EVENTS = {
   skippedMissingTenant: "skipped_missing_tenant",
   skippedNoServerRecord: "skipped_no_tenant_server_record",
   succeeded: "delete_tenant_server_succeeded",
-} as const;
+} as const
 
 export async function processDeleteTenantServerJob(
   job: ClaimedJob,
@@ -29,13 +29,13 @@ export async function processDeleteTenantServerJob(
   if (job.jobType !== JOB_TYPES.deleteTenantServer) {
     throw new Error(
       `Unsupported job type for tenant-server deletion handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseDeleteTenantServerPayload(job.payload);
+  const payload = parseDeleteTenantServerPayload(job.payload)
 
   try {
-    const snapshot = await getTenantServerDeletionSnapshot(payload.tenantId);
+    const snapshot = await getTenantServerDeletionSnapshot(payload.tenantId)
 
     if (!snapshot.tenant) {
       await appendJobEvent(
@@ -45,12 +45,12 @@ export async function processDeleteTenantServerJob(
         {
           tenantId: payload.tenantId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         alreadyDeleted: true,
         tenantId: payload.tenantId,
-      });
-      return;
+      })
+      return
     }
 
     if (snapshot.tenantServers.length === 0) {
@@ -61,18 +61,18 @@ export async function processDeleteTenantServerJob(
         {
           tenantId: payload.tenantId,
         },
-      );
+      )
       await markJobSucceeded(job.id, {
         alreadyDeleted: true,
         tenantId: payload.tenantId,
-      });
-      return;
+      })
+      return
     }
 
     const deletedProviderServers = await deleteProviderServers({
       jobId: job.id,
       tenantServers: snapshot.tenantServers,
-    });
+    })
 
     await appendJobEvent(
       job.id,
@@ -83,27 +83,27 @@ export async function processDeleteTenantServerJob(
         organizationSlug: snapshot.tenant.organizationSlug,
         tenantId: snapshot.tenant.tenantId,
       },
-    );
+    )
 
     await getDb().transaction(async (tx) => {
       await tx
         .delete(tenantServers)
-        .where(eq(tenantServers.tenantId, snapshot.tenant.tenantId));
+        .where(eq(tenantServers.tenantId, snapshot.tenant.tenantId))
       await tx
         .update(tenants)
         .set({
           status: "server_deleted",
           updatedAt: new Date(),
         })
-        .where(eq(tenants.id, snapshot.tenant.tenantId));
+        .where(eq(tenants.id, snapshot.tenant.tenantId))
       await tx
         .update(organizations)
         .set({
           isReady: false,
           updatedAt: new Date(),
         })
-        .where(eq(organizations.id, snapshot.tenant.organizationId));
-    });
+        .where(eq(organizations.id, snapshot.tenant.organizationId))
+    })
 
     await appendJobEvent(
       job.id,
@@ -114,7 +114,7 @@ export async function processDeleteTenantServerJob(
         organizationSlug: snapshot.tenant.organizationSlug,
         tenantId: snapshot.tenant.tenantId,
       },
-    );
+    )
     await appendJobEvent(
       job.id,
       DELETE_TENANT_SERVER_EVENTS.succeeded,
@@ -125,15 +125,15 @@ export async function processDeleteTenantServerJob(
         organizationSlug: snapshot.tenant.organizationSlug,
         tenantId: snapshot.tenant.tenantId,
       },
-    );
+    )
     await markJobSucceeded(job.id, {
       deletedProviderServers,
       organizationId: snapshot.tenant.organizationId,
       organizationSlug: snapshot.tenant.organizationSlug,
       tenantId: snapshot.tenant.tenantId,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
@@ -143,14 +143,14 @@ export async function processDeleteTenantServerJob(
         error: message,
         tenantId: payload.tenantId,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 async function getTenantServerDeletionSnapshot(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [tenant] = await db
     .select({
       organizationId: organizations.id,
@@ -160,13 +160,13 @@ async function getTenantServerDeletionSnapshot(tenantId: string) {
     .from(tenants)
     .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
     .where(eq(tenants.id, tenantId))
-    .limit(1);
+    .limit(1)
 
   if (!tenant) {
     return {
       tenant: null,
       tenantServers: [],
-    };
+    }
   }
 
   return {
@@ -179,24 +179,24 @@ async function getTenantServerDeletionSnapshot(tenantId: string) {
       })
       .from(tenantServers)
       .where(eq(tenantServers.tenantId, tenantId)),
-  };
+  }
 }
 
 async function deleteProviderServers(input: {
-  jobId: string;
+  jobId: string
   tenantServers: Array<{
-    provider: string;
-    providerServerId: string | null;
-    tenantId: string;
-  }>;
+    provider: string
+    providerServerId: string | null
+    tenantId: string
+  }>
 }) {
-  const hetznerTargets = dedupeHetznerTargets(input.tenantServers);
+  const hetznerTargets = dedupeHetznerTargets(input.tenantServers)
 
   if (hetznerTargets.length === 0) {
-    return 0;
+    return 0
   }
 
-  const hetznerClient = new HetznerClient();
+  const hetznerClient = new HetznerClient()
 
   for (const target of hetznerTargets) {
     await appendJobEvent(
@@ -207,10 +207,10 @@ async function deleteProviderServers(input: {
         providerServerId: target.providerServerId,
         tenantId: target.tenantId,
       },
-    );
+    )
 
     try {
-      await hetznerClient.deleteServer(target.providerServerId);
+      await hetznerClient.deleteServer(target.providerServerId)
       await appendJobEvent(
         input.jobId,
         DELETE_TENANT_SERVER_EVENTS.deletedHetznerServer,
@@ -219,7 +219,7 @@ async function deleteProviderServers(input: {
           providerServerId: target.providerServerId,
           tenantId: target.tenantId,
         },
-      );
+      )
     } catch (error) {
       if (isHetznerNotFoundError(error)) {
         await appendJobEvent(
@@ -230,70 +230,70 @@ async function deleteProviderServers(input: {
             providerServerId: target.providerServerId,
             tenantId: target.tenantId,
           },
-        );
-        continue;
+        )
+        continue
       }
 
-      throw error;
+      throw error
     }
   }
 
-  return hetznerTargets.length;
+  return hetznerTargets.length
 }
 
 function parseDeleteTenantServerPayload(
   payload: Record<string, unknown>,
 ): DeleteTenantServerPayload {
-  const tenantId = payload.tenantId;
+  const tenantId = payload.tenantId
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Delete tenant server job payload is missing tenantId");
+    throw new Error("Delete tenant server job payload is missing tenantId")
   }
 
   return {
     tenantId,
-  };
+  }
 }
 
 function dedupeHetznerTargets(
   servers: Array<{
-    provider: string;
-    providerServerId: string | null;
-    tenantId: string;
+    provider: string
+    providerServerId: string | null
+    tenantId: string
   }>,
 ) {
-  const seen = new Set<string>();
+  const seen = new Set<string>()
   const targets: Array<{
-    providerServerId: string;
-    tenantId: string;
-  }> = [];
+    providerServerId: string
+    tenantId: string
+  }> = []
 
   for (const server of servers) {
     if (server.provider !== "hetzner" || !server.providerServerId) {
-      continue;
+      continue
     }
 
     if (seen.has(server.providerServerId)) {
-      continue;
+      continue
     }
 
-    seen.add(server.providerServerId);
+    seen.add(server.providerServerId)
     targets.push({
       providerServerId: server.providerServerId,
       tenantId: server.tenantId,
-    });
+    })
   }
 
-  return targets;
+  return targets
 }
 
 function isHetznerNotFoundError(error: unknown) {
   return (
     error instanceof HetznerApiError &&
     (error.responseStatus === 404 || error.code === "not_found")
-  );
+  )
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown error";
+  return error instanceof Error ? error.message : "Unknown error"
 }

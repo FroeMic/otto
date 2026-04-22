@@ -2,9 +2,10 @@ import assert from "node:assert/strict"
 
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, it } from "vitest"
-
-import { ConversationMarkdown } from "./ConversationMarkdown"
-import { resolveWorkspaceChatMarkdownLinkTarget } from "./ConversationMarkdown"
+import {
+  ConversationMarkdown,
+  resolveWorkspaceChatMarkdownLinkTarget,
+} from "./ConversationMarkdown"
 
 describe("ConversationMarkdown", () => {
   it("renders common assistant markdown blocks", () => {
@@ -30,7 +31,10 @@ describe("ConversationMarkdown", () => {
     assert.match(markup, /data-streamdown=code-block\]\]:border-0/)
     assert.match(markup, /data-streamdown=code-block\]\]:bg-transparent/)
     assert.match(markup, /data-streamdown=code-block\]\]:p-0/)
-    assert.equal(markup.includes("data-streamdown=code-block-body]]:border-0"), false)
+    assert.equal(
+      markup.includes("data-streamdown=code-block-body]]:border-0"),
+      false,
+    )
     assert.match(markup, /data-streamdown="strong"/)
     assert.match(markup, /<code/)
     assert.match(markup, /<pre/)
@@ -61,11 +65,11 @@ describe("ConversationMarkdown", () => {
     )
 
     const internalAnchor =
-      markup.match(/<a[^>]+href="https:\/\/getyourotto.com\/interaction42\/settings\/agent\/personalization"[^>]*>/)?.[0] ??
-      ""
+      markup.match(
+        /<a[^>]+href="https:\/\/getyourotto.com\/interaction42\/settings\/agent\/personalization"[^>]*>/,
+      )?.[0] ?? ""
     const externalAnchor =
-      markup.match(/<a[^>]+href="https:\/\/example.com\/docs"[^>]*>/)?.[0] ??
-      ""
+      markup.match(/<a[^>]+href="https:\/\/example.com\/docs"[^>]*>/)?.[0] ?? ""
 
     assert.notEqual(internalAnchor, "")
     assert.doesNotMatch(internalAnchor, /\starget=/)

@@ -1,12 +1,6 @@
 import { useQueryClient, useSuspenseQuery } from "@tanstack/react-query"
-import { useState, useTransition } from "react"
+import { useId, useState, useTransition } from "react"
 import { toast } from "sonner"
-
-import {
-  createPlatformOrganization,
-  platformOrganizationsQueryOptions,
-} from "@/features/platform/api/platform"
-import { PlatformOrganizationsTable } from "@/features/platform/components/PlatformOrganizationsTable"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -23,6 +17,11 @@ import {
   FieldLabel,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import {
+  createPlatformOrganization,
+  platformOrganizationsQueryOptions,
+} from "@/features/platform/api/platform"
+import { PlatformOrganizationsTable } from "@/features/platform/components/PlatformOrganizationsTable"
 
 function normalizeSlug(value: string) {
   return value
@@ -32,17 +31,15 @@ function normalizeSlug(value: string) {
     .replace(/^-+|-+$/g, "")
 }
 
-export interface PlatformOrganizationsPageProps {}
-
-export function PlatformOrganizationsPage(
-  _props: PlatformOrganizationsPageProps,
-) {
+export function PlatformOrganizationsPage() {
   const { data } = useSuspenseQuery(platformOrganizationsQueryOptions())
   const queryClient = useQueryClient()
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [isPending, startTransition] = useTransition()
+  const nameFieldId = useId()
+  const slugFieldId = useId()
 
   function handleNameChange(value: string) {
     setName(value)
@@ -92,20 +89,20 @@ export function PlatformOrganizationsPage(
           </DialogHeader>
           <FieldGroup>
             <Field>
-              <FieldLabel htmlFor="platform-create-org-name">Name</FieldLabel>
+              <FieldLabel htmlFor={nameFieldId}>Name</FieldLabel>
               <Input
                 autoComplete="off"
-                id="platform-create-org-name"
+                id={nameFieldId}
                 onChange={(event) => handleNameChange(event.target.value)}
                 placeholder="Snapshot Test"
                 value={name}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="platform-create-org-slug">Slug</FieldLabel>
+              <FieldLabel htmlFor={slugFieldId}>Slug</FieldLabel>
               <Input
                 autoComplete="off"
-                id="platform-create-org-slug"
+                id={slugFieldId}
                 onChange={(event) => setSlug(normalizeSlug(event.target.value))}
                 placeholder="snapshot-test"
                 value={slug}
@@ -117,7 +114,9 @@ export function PlatformOrganizationsPage(
           </FieldGroup>
           <DialogFooter showCloseButton>
             <Button
-              disabled={isPending || name.trim().length === 0 || slug.length === 0}
+              disabled={
+                isPending || name.trim().length === 0 || slug.length === 0
+              }
               onClick={handleCreateOrganization}
               type="button"
             >

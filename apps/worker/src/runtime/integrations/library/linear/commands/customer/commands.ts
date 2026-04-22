@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCustomerCollectionCommandResult,
@@ -11,11 +11,11 @@ import {
   type LinearCustomerNeedNode,
   type LinearCustomerNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 import {
   buildLinearCustomerCreateInput,
   buildLinearCustomerUpdateInput,
-} from "./input";
+} from "./input"
 
 const LIST_CUSTOMERS_QUERY = `
   query OttoLinearCustomerList($limit: Int!) {
@@ -25,7 +25,7 @@ const LIST_CUSTOMERS_QUERY = `
       }
     }
   }
-`;
+`
 
 const GET_CUSTOMER_QUERY = `
   query OttoLinearCustomerGet($id: String!) {
@@ -33,7 +33,7 @@ const GET_CUSTOMER_QUERY = `
       ${getLinearCustomerFields()}
     }
   }
-`;
+`
 
 const CREATE_CUSTOMER_MUTATION = `
   mutation OttoLinearCustomerCreate($input: CustomerCreateInput!) {
@@ -45,7 +45,7 @@ const CREATE_CUSTOMER_MUTATION = `
       success
     }
   }
-`;
+`
 
 const UPDATE_CUSTOMER_MUTATION = `
   mutation OttoLinearCustomerUpdate($id: String!, $input: CustomerUpdateInput!) {
@@ -57,7 +57,7 @@ const UPDATE_CUSTOMER_MUTATION = `
       success
     }
   }
-`;
+`
 
 const DELETE_CUSTOMER_MUTATION = `
   mutation OttoLinearCustomerDelete($id: String!) {
@@ -67,7 +67,7 @@ const DELETE_CUSTOMER_MUTATION = `
       success
     }
   }
-`;
+`
 
 const LIST_CUSTOMER_NEEDS_QUERY = `
   query OttoLinearCustomerListNeeds($id: String!) {
@@ -78,60 +78,60 @@ const LIST_CUSTOMER_NEEDS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearCustomerList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     customers?: {
-      nodes?: LinearCustomerNode[] | null;
-    } | null;
+      nodes?: LinearCustomerNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_CUSTOMERS_QUERY,
     variables: { limit },
-  });
+  })
 
   return buildLinearCustomerCollectionCommandResult({
     commandKey: "customer.list",
     items: data.customers?.nodes ?? [],
     limit,
-  });
-};
+  })
+}
 
 export const executeLinearCustomerGet: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const customerId =
-    typeof args.customerId === "string" ? args.customerId.trim() : "";
+    typeof args.customerId === "string" ? args.customerId.trim() : ""
 
   if (!customerId) {
-    throw new Error("linear customer.get requires customerId.");
+    throw new Error("linear customer.get requires customerId.")
   }
 
   const data = await executeLinearGraphql<{
-    customer?: LinearCustomerNode | null;
+    customer?: LinearCustomerNode | null
   }>({
     accessToken: context.auth.accessToken,
     query: GET_CUSTOMER_QUERY,
     variables: { id: customerId },
-  });
+  })
 
   return {
     ...buildLinearCustomerCommandResult({
@@ -139,100 +139,100 @@ export const executeLinearCustomerGet: IntegrationCommandExecute = async ({
       customer: data.customer,
     }),
     lookup: customerId,
-  };
-};
+  }
+}
 
 export const executeLinearCustomerCreate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const input = buildLinearCustomerCreateInput(args);
+  const input = buildLinearCustomerCreateInput(args)
   const data = await executeLinearGraphql<{
     customerCreate?: {
-      customer?: LinearCustomerNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      customer?: LinearCustomerNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: CREATE_CUSTOMER_MUTATION,
     variables: { input },
-  });
+  })
 
   return buildLinearCustomerCommandResult({
     commandKey: "customer.create",
     customer: data.customerCreate?.customer,
     lastSyncId: data.customerCreate?.lastSyncId,
     success: data.customerCreate?.success,
-  });
-};
+  })
+}
 
 export const executeLinearCustomerUpdate: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const customerId =
-    typeof args.customerId === "string" ? args.customerId.trim() : "";
+    typeof args.customerId === "string" ? args.customerId.trim() : ""
 
   if (!customerId) {
-    throw new Error("linear customer.update requires customerId.");
+    throw new Error("linear customer.update requires customerId.")
   }
 
-  const input = buildLinearCustomerUpdateInput(args);
+  const input = buildLinearCustomerUpdateInput(args)
   const data = await executeLinearGraphql<{
     customerUpdate?: {
-      customer?: LinearCustomerNode | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      customer?: LinearCustomerNode | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: UPDATE_CUSTOMER_MUTATION,
     variables: { id: customerId, input },
-  });
+  })
 
   return buildLinearCustomerCommandResult({
     commandKey: "customer.update",
     customer: data.customerUpdate?.customer,
     lastSyncId: data.customerUpdate?.lastSyncId,
     success: data.customerUpdate?.success,
-  });
-};
+  })
+}
 
 export const executeLinearCustomerDelete: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const customerId =
-    typeof args.customerId === "string" ? args.customerId.trim() : "";
+    typeof args.customerId === "string" ? args.customerId.trim() : ""
 
   if (!customerId) {
-    throw new Error("linear customer.delete requires customerId.");
+    throw new Error("linear customer.delete requires customerId.")
   }
 
   const data = await executeLinearGraphql<{
     customerDelete?: {
-      entityId?: string | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+      entityId?: string | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: DELETE_CUSTOMER_MUTATION,
     variables: { id: customerId },
-  });
+  })
 
   return {
     ...buildLinearDeleteCommandResult({
@@ -243,41 +243,41 @@ export const executeLinearCustomerDelete: IntegrationCommandExecute = async ({
       success: data.customerDelete?.success,
     }),
     lookup: customerId,
-  };
-};
+  }
+}
 
 export const executeLinearCustomerListNeeds: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const customerId =
-      typeof args.customerId === "string" ? args.customerId.trim() : "";
+      typeof args.customerId === "string" ? args.customerId.trim() : ""
 
     if (!customerId) {
-      throw new Error("linear customer.list_needs requires customerId.");
+      throw new Error("linear customer.list_needs requires customerId.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       customer?:
         | (LinearCustomerNode & {
-            needs?: LinearCustomerNeedNode[] | null;
+            needs?: LinearCustomerNeedNode[] | null
           })
-        | null;
+        | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_CUSTOMER_NEEDS_QUERY,
       variables: { id: customerId },
-    });
+    })
 
     if (!data.customer) {
-      throw new Error("Linear returned no customer for customer.list_needs.");
+      throw new Error("Linear returned no customer for customer.list_needs.")
     }
 
     return {
@@ -288,5 +288,5 @@ export const executeLinearCustomerListNeeds: IntegrationCommandExecute =
         limit,
       }),
       lookup: customerId,
-    };
-  };
+    }
+  }

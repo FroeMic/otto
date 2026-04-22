@@ -12,12 +12,13 @@ import { fetchApiResponse } from "@/features/workspace/api/workspace"
 export function agentPersonalizationOverviewQueryOptions(orgSlug: string) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].agent.personalization.$get({
-          param: {
-            orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[
+        ":orgSlug"
+      ].agent.personalization.$get({
+        param: {
+          orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         agentPersonalizationOverviewResponseSchema.parse(data),
@@ -34,21 +35,24 @@ export function agentPersonalizationDetailQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].agent.personalization[
-          ":instructionTab"
-        ].$get({
-          param: {
-            instructionTab: input.instructionTab,
-            orgSlug: input.orgSlug,
-          },
-        })
+      const response = await apiClient.api.workspace[
+        ":orgSlug"
+      ].agent.personalization[":instructionTab"].$get({
+        param: {
+          instructionTab: input.instructionTab,
+          orgSlug: input.orgSlug,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         agentPersonalizationDetailResponseSchema.parse(data),
       )
     },
-    queryKey: ["agent-personalization-detail", input.orgSlug, input.instructionTab],
+    queryKey: [
+      "agent-personalization-detail",
+      input.orgSlug,
+      input.instructionTab,
+    ],
     staleTime: 30_000,
   })
 }
@@ -59,19 +63,18 @@ export async function updateAgentPersonalizationInstruction(input: {
   orgSlug: string
   sharedContent: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].agent.personalization[
-      ":instructionTab"
-    ].$patch({
-      json: agentInstructionUpdateRequestSchema.parse({
-        expectedVersion: input.expectedVersion,
-        sharedContent: input.sharedContent,
-      }),
-      param: {
-        instructionTab: input.instructionTab,
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].agent.personalization[":instructionTab"].$patch({
+    json: agentInstructionUpdateRequestSchema.parse({
+      expectedVersion: input.expectedVersion,
+      sharedContent: input.sharedContent,
+    }),
+    param: {
+      instructionTab: input.instructionTab,
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     agentInstructionUpdateResponseSchema.parse(data),

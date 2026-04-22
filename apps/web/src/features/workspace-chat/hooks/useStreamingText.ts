@@ -43,7 +43,9 @@ export function getNextStreamingTextFrame({
     return targetText
   }
 
-  const stepSize = getStreamingTextStepSize(targetText.length - displayText.length)
+  const stepSize = getStreamingTextStepSize(
+    targetText.length - displayText.length,
+  )
 
   return targetText.slice(0, displayText.length + stepSize)
 }
@@ -57,7 +59,7 @@ export interface UseStreamingTextInput {
 
 export function useStreamingText({
   isEnabled,
-  messageId,
+  messageId: _messageId,
   status,
   targetText,
 }: UseStreamingTextInput) {
@@ -78,7 +80,7 @@ export function useStreamingText({
 
       return currentText
     })
-  }, [isEnabled, messageId, status, targetText])
+  }, [isEnabled, status, targetText])
 
   useEffect(() => {
     if (!isEnabled || status !== "streaming" || displayText === targetText) {

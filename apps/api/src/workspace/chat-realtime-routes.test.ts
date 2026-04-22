@@ -1,8 +1,6 @@
 import assert from "node:assert/strict"
-
-import { describe, it } from "vitest"
-
 import { WorkspaceSessionAuthError } from "@otto/auth"
+import { describe, it } from "vitest"
 
 import { createWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { createWorkspaceChatRealtimeRouter } from "./chat-realtime-routes"
@@ -51,7 +49,10 @@ describe("workspace chat realtime routes", () => {
     const receivedMessages: string[] = []
     let capturedEvents:
       | {
-          onMessage?: (event: MessageEvent, ws: { send: (data: string) => void }) => void
+          onMessage?: (
+            event: MessageEvent,
+            ws: { send: (data: string) => void },
+          ) => void
           onOpen?: (event: Event, ws: { send: (data: string) => void }) => void
         }
       | undefined
@@ -59,7 +60,10 @@ describe("workspace chat realtime routes", () => {
     const response = await app.fetch(
       new Request("http://api.local/api/workspace/otto/chat/realtime"),
       {
-        upgrade(_request: Request, options: { data: { events: typeof capturedEvents } }) {
+        upgrade(
+          _request: Request,
+          options: { data: { events: typeof capturedEvents } },
+        ) {
           capturedEvents = options.data.events
           return true
         },
@@ -151,7 +155,10 @@ describe("workspace chat realtime routes", () => {
     const receivedMessages: string[] = []
     let capturedEvents:
       | {
-          onMessage?: (event: MessageEvent, ws: { send: (data: string) => void }) => void
+          onMessage?: (
+            event: MessageEvent,
+            ws: { send: (data: string) => void },
+          ) => void
           onOpen?: (event: Event, ws: { send: (data: string) => void }) => void
         }
       | undefined
@@ -159,7 +166,10 @@ describe("workspace chat realtime routes", () => {
     const response = await app.fetch(
       new Request("http://api.local/api/workspace/otto/chat/realtime"),
       {
-        upgrade(_request: Request, options: { data: { events: typeof capturedEvents } }) {
+        upgrade(
+          _request: Request,
+          options: { data: { events: typeof capturedEvents } },
+        ) {
           capturedEvents = options.data.events
           return true
         },

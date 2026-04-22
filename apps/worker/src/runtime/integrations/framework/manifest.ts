@@ -1,27 +1,27 @@
-import { getIntegrationDefinition } from "./registry";
+import { getIntegrationDefinition } from "./registry"
 import type {
   IntegrationRuntimeCommandGroupDefinition,
   RuntimeIntegrationManifestEntry,
-} from "./types";
+} from "./types"
 
 export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
-  const manifest: RuntimeIntegrationManifestEntry[] = [];
-  const seen = new Set<string>();
+  const manifest: RuntimeIntegrationManifestEntry[] = []
+  const seen = new Set<string>()
 
   for (const rawKey of keys) {
-    const key = rawKey.trim().toLowerCase();
+    const key = rawKey.trim().toLowerCase()
 
     if (!key || seen.has(key)) {
-      continue;
+      continue
     }
 
-    const definition = getIntegrationDefinition(key);
+    const definition = getIntegrationDefinition(key)
 
     if (!definition?.runtimeSurface) {
-      continue;
+      continue
     }
 
-    seen.add(key);
+    seen.add(key)
     manifest.push({
       commandGroups: definition.runtimeSurface.commandGroups.map((group) => ({
         commandCount: countCommandsInGroup(group),
@@ -39,12 +39,12 @@ export function buildRuntimeIntegrationManifestForKeys(keys: string[]) {
       })),
       toolDescription: definition.runtimeSurface.toolDescription,
       toolName: definition.runtimeSurface.toolName,
-    });
+    })
   }
 
-  manifest.sort((left, right) => left.key.localeCompare(right.key));
+  manifest.sort((left, right) => left.key.localeCompare(right.key))
 
-  return manifest;
+  return manifest
 }
 
 function countCommandsInGroup(
@@ -56,5 +56,5 @@ function countCommandsInGroup(
       (total, childGroup) => total + countCommandsInGroup(childGroup),
       0,
     ) ?? 0)
-  );
+  )
 }

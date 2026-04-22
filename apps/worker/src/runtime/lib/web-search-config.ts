@@ -1,11 +1,11 @@
-import { z } from "zod";
+import { z } from "zod"
 
-import { getEnv } from "./env";
+import { getEnv } from "./env"
 
-export const WEB_SEARCH_CONFIG_SCHEMA_VERSION = "1";
-export const WEB_SEARCH_LABEL = "Web Search";
+export const WEB_SEARCH_CONFIG_SCHEMA_VERSION = "1"
+export const WEB_SEARCH_LABEL = "Web Search"
 export const WEB_SEARCH_DESCRIPTION =
-  "Let Otto search the web using a managed provider.";
+  "Let Otto search the web using a managed provider."
 
 const webSearchProviderSchema = z.enum([
   "brave",
@@ -13,11 +13,11 @@ const webSearchProviderSchema = z.enum([
   "grok",
   "kimi",
   "perplexity",
-]);
-const braveModeSchema = z.enum(["web", "llm-context"]);
+])
+const braveModeSchema = z.enum(["web", "llm-context"])
 
-export type WebSearchProvider = z.infer<typeof webSearchProviderSchema>;
-export type WebSearchBraveMode = z.infer<typeof braveModeSchema>;
+export type WebSearchProvider = z.infer<typeof webSearchProviderSchema>
+export type WebSearchBraveMode = z.infer<typeof braveModeSchema>
 
 const webSearchRuntimeConfigObjectSchema = z
   .object({
@@ -40,48 +40,48 @@ const webSearchRuntimeConfigObjectSchema = z
   .transform((value) => ({
     ...value,
     provider: value.provider,
-  }));
+  }))
 
-export const webSearchRuntimeConfigSchema = webSearchRuntimeConfigObjectSchema;
+export const webSearchRuntimeConfigSchema = webSearchRuntimeConfigObjectSchema
 export type WebSearchRuntimeConfig = z.infer<
   typeof webSearchRuntimeConfigSchema
->;
+>
 
 export type OpenClawWebSearchConfig = {
   brave?: {
-    mode?: WebSearchBraveMode;
-  };
-  cacheTtlMinutes?: number;
-  enabled: true;
+    mode?: WebSearchBraveMode
+  }
+  cacheTtlMinutes?: number
+  enabled: true
   gemini?: {
-    model?: string;
-  };
+    model?: string
+  }
   grok?: {
-    inlineCitations?: boolean;
-    model?: string;
-  };
+    inlineCitations?: boolean
+    model?: string
+  }
   kimi?: {
-    baseUrl?: string;
-    model?: string;
-  };
-  maxResults?: number;
+    baseUrl?: string
+    model?: string
+  }
+  maxResults?: number
   perplexity?: {
-    baseUrl?: string;
-    model?: string;
-  };
-  provider: WebSearchProvider;
-  timeoutSeconds?: number;
-};
+    baseUrl?: string
+    model?: string
+  }
+  provider: WebSearchProvider
+  timeoutSeconds?: number
+}
 
 export type ResolvedRuntimeWebSearchConfig = {
-  enabled: boolean;
-  envLines: string[];
-  openClawConfig: OpenClawWebSearchConfig | null;
-  reason: string | null;
-  surfaceConfig: WebSearchRuntimeConfig;
-};
+  enabled: boolean
+  envLines: string[]
+  openClawConfig: OpenClawWebSearchConfig | null
+  reason: string | null
+  surfaceConfig: WebSearchRuntimeConfig
+}
 
-export const webSearchRuntimeConfigPatchSchema = z.object({}).strict();
+export const webSearchRuntimeConfigPatchSchema = z.object({}).strict()
 
 export const webSearchRuntimeConfigJsonSchema = {
   additionalProperties: false,
@@ -136,7 +136,7 @@ export const webSearchRuntimeConfigJsonSchema = {
     },
   },
   type: "object",
-} as const;
+} as const
 
 export const webSearchRuntimeConfigUiHints = {
   description: WEB_SEARCH_DESCRIPTION,
@@ -213,21 +213,21 @@ export const webSearchRuntimeConfigUiHints = {
   },
   label: WEB_SEARCH_LABEL,
   readOnly: true,
-} as const;
+} as const
 
 export function getDefaultWebSearchRuntimeConfig(): WebSearchRuntimeConfig {
-  return webSearchRuntimeConfigSchema.parse({});
+  return webSearchRuntimeConfigSchema.parse({})
 }
 
 export function parseWebSearchRuntimeConfig(
   value: unknown,
 ): WebSearchRuntimeConfig {
-  return webSearchRuntimeConfigSchema.parse(value);
+  return webSearchRuntimeConfigSchema.parse(value)
 }
 
 export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig {
-  const env = getEnv();
-  const provider = env.RUNTIME_WEB_SEARCH_PROVIDER ?? null;
+  const env = getEnv()
+  const provider = env.RUNTIME_WEB_SEARCH_PROVIDER ?? null
   const baseSurfaceConfig = {
     managedBy: "control_plane_env" as const,
     ...(typeof env.RUNTIME_WEB_SEARCH_MAX_RESULTS === "number"
@@ -245,7 +245,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
           cacheTtlMinutes: env.RUNTIME_WEB_SEARCH_CACHE_TTL_MINUTES,
         }
       : {}),
-  };
+  }
 
   if (!provider) {
     return {
@@ -255,13 +255,13 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
       reason:
         "Web search is unavailable because RUNTIME_WEB_SEARCH_PROVIDER is not configured in the workspace app.",
       surfaceConfig: parseWebSearchRuntimeConfig(baseSurfaceConfig),
-    };
+    }
   }
 
   const sharedConfig = {
     provider,
     ...baseSurfaceConfig,
-  } as const;
+  } as const
   const openClawConfig: OpenClawWebSearchConfig = {
     enabled: true,
     provider,
@@ -280,7 +280,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
           cacheTtlMinutes: env.RUNTIME_WEB_SEARCH_CACHE_TTL_MINUTES,
         }
       : {}),
-  };
+  }
 
   switch (provider) {
     case "brave":
@@ -304,7 +304,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
             }
           : {},
         provider,
-      });
+      })
     case "gemini":
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
@@ -326,7 +326,7 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
             }
           : {},
         provider,
-      });
+      })
     case "grok":
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
@@ -367,15 +367,15 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
             : {}),
         },
         provider,
-      });
+      })
     case "kimi": {
       const credentialEnvVar = env.RUNTIME_KIMI_API_KEY
         ? "RUNTIME_KIMI_API_KEY"
         : env.RUNTIME_MOONSHOT_API_KEY
           ? "RUNTIME_MOONSHOT_API_KEY"
-          : null;
+          : null
       const credentialValue =
-        env.RUNTIME_KIMI_API_KEY ?? env.RUNTIME_MOONSHOT_API_KEY;
+        env.RUNTIME_KIMI_API_KEY ?? env.RUNTIME_MOONSHOT_API_KEY
 
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
@@ -414,16 +414,16 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
             : {}),
         },
         provider,
-      });
+      })
     }
     case "perplexity": {
       const credentialEnvVar = env.RUNTIME_PERPLEXITY_API_KEY
         ? "RUNTIME_PERPLEXITY_API_KEY"
         : env.RUNTIME_OPENROUTER_API_KEY
           ? "RUNTIME_OPENROUTER_API_KEY"
-          : null;
+          : null
       const credentialValue =
-        env.RUNTIME_PERPLEXITY_API_KEY ?? env.RUNTIME_OPENROUTER_API_KEY;
+        env.RUNTIME_PERPLEXITY_API_KEY ?? env.RUNTIME_OPENROUTER_API_KEY
 
       return buildResolvedConfig({
         baseSurfaceConfig: sharedConfig,
@@ -462,18 +462,18 @@ export function resolveRuntimeWebSearchConfig(): ResolvedRuntimeWebSearchConfig 
             : {}),
         },
         provider,
-      });
+      })
     }
   }
 }
 
 function buildResolvedConfig(input: {
-  baseSurfaceConfig: Record<string, unknown>;
-  credentialEnvVar: string | null;
-  credentialValue: string | undefined;
-  openClawConfig: OpenClawWebSearchConfig;
-  provider: WebSearchProvider;
-  providerSurfaceConfig: Record<string, unknown>;
+  baseSurfaceConfig: Record<string, unknown>
+  credentialEnvVar: string | null
+  credentialValue: string | undefined
+  openClawConfig: OpenClawWebSearchConfig
+  provider: WebSearchProvider
+  providerSurfaceConfig: Record<string, unknown>
 }): ResolvedRuntimeWebSearchConfig {
   if (!input.credentialEnvVar || !input.credentialValue) {
     return {
@@ -485,7 +485,7 @@ function buildResolvedConfig(input: {
         ...input.baseSurfaceConfig,
         ...input.providerSurfaceConfig,
       }),
-    };
+    }
   }
 
   return {
@@ -498,5 +498,5 @@ function buildResolvedConfig(input: {
       ...input.providerSurfaceConfig,
       credentialEnvVar: input.credentialEnvVar,
     }),
-  };
+  }
 }

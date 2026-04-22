@@ -1,12 +1,11 @@
 import {
+  type InviteWorkspaceMembersInput,
   inviteWorkspaceMembersResponseSchema,
   inviteWorkspaceMembersSchema,
   updateWorkspaceMemberRoleSchema,
+  type WorkspaceMemberDirectoryEntry,
   workspaceMemberDirectorySchema,
   workspaceMemberEntryResponseSchema,
-  type InviteWorkspaceMembersInput,
-  type WorkspaceMemberDirectory,
-  type WorkspaceMemberDirectoryEntry,
 } from "@otto/feature-workspace-members"
 import { queryOptions } from "@tanstack/react-query"
 
@@ -36,13 +35,14 @@ export async function inviteWorkspaceMembers(input: {
   orgSlug: string
   payload: InviteWorkspaceMembersInput
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].members.invitations.$post({
-      json: inviteWorkspaceMembersSchema.parse(input.payload),
-      param: {
-        orgSlug: input.orgSlug,
-      },
-    })
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].members.invitations.$post({
+    json: inviteWorkspaceMembersSchema.parse(input.payload),
+    param: {
+      orgSlug: input.orgSlug,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     inviteWorkspaceMembersResponseSchema.parse(data),
@@ -113,9 +113,9 @@ export async function resendWorkspaceInvitation(input: {
   invitationId: string
   orgSlug: string
 }): Promise<WorkspaceMemberDirectoryEntry> {
-  const response = await apiClient.api.workspace[":orgSlug"].members.invitations[
-    ":invitationId"
-  ].resend.$post({
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].members.invitations[":invitationId"].resend.$post({
     param: {
       invitationId: input.invitationId,
       orgSlug: input.orgSlug,
@@ -129,9 +129,9 @@ export async function revokeWorkspaceInvitation(input: {
   invitationId: string
   orgSlug: string
 }): Promise<WorkspaceMemberDirectoryEntry> {
-  const response = await apiClient.api.workspace[":orgSlug"].members.invitations[
-    ":invitationId"
-  ].revoke.$post({
+  const response = await apiClient.api.workspace[
+    ":orgSlug"
+  ].members.invitations[":invitationId"].revoke.$post({
     param: {
       invitationId: input.invitationId,
       orgSlug: input.orgSlug,

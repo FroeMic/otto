@@ -22,7 +22,9 @@ export interface PlatformOrganizationAccessPageProps {
 export function PlatformOrganizationAccessPage({
   orgSlug,
 }: PlatformOrganizationAccessPageProps) {
-  const { data } = useSuspenseQuery(platformOrganizationDetailQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    platformOrganizationDetailQueryOptions(orgSlug),
+  )
   const organization = data.organization
   const ipv4 = organization.tenant?.ipv4 ?? null
   const hostSshCommand = ipv4 ? `ssh root@${ipv4}` : null

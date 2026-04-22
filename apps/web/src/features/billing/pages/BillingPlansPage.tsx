@@ -1,13 +1,13 @@
 import { Check } from "@phosphor-icons/react/ssr"
 import { useSuspenseQuery } from "@tanstack/react-query"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
 import {
   SettingsPage,
   SettingsPageContent,
   SettingsPageTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 
 import { billingOverviewQueryOptions } from "../api/billing"
 import {
@@ -80,7 +80,9 @@ export function BillingPlansPage({ orgSlug }: BillingPlansPageProps) {
                 <div className="flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <span className="text-base font-semibold">{plan.name}</span>
-                    {isCurrent ? <Badge variant="secondary">Current</Badge> : null}
+                    {isCurrent ? (
+                      <Badge variant="secondary">Current</Badge>
+                    ) : null}
                   </div>
                   <span className="text-sm text-muted-foreground">
                     {formatPrice(plan.monthlyPriceUsd, "en-US")}/month
@@ -100,7 +102,10 @@ export function BillingPlansPage({ orgSlug }: BillingPlansPageProps) {
 
                 <div className="flex flex-col gap-2.5">
                   {features.map((feature) => (
-                    <div key={feature} className="flex items-center gap-2 text-sm">
+                    <div
+                      key={feature}
+                      className="flex items-center gap-2 text-sm"
+                    >
                       <Check className="size-4 shrink-0 text-primary" />
                       <span>{feature}</span>
                     </div>

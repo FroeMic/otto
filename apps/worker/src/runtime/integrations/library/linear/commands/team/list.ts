@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearTeamCollectionCommandResult,
@@ -6,7 +6,7 @@ import {
   getLinearTeamFields,
   type LinearTeamNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_TEAMS_QUERY = `
   query OttoLinearTeamList($limit: Int!) {
@@ -16,36 +16,36 @@ const LIST_TEAMS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearTeamList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     teams?: {
-      nodes?: LinearTeamNode[] | null;
-    } | null;
+      nodes?: LinearTeamNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_TEAMS_QUERY,
     variables: {
       limit,
     },
-  });
+  })
 
   return buildLinearTeamCollectionCommandResult({
     commandKey: "team.list",
     items: data.teams?.nodes ?? [],
     limit,
-  });
-};
+  })
+}

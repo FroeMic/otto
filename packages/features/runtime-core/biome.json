@@ -2,7 +2,12 @@
   "$schema": "https://biomejs.dev/schemas/2.2.0/schema.json",
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!dist"]
+    "includes": [
+      "**",
+      "!dist",
+      "!src/managed-config/generated-managed-config.ts",
+      "!src/managed-skills/generated-system-skills.ts"
+    ]
   },
   "formatter": {
     "enabled": true,

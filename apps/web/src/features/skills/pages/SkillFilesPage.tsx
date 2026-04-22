@@ -14,8 +14,8 @@ import {
   workspaceSkillFilesQueryOptions,
 } from "../api/skill-files"
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
-import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { SkillDetailHeader } from "../components/SkillDetailHeader"
+import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { summarizeSkillFileProvenance } from "../file-provenance"
 
 export interface SkillFilesPageProps {

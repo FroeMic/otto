@@ -1,10 +1,7 @@
 import { useLocation, useNavigate } from "@tanstack/react-router"
 import { useTransition } from "react"
 
-import {
-  NativeSelect,
-  NativeSelectOption,
-} from "@/components/ui/native-select"
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select"
 
 import type { IntegrationInstallStateFilter } from "../integrations-filter"
 

@@ -1,44 +1,44 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
-import { activateTenantWhatsAppAfterPairing } from "../../db/control-plane";
+import { getDb } from "../../db/client"
+import { activateTenantWhatsAppAfterPairing } from "../../db/control-plane"
 import {
   integrationWhatsAppInstallations,
   integrationWhatsAppLinkSessions,
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-} from "../../db/schema";
-import { getTenantRuntimeConnection } from "../runtime/connection";
-import { RuntimeManager } from "../runtime/manager";
+} from "../../db/schema"
+import { getTenantRuntimeConnection } from "../runtime/connection"
+import { RuntimeManager } from "../runtime/manager"
 import {
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
-} from "../whatsapp-config";
+} from "../whatsapp-config"
 
 import {
   appendJobEvent,
   enqueueJob,
   markJobFailed,
   markJobSucceeded,
-} from "./queue";
+} from "./queue"
 import type {
   ClaimedJob,
   WhatsAppDisconnectPayload,
   WhatsAppLinkSessionPayload,
-} from "./types";
-import { JOB_TYPES } from "./types";
+} from "./types"
+import { JOB_TYPES } from "./types"
 
-const runtimeManager = new RuntimeManager();
-const WHATSAPP_PROVIDER_KEY = "whatsapp";
-const LINK_START_TIMEOUT_MS = 30_000;
-const LINK_WAIT_TIMEOUT_MS = 200_000;
-const LINK_STATUS_VERIFICATION_ATTEMPTS = 6;
-const LINK_STATUS_VERIFICATION_DELAY_MS = 5_000;
+const runtimeManager = new RuntimeManager()
+const WHATSAPP_PROVIDER_KEY = "whatsapp"
+const LINK_START_TIMEOUT_MS = 30_000
+const LINK_WAIT_TIMEOUT_MS = 200_000
+const LINK_STATUS_VERIFICATION_ATTEMPTS = 6
+const LINK_STATUS_VERIFICATION_DELAY_MS = 5_000
 
 type WhatsAppLinkedIdentity = {
-  selfE164: string | null;
-  selfJid: string | null;
-};
+  selfE164: string | null
+  selfJid: string | null
+}
 
 export async function processWhatsAppLinkSessionJob(
   job: ClaimedJob,
@@ -46,10 +46,10 @@ export async function processWhatsAppLinkSessionJob(
   if (job.jobType !== JOB_TYPES.whatsappLinkSession) {
     throw new Error(
       `Unsupported job type for WhatsApp link handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseLinkPayload(job.payload);
+  const payload = parseLinkPayload(job.payload)
 
   try {
     await appendJobEvent(
@@ -59,21 +59,21 @@ export async function processWhatsAppLinkSessionJob(
       {
         linkSessionId: payload.linkSessionId,
       },
-    );
+    )
 
     const [runtimeConnection, linkSession] = await Promise.all([
       getTenantRuntimeConnection(payload.tenantId, "WhatsApp jobs"),
       getLinkSession(payload.linkSessionId),
-    ]);
+    ])
 
     if (!linkSession) {
-      throw new Error("WhatsApp link session not found");
+      throw new Error("WhatsApp link session not found")
     }
 
     await markLinkSessionStatus(payload.linkSessionId, {
       status: "starting",
-    });
-    await markIntegrationStatus(payload.tenantId, "linking");
+    })
+    await markIntegrationStatus(payload.tenantId, "linking")
 
     const startResult = await runtimeManager.startWhatsAppLoginWithQr(
       runtimeConnection,
@@ -81,30 +81,30 @@ export async function processWhatsAppLinkSessionJob(
         force: linkSession.forceRelink,
         timeoutMs: LINK_START_TIMEOUT_MS,
       },
-    );
-    const startText = startResult.message.trim();
-    const qrDataUrl = startResult.qrDataUrl?.trim();
-    const startEvents = summarizeWhatsAppHelperEvents(startResult.events);
+    )
+    const startText = startResult.message.trim()
+    const qrDataUrl = startResult.qrDataUrl?.trim()
+    const startEvents = summarizeWhatsAppHelperEvents(startResult.events)
     console.info(
       `[worker][whatsapp] helper start linkSession=${payload.linkSessionId} message=${startText}${startEvents ? ` events=${startEvents}` : ""}`,
-    );
+    )
 
     if (qrDataUrl) {
       await markLinkSessionStatus(payload.linkSessionId, {
         expiresAt: new Date(Date.now() + 3 * 60_000),
         qrDataUrl,
         status: "qr_ready",
-      });
+      })
       await appendJobEvent(
         job.id,
         "whatsapp_qr_ready",
         "WhatsApp QR code generated",
-      );
+      )
     } else if (startText.toLowerCase().includes("already linked")) {
-      const helperIdentity = getWhatsAppLinkedIdentity(startResult.self);
+      const helperIdentity = getWhatsAppLinkedIdentity(startResult.self)
       const activationMode = await getWhatsAppRuntimeActivationMode(
         payload.tenantId,
-      );
+      )
 
       if (activationMode === "install_after_pair") {
         await completeLinkSession({
@@ -113,7 +113,7 @@ export async function processWhatsAppLinkSessionJob(
           selfE164: helperIdentity.selfE164,
           selfJid: helperIdentity.selfJid,
           tenantId: payload.tenantId,
-        });
+        })
         await appendJobEvent(
           job.id,
           "whatsapp_already_linked",
@@ -121,12 +121,12 @@ export async function processWhatsAppLinkSessionJob(
           {
             selfE164: helperIdentity.selfE164,
           },
-        );
+        )
 
         const activationResult = await activatePairedWhatsAppRuntime({
           jobId: job.id,
           tenantId: payload.tenantId,
-        });
+        })
 
         await markJobSucceeded(job.id, {
           activationMode,
@@ -134,12 +134,12 @@ export async function processWhatsAppLinkSessionJob(
           linkSessionId: payload.linkSessionId,
           runtimeActivationError: activationResult.runtimeActivationError,
           selfE164: helperIdentity.selfE164,
-        });
-        return;
+        })
+        return
       }
 
       const linkedState =
-        await ensureWhatsAppRuntimeConnected(runtimeConnection);
+        await ensureWhatsAppRuntimeConnected(runtimeConnection)
 
       if (linkedState?.connected) {
         await completeLinkSession({
@@ -148,7 +148,7 @@ export async function processWhatsAppLinkSessionJob(
           selfE164: linkedState.selfE164,
           selfJid: linkedState.selfJid,
           tenantId: payload.tenantId,
-        });
+        })
         await appendJobEvent(
           job.id,
           "whatsapp_already_linked",
@@ -156,12 +156,12 @@ export async function processWhatsAppLinkSessionJob(
           {
             selfE164: linkedState.selfE164,
           },
-        );
+        )
         await markJobSucceeded(job.id, {
           alreadyLinked: true,
           linkSessionId: payload.linkSessionId,
           selfE164: linkedState.selfE164,
-        });
+        })
       } else {
         const error = formatInactiveWhatsAppRuntimeMessage(
           linkedState ?? {
@@ -171,18 +171,18 @@ export async function processWhatsAppLinkSessionJob(
             running: false,
           },
           "WhatsApp credentials already exist, but the tenant runtime is not connected.",
-        );
+        )
         await failLinkSession({
           error,
           linkSessionId: payload.linkSessionId,
           tenantId: payload.tenantId,
-        });
-        await appendJobEvent(job.id, "whatsapp_link_failed", error);
-        await markJobFailed(job.id, error);
+        })
+        await appendJobEvent(job.id, "whatsapp_link_failed", error)
+        await markJobFailed(job.id, error)
       }
-      return;
+      return
     } else {
-      throw new Error(startText || "WhatsApp QR code was not returned");
+      throw new Error(startText || "WhatsApp QR code was not returned")
     }
 
     const waitResult = await runtimeManager.waitForWhatsAppLogin(
@@ -190,27 +190,27 @@ export async function processWhatsAppLinkSessionJob(
       {
         timeoutMs: LINK_WAIT_TIMEOUT_MS,
       },
-    );
-    const waitText = waitResult.message.trim();
-    const connected = waitResult.connected;
-    const waitEvents = summarizeWhatsAppHelperEvents(waitResult.events);
+    )
+    const waitText = waitResult.message.trim()
+    const connected = waitResult.connected
+    const waitEvents = summarizeWhatsAppHelperEvents(waitResult.events)
     console.info(
       `[worker][whatsapp] helper wait linkSession=${payload.linkSessionId} connected=${connected ? "true" : "false"} message=${waitText}${waitEvents ? ` events=${waitEvents}` : ""}`,
-    );
+    )
 
     if (!connected) {
       const linkedState =
-        await ensureWhatsAppRuntimeConnected(runtimeConnection);
+        await ensureWhatsAppRuntimeConnected(runtimeConnection)
 
       if (linkedState?.connected) {
-        const selfE164 = linkedState.selfE164 ?? null;
+        const selfE164 = linkedState.selfE164 ?? null
         await completeLinkSession({
           integrationStatus: "connected",
           linkSessionId: payload.linkSessionId,
           selfE164,
           selfJid: linkedState.selfJid ?? null,
           tenantId: payload.tenantId,
-        });
+        })
         await appendJobEvent(
           job.id,
           "whatsapp_connected_after_verification",
@@ -219,23 +219,23 @@ export async function processWhatsAppLinkSessionJob(
             selfE164,
             waitMessage: waitText,
           },
-        );
+        )
         await markJobSucceeded(job.id, {
           linkSessionId: payload.linkSessionId,
           recoveredFromWaitFailure: true,
           selfE164,
-        });
-        return;
+        })
+        return
       }
 
       const error = linkedState
         ? formatInactiveWhatsAppRuntimeMessage(linkedState, waitText)
-        : waitText || "WhatsApp QR scan timed out";
+        : waitText || "WhatsApp QR scan timed out"
       await failLinkSession({
         error,
         linkSessionId: payload.linkSessionId,
         tenantId: payload.tenantId,
-      });
+      })
       await appendJobEvent(
         job.id,
         "whatsapp_link_failed",
@@ -243,15 +243,15 @@ export async function processWhatsAppLinkSessionJob(
         {
           error,
         },
-      );
-      await markJobFailed(job.id, error);
-      return;
+      )
+      await markJobFailed(job.id, error)
+      return
     }
 
-    const helperIdentity = getWhatsAppLinkedIdentity(waitResult.self);
+    const helperIdentity = getWhatsAppLinkedIdentity(waitResult.self)
     const activationMode = await getWhatsAppRuntimeActivationMode(
       payload.tenantId,
-    );
+    )
     await completeLinkSession({
       integrationStatus:
         activationMode === "install_after_pair" ? "activating" : "connected",
@@ -259,7 +259,7 @@ export async function processWhatsAppLinkSessionJob(
       selfE164: helperIdentity.selfE164,
       selfJid: helperIdentity.selfJid,
       tenantId: payload.tenantId,
-    });
+    })
     await appendJobEvent(
       job.id,
       "whatsapp_connected",
@@ -267,35 +267,35 @@ export async function processWhatsAppLinkSessionJob(
       {
         selfE164: helperIdentity.selfE164,
       },
-    );
+    )
 
     if (activationMode === "install_after_pair") {
       const activationResult = await activatePairedWhatsAppRuntime({
         jobId: job.id,
         tenantId: payload.tenantId,
-      });
+      })
 
       await markJobSucceeded(job.id, {
         activationMode,
         linkSessionId: payload.linkSessionId,
         runtimeActivationError: activationResult.runtimeActivationError,
         selfE164: helperIdentity.selfE164,
-      });
-      return;
+      })
+      return
     }
 
-    let runtimeActivationError: string | null = null;
+    let runtimeActivationError: string | null = null
     let finalStatus: Awaited<
       ReturnType<typeof runtimeManager.readWhatsAppLinkStatus>
-    > | null = null;
+    > | null = null
 
     try {
-      finalStatus = await ensureWhatsAppRuntimeConnected(runtimeConnection);
+      finalStatus = await ensureWhatsAppRuntimeConnected(runtimeConnection)
 
       if (finalStatus?.connected) {
         console.info(
           `[worker][whatsapp] runtime connected linkSession=${payload.linkSessionId} self=${finalStatus.selfE164 ?? finalStatus.selfJid ?? "unknown"}`,
-        );
+        )
         await appendJobEvent(
           job.id,
           "whatsapp_runtime_connected",
@@ -303,7 +303,7 @@ export async function processWhatsAppLinkSessionJob(
           {
             selfE164: finalStatus.selfE164 ?? helperIdentity.selfE164,
           },
-        );
+        )
       } else {
         runtimeActivationError = formatInactiveWhatsAppRuntimeMessage(
           finalStatus ?? {
@@ -313,21 +313,21 @@ export async function processWhatsAppLinkSessionJob(
             running: false,
           },
           "WhatsApp linked successfully, but the tenant runtime is still reconnecting.",
-        );
+        )
       }
     } catch (error) {
-      runtimeActivationError = getErrorMessage(error);
+      runtimeActivationError = getErrorMessage(error)
     }
 
     if (runtimeActivationError) {
       console.warn(
         `[worker][whatsapp] runtime activation warning linkSession=${payload.linkSessionId} warning=${runtimeActivationError}`,
-      );
+      )
       await appendJobEvent(
         job.id,
         "whatsapp_runtime_activation_warning",
         runtimeActivationError,
-      );
+      )
     }
 
     await markJobSucceeded(job.id, {
@@ -335,17 +335,17 @@ export async function processWhatsAppLinkSessionJob(
       runtimeActivationError,
       runtimeConnected: finalStatus?.connected === true,
       selfE164: finalStatus?.selfE164 ?? helperIdentity.selfE164,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
     await failLinkSession({
       error: message,
       linkSessionId: payload.linkSessionId,
       tenantId: payload.tenantId,
-    });
-    await appendJobEvent(job.id, "whatsapp_link_failed", message);
-    await markJobFailed(job.id, message);
-    throw error;
+    })
+    await appendJobEvent(job.id, "whatsapp_link_failed", message)
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
@@ -355,23 +355,23 @@ export async function processWhatsAppDisconnectJob(
   if (job.jobType !== JOB_TYPES.whatsappDisconnect) {
     throw new Error(
       `Unsupported job type for WhatsApp disconnect handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseDisconnectPayload(job.payload);
+  const payload = parseDisconnectPayload(job.payload)
 
   try {
     await appendJobEvent(
       job.id,
       "whatsapp_disconnect_start",
       "Disconnecting WhatsApp from the tenant runtime",
-    );
+    )
     const runtimeConnection = await getTenantRuntimeConnection(
       payload.tenantId,
       "WhatsApp jobs",
-    );
-    await runtimeManager.logoutWhatsApp(runtimeConnection);
-    await markWhatsAppDisconnected(payload.tenantId);
+    )
+    await runtimeManager.logoutWhatsApp(runtimeConnection)
+    await markWhatsAppDisconnected(payload.tenantId)
 
     if (typeof payload.desiredStateVersion === "number") {
       await enqueueJob({
@@ -380,7 +380,7 @@ export async function processWhatsAppDisconnectJob(
           desiredStateVersion: payload.desiredStateVersion,
           tenantId: payload.tenantId,
         },
-      });
+      })
       await appendJobEvent(
         job.id,
         "whatsapp_disable_apply_enqueued",
@@ -388,53 +388,53 @@ export async function processWhatsAppDisconnectJob(
         {
           desiredStateVersion: payload.desiredStateVersion,
         },
-      );
+      )
     }
 
     await appendJobEvent(
       job.id,
       "whatsapp_disconnected",
       "WhatsApp disconnected successfully",
-    );
+    )
     await markJobSucceeded(job.id, {
       tenantId: payload.tenantId,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
-    await appendJobEvent(job.id, "whatsapp_disconnect_failed", message);
-    await markJobFailed(job.id, message);
-    throw error;
+    const message = getErrorMessage(error)
+    await appendJobEvent(job.id, "whatsapp_disconnect_failed", message)
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 function parseLinkPayload(
   payload: Record<string, unknown>,
 ): WhatsAppLinkSessionPayload {
-  const tenantId = payload.tenantId;
-  const linkSessionId = payload.linkSessionId;
+  const tenantId = payload.tenantId
+  const linkSessionId = payload.linkSessionId
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("WhatsApp link job payload is missing tenantId");
+    throw new Error("WhatsApp link job payload is missing tenantId")
   }
 
   if (typeof linkSessionId !== "string" || linkSessionId.length === 0) {
-    throw new Error("WhatsApp link job payload is missing linkSessionId");
+    throw new Error("WhatsApp link job payload is missing linkSessionId")
   }
 
   return {
     linkSessionId,
     tenantId,
-  };
+  }
 }
 
 function parseDisconnectPayload(
   payload: Record<string, unknown>,
 ): WhatsAppDisconnectPayload {
-  const tenantId = payload.tenantId;
-  const desiredStateVersion = payload.desiredStateVersion;
+  const tenantId = payload.tenantId
+  const desiredStateVersion = payload.desiredStateVersion
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("WhatsApp disconnect job payload is missing tenantId");
+    throw new Error("WhatsApp disconnect job payload is missing tenantId")
   }
 
   if (
@@ -445,17 +445,17 @@ function parseDisconnectPayload(
   ) {
     throw new Error(
       "WhatsApp disconnect job payload has an invalid desiredStateVersion",
-    );
+    )
   }
 
   return {
     ...(typeof desiredStateVersion === "number" ? { desiredStateVersion } : {}),
     tenantId,
-  };
+  }
 }
 
 async function getWhatsAppRuntimeActivationMode(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [runtimeConfigEntry] = await db
     .select({
       enabled: tenantRuntimeConfigEntries.enabled,
@@ -475,28 +475,28 @@ async function getWhatsAppRuntimeActivationMode(tenantId: string) {
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (
     !runtimeConfigEntry ||
     runtimeConfigEntry.installState !== "installed" ||
     runtimeConfigEntry.enabled !== true
   ) {
-    return "install_after_pair" as const;
+    return "install_after_pair" as const
   }
 
-  return "runtime_reconnect" as const;
+  return "runtime_reconnect" as const
 }
 
 async function activatePairedWhatsAppRuntime(input: {
-  jobId: string;
-  tenantId: string;
+  jobId: string
+  tenantId: string
 }) {
   try {
     const result = await activateTenantWhatsAppAfterPairing({
       createdByType: "system",
       tenantId: input.tenantId,
-    });
+    })
 
     if (result.changed && result.desiredStateVersion) {
       await appendJobEvent(
@@ -506,21 +506,21 @@ async function activatePairedWhatsAppRuntime(input: {
         {
           desiredStateVersion: result.desiredStateVersion,
         },
-      );
+      )
     } else {
       await appendJobEvent(
         input.jobId,
         "whatsapp_runtime_activation_skipped",
         "WhatsApp pairing succeeded and the tenant runtime was already configured.",
-      );
+      )
     }
 
     return {
       runtimeActivationError: null,
-    };
+    }
   } catch (error) {
-    const message = getErrorMessage(error);
-    await markIntegrationStatus(input.tenantId, "apply_failed", message);
+    const message = getErrorMessage(error)
+    await markIntegrationStatus(input.tenantId, "apply_failed", message)
     await appendJobEvent(
       input.jobId,
       "whatsapp_runtime_activation_warning",
@@ -528,11 +528,11 @@ async function activatePairedWhatsAppRuntime(input: {
       {
         error: message,
       },
-    );
+    )
 
     return {
       runtimeActivationError: message,
-    };
+    }
   }
 }
 
@@ -541,8 +541,8 @@ async function ensureWhatsAppRuntimeConnected(
 ) {
   let lastStatus: Awaited<
     ReturnType<typeof runtimeManager.readWhatsAppLinkStatus>
-  > | null = null;
-  let restartedGateway = false;
+  > | null = null
+  let restartedGateway = false
 
   for (
     let attempt = 0;
@@ -550,34 +550,34 @@ async function ensureWhatsAppRuntimeConnected(
     attempt += 1
   ) {
     if (attempt > 0) {
-      await sleep(LINK_STATUS_VERIFICATION_DELAY_MS);
+      await sleep(LINK_STATUS_VERIFICATION_DELAY_MS)
     }
 
     try {
       const status =
-        await runtimeManager.readWhatsAppLinkStatus(runtimeConnection);
-      lastStatus = status;
+        await runtimeManager.readWhatsAppLinkStatus(runtimeConnection)
+      lastStatus = status
       if (status.connected) {
-        return status;
+        return status
       }
 
       if (!restartedGateway && status.linked) {
         console.info(
           `[worker][whatsapp] restarting gateway after helper completion linked=${status.linked} running=${status.running} connected=${status.connected}`,
-        );
-        await runtimeManager.restartGatewayContainer(runtimeConnection);
-        restartedGateway = true;
+        )
+        await runtimeManager.restartGatewayContainer(runtimeConnection)
+        restartedGateway = true
       }
     } catch {
       // The gateway may still be settling after QR pairing; keep probing.
     }
   }
 
-  return lastStatus;
+  return lastStatus
 }
 
 async function getLinkSession(linkSessionId: string) {
-  const db = getDb();
+  const db = getDb()
   const [linkSession] = await db
     .select({
       forceRelink: integrationWhatsAppLinkSessions.forceRelink,
@@ -586,22 +586,22 @@ async function getLinkSession(linkSessionId: string) {
     })
     .from(integrationWhatsAppLinkSessions)
     .where(eq(integrationWhatsAppLinkSessions.id, linkSessionId))
-    .limit(1);
+    .limit(1)
 
-  return linkSession ?? null;
+  return linkSession ?? null
 }
 
 async function markLinkSessionStatus(
   linkSessionId: string,
   input: {
-    completedAt?: Date | null;
-    expiresAt?: Date | null;
-    lastError?: string | null;
-    qrDataUrl?: string | null;
-    status: string;
+    completedAt?: Date | null
+    expiresAt?: Date | null
+    lastError?: string | null
+    qrDataUrl?: string | null
+    status: string
   },
 ) {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(integrationWhatsAppLinkSessions)
@@ -615,7 +615,7 @@ async function markLinkSessionStatus(
       status: input.status,
       updatedAt: new Date(),
     })
-    .where(eq(integrationWhatsAppLinkSessions.id, linkSessionId));
+    .where(eq(integrationWhatsAppLinkSessions.id, linkSessionId))
 }
 
 async function markIntegrationStatus(
@@ -623,8 +623,8 @@ async function markIntegrationStatus(
   status: string,
   error?: string,
 ) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(tenantIntegrations)
@@ -639,18 +639,18 @@ async function markIntegrationStatus(
         eq(tenantIntegrations.tenantId, tenantId),
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
-    );
+    )
 }
 
 async function completeLinkSession(input: {
-  integrationStatus: "activating" | "connected";
-  linkSessionId: string;
-  selfE164: string | null;
-  selfJid: string | null;
-  tenantId: string;
+  integrationStatus: "activating" | "connected"
+  linkSessionId: string
+  selfE164: string | null
+  selfJid: string | null
+  tenantId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [integration] = await tx
@@ -664,10 +664,10 @@ async function completeLinkSession(input: {
           eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!integration) {
-      throw new Error("WhatsApp integration not found");
+      throw new Error("WhatsApp integration not found")
     }
 
     const [existingInstallation] = await tx
@@ -681,7 +681,7 @@ async function completeLinkSession(input: {
           integration.id,
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (existingInstallation) {
       await tx
@@ -693,9 +693,7 @@ async function completeLinkSession(input: {
           selfJid: input.selfJid,
           updatedAt: now,
         })
-        .where(
-          eq(integrationWhatsAppInstallations.id, existingInstallation.id),
-        );
+        .where(eq(integrationWhatsAppInstallations.id, existingInstallation.id))
     } else {
       await tx.insert(integrationWhatsAppInstallations).values({
         lastSeenAt: now,
@@ -703,7 +701,7 @@ async function completeLinkSession(input: {
         selfE164: input.selfE164,
         selfJid: input.selfJid,
         tenantIntegrationId: integration.id,
-      });
+      })
     }
 
     await tx
@@ -716,7 +714,7 @@ async function completeLinkSession(input: {
         status: input.integrationStatus,
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, integration.id));
+      .where(eq(tenantIntegrations.id, integration.id))
 
     await tx
       .update(integrationWhatsAppLinkSessions)
@@ -727,17 +725,17 @@ async function completeLinkSession(input: {
         status: "connected",
         updatedAt: now,
       })
-      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId));
-  });
+      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId))
+  })
 }
 
 async function failLinkSession(input: {
-  error: string;
-  linkSessionId: string;
-  tenantId: string;
+  error: string
+  linkSessionId: string
+  tenantId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     await tx
@@ -748,7 +746,7 @@ async function failLinkSession(input: {
         status: "failed",
         updatedAt: now,
       })
-      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId));
+      .where(eq(integrationWhatsAppLinkSessions.id, input.linkSessionId))
 
     await tx
       .update(tenantIntegrations)
@@ -763,13 +761,13 @@ async function failLinkSession(input: {
           eq(tenantIntegrations.tenantId, input.tenantId),
           eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
         ),
-      );
-  });
+      )
+  })
 }
 
 async function markWhatsAppDisconnected(tenantId: string) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [integration] = await tx
@@ -783,10 +781,10 @@ async function markWhatsAppDisconnected(tenantId: string) {
           eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!integration) {
-      return;
+      return
     }
 
     await tx
@@ -803,7 +801,7 @@ async function markWhatsAppDisconnected(tenantId: string) {
           integrationWhatsAppInstallations.tenantIntegrationId,
           integration.id,
         ),
-      );
+      )
 
     await tx
       .update(tenantIntegrations)
@@ -815,28 +813,28 @@ async function markWhatsAppDisconnected(tenantId: string) {
         status: "disconnected",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, integration.id));
-  });
+      .where(eq(tenantIntegrations.id, integration.id))
+  })
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown WhatsApp job error";
+  return "Unknown WhatsApp job error"
 }
 
 function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function formatInactiveWhatsAppRuntimeMessage(
   status: {
-    connected: boolean;
-    lastError: string | null;
-    linked: boolean;
-    running: boolean;
+    connected: boolean
+    lastError: string | null
+    linked: boolean
+    running: boolean
   },
   baseMessage: string,
 ) {
@@ -844,36 +842,36 @@ function formatInactiveWhatsAppRuntimeMessage(
     `linked=${status.linked ? "true" : "false"}`,
     `running=${status.running ? "true" : "false"}`,
     `connected=${status.connected ? "true" : "false"}`,
-  ];
+  ]
 
   if (status.lastError) {
-    detailParts.push(`lastError=${status.lastError}`);
+    detailParts.push(`lastError=${status.lastError}`)
   }
 
-  return `${baseMessage} Runtime status: ${detailParts.join(", ")}`;
+  return `${baseMessage} Runtime status: ${detailParts.join(", ")}`
 }
 
 function summarizeWhatsAppHelperEvents(
   events: Array<{ at?: string; message?: string }> | undefined,
 ) {
   if (!Array.isArray(events) || events.length === 0) {
-    return null;
+    return null
   }
 
   return events
     .map((event) => {
       const message =
-        typeof event?.message === "string" ? event.message.trim() : "";
+        typeof event?.message === "string" ? event.message.trim() : ""
       if (!message) {
-        return null;
+        return null
       }
 
-      const at = typeof event?.at === "string" ? event.at.trim() : "";
-      return at ? `${at} ${message}` : message;
+      const at = typeof event?.at === "string" ? event.at.trim() : ""
+      return at ? `${at} ${message}` : message
     })
     .filter((value): value is string => Boolean(value))
     .slice(-5)
-    .join(" | ");
+    .join(" | ")
 }
 
 function getWhatsAppLinkedIdentity(value: unknown): WhatsAppLinkedIdentity {
@@ -881,10 +879,10 @@ function getWhatsAppLinkedIdentity(value: unknown): WhatsAppLinkedIdentity {
     return {
       selfE164: null,
       selfJid: null,
-    };
+    }
   }
 
-  const record = value as Record<string, unknown>;
+  const record = value as Record<string, unknown>
 
   return {
     selfE164:
@@ -895,5 +893,5 @@ function getWhatsAppLinkedIdentity(value: unknown): WhatsAppLinkedIdentity {
       typeof record.jid === "string" && record.jid.trim().length > 0
         ? record.jid.trim()
         : null,
-  };
+  }
 }

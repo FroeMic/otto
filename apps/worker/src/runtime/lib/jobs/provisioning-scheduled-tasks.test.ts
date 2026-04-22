@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
   appendJobEvent: vi.fn(async () => undefined),
@@ -7,14 +7,14 @@ const mocks = vi.hoisted(() => ({
   markJobFailed: vi.fn(async () => undefined),
   markJobSucceeded: vi.fn(async () => undefined),
   requeueJob: vi.fn(async () => undefined),
-}));
+}))
 
 vi.mock("../../db/client", () => ({
   getDb: mocks.getDb,
-}));
+}))
 
 vi.mock("./queue", async () => {
-  const actual = await vi.importActual<typeof import("./queue")>("./queue");
+  const actual = await vi.importActual<typeof import("./queue")>("./queue")
 
   return {
     ...actual,
@@ -23,15 +23,15 @@ vi.mock("./queue", async () => {
     markJobFailed: mocks.markJobFailed,
     markJobSucceeded: mocks.markJobSucceeded,
     requeueJob: mocks.requeueJob,
-  };
-});
+  }
+})
 
 function createReadyTenantDbMock() {
   const selectLimit = vi.fn(async () => [
     {
       organizationId: "org_1",
     },
-  ]);
+  ])
   const tx = {
     select: vi.fn(() => ({
       from: vi.fn(() => ({
@@ -45,25 +45,26 @@ function createReadyTenantDbMock() {
         where: vi.fn(async () => undefined),
       })),
     })),
-  };
+  }
 
   return {
     transaction: vi.fn(async (callback: (transaction: typeof tx) => unknown) =>
       callback(tx),
     ),
-  };
+  }
 }
 
 describe("provisioning scheduled task setup", () => {
   it("queues an initial scheduled task reconciliation when the tenant server becomes ready", async () => {
-    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
-    process.env.SSH_AUTH_SOCK = "/tmp/agent.sock";
-    const { __testing } = await import("../env");
-    __testing.resetEnvCacheForTests();
-    mocks.getDb.mockReturnValue(createReadyTenantDbMock());
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto"
+    process.env.SSH_AUTH_SOCK = "/tmp/agent.sock"
+    const { __testing } = await import("../env")
+    __testing.resetEnvCacheForTests()
+    mocks.getDb.mockReturnValue(createReadyTenantDbMock())
 
-    const { processProvisionTenantServerJob } = await import("./provisioning");
-    const { JOB_TYPES, PROVISIONING_STEPS } = await import("./types");
+    const { processProvisionTenantServerJob } = await import("./provisioning")
+    const { JOB_TYPES, PROVISIONING_STEPS } = await import("./types")
 
     await processProvisionTenantServerJob({
       attempt: 1,
@@ -76,23 +77,23 @@ describe("provisioning scheduled task setup", () => {
         tenantId: "tenant_1",
       },
       tenantId: "tenant_1",
-    });
+    })
 
     expect(mocks.enqueueJob).toHaveBeenCalledWith({
       jobType: JOB_TYPES.reconcileTenantScheduledTasks,
       payload: {
         tenantId: "tenant_1",
       },
-    });
+    })
     expect(mocks.markJobSucceeded).toHaveBeenCalledWith(
       "job_provision_1",
       expect.objectContaining({
         scheduledTasksRefreshJobId: "job_scheduled_tasks_sync_1",
       }),
-    );
+    )
 
-    delete process.env.DATABASE_URL;
-    delete process.env.SSH_AUTH_SOCK;
-    __testing.resetEnvCacheForTests();
-  });
-});
+    delete process.env.DATABASE_URL
+    delete process.env.SSH_AUTH_SOCK
+    __testing.resetEnvCacheForTests()
+  })
+})

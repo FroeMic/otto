@@ -19,7 +19,10 @@ describe("workspace onboarding routes", () => {
       createWorkspaceOnboardingRouter({
         authenticateWorkspaceUser: async () => user,
         consumeWorkspaceOnboardingStarterPrompt: async () => undefined,
-        getWorkspaceOnboardingRunSummary: async ({ orgSlug, userExternalId }) => {
+        getWorkspaceOnboardingRunSummary: async ({
+          orgSlug,
+          userExternalId,
+        }) => {
           assert.equal(orgSlug, "interaction42")
           assert.equal(userExternalId, "user_123")
 

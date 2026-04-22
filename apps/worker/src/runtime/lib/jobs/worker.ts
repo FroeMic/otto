@@ -1,126 +1,122 @@
-import { getEnv } from "../env";
+import { getEnv } from "../env"
 
-import { processApplyTenantConfigJob } from "./apply";
+import { processApplyTenantConfigJob } from "./apply"
 import {
   processExecuteBillingAutoTopOffJob,
   processScheduleBillingAutoTopOffEnqueueJob,
-} from "./auto-top-off";
+} from "./auto-top-off"
 import {
   processScheduleCreditSettlementJob,
   processSettleCreditUsageChunkJob,
-} from "./credit-burndown";
-import {
-  getRecurringSchedulerJobTypes,
-  JOB_LANES,
-  type JobLane,
-} from "./lanes";
-import { processDeleteWorkspaceJob } from "./delete-workspace";
-import { processDeleteTenantServerJob } from "./delete-tenant-server";
+} from "./credit-burndown"
+import { processDeleteTenantServerJob } from "./delete-tenant-server"
+import { processDeleteWorkspaceJob } from "./delete-workspace"
+import { getRecurringSchedulerJobTypes, JOB_LANES, type JobLane } from "./lanes"
 import {
   processRefreshOauthConnectionJob,
   processScheduleOauthConnectionRefreshJob,
-} from "./oauth-refresh";
+} from "./oauth-refresh"
 import {
   processScheduleOpenAiUsageSyncJob,
   processSyncOpenAiUsageTargetJob,
-} from "./openai-usage";
-import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning";
-import { processProvisionTenantServerJob } from "./provisioning";
+} from "./openai-usage"
+import { processProvisionTenantOpenAiKeyJob } from "./provider-provisioning"
+import { processProvisionTenantServerJob } from "./provisioning"
 import {
   claimAvailableJobsForLane,
   enqueueJob,
   hasQueuedOrRunningJobOfType,
   markJobFailed,
-} from "./queue";
-import { processRefreshRuntimeImageJob } from "./runtime-operations";
-import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync";
-import { processPruneJobHistoryJob } from "./retention";
-import { processSyncTenantSessionsJob } from "./sessions-sync";
+} from "./queue"
+import { processPruneJobHistoryJob } from "./retention"
+import { processRefreshRuntimeImageJob } from "./runtime-operations"
+import { processReconcileTenantScheduledTasksJob } from "./scheduled-tasks-sync"
+import { processSyncTenantSessionsJob } from "./sessions-sync"
 import {
   processResyncSlackChannelsJob,
   processResyncSlackUsersJob,
-} from "./slack-sync";
-import type { ClaimedJob } from "./types";
-import { JOB_TYPES } from "./types";
-import { processRunWorkspaceChatTurnJob } from "./workspace-chat";
+} from "./slack-sync"
+import type { ClaimedJob } from "./types"
+import { JOB_TYPES } from "./types"
 import {
   processWhatsAppDisconnectJob,
   processWhatsAppLinkSessionJob,
-} from "./whatsapp";
+} from "./whatsapp"
+import { processRunWorkspaceChatTurnJob } from "./workspace-chat"
 
 export async function processClaimedJob(job: ClaimedJob): Promise<void> {
-  console.info(`[worker] claimed job ${job.id} (${job.jobType})`);
+  console.info(`[worker] claimed job ${job.id} (${job.jobType})`)
 
   switch (job.jobType) {
     case JOB_TYPES.applyTenantConfig:
-      await processApplyTenantConfigJob(job);
-      return;
+      await processApplyTenantConfigJob(job)
+      return
     case JOB_TYPES.provisionTenantOpenAiKey:
-      await processProvisionTenantOpenAiKeyJob(job);
-      return;
+      await processProvisionTenantOpenAiKeyJob(job)
+      return
     case JOB_TYPES.refreshRuntimeImage:
-      await processRefreshRuntimeImageJob(job);
-      return;
+      await processRefreshRuntimeImageJob(job)
+      return
     case JOB_TYPES.deleteTenantServer:
-      await processDeleteTenantServerJob(job);
-      return;
+      await processDeleteTenantServerJob(job)
+      return
     case JOB_TYPES.deleteWorkspace:
-      await processDeleteWorkspaceJob(job);
-      return;
+      await processDeleteWorkspaceJob(job)
+      return
     case JOB_TYPES.runWorkspaceChatTurn:
-      await processRunWorkspaceChatTurnJob(job);
-      return;
+      await processRunWorkspaceChatTurnJob(job)
+      return
     case JOB_TYPES.scheduleOauthConnectionRefresh:
-      await processScheduleOauthConnectionRefreshJob(job);
-      return;
+      await processScheduleOauthConnectionRefreshJob(job)
+      return
     case JOB_TYPES.refreshOauthConnection:
-      await processRefreshOauthConnectionJob(job);
-      return;
+      await processRefreshOauthConnectionJob(job)
+      return
     case JOB_TYPES.scheduleOpenAiUsageSync:
-      await processScheduleOpenAiUsageSyncJob(job);
-      return;
+      await processScheduleOpenAiUsageSyncJob(job)
+      return
     case JOB_TYPES.syncOpenAiUsageTarget:
-      await processSyncOpenAiUsageTargetJob(job);
-      return;
+      await processSyncOpenAiUsageTargetJob(job)
+      return
     case JOB_TYPES.scheduleCreditSettlement:
-      await processScheduleCreditSettlementJob(job);
-      return;
+      await processScheduleCreditSettlementJob(job)
+      return
     case JOB_TYPES.settleCreditUsageChunk:
-      await processSettleCreditUsageChunkJob(job);
-      return;
+      await processSettleCreditUsageChunkJob(job)
+      return
     case JOB_TYPES.scheduleBillingAutoTopOffEnqueue:
-      await processScheduleBillingAutoTopOffEnqueueJob(job);
-      return;
+      await processScheduleBillingAutoTopOffEnqueueJob(job)
+      return
     case JOB_TYPES.executeBillingAutoTopOff:
-      await processExecuteBillingAutoTopOffJob(job);
-      return;
+      await processExecuteBillingAutoTopOffJob(job)
+      return
     case JOB_TYPES.reconcileTenantScheduledTasks:
-      await processReconcileTenantScheduledTasksJob(job);
-      return;
+      await processReconcileTenantScheduledTasksJob(job)
+      return
     case JOB_TYPES.provisionTenantServer:
-      await processProvisionTenantServerJob(job);
-      return;
+      await processProvisionTenantServerJob(job)
+      return
     case JOB_TYPES.whatsappLinkSession:
-      await processWhatsAppLinkSessionJob(job);
-      return;
+      await processWhatsAppLinkSessionJob(job)
+      return
     case JOB_TYPES.whatsappDisconnect:
-      await processWhatsAppDisconnectJob(job);
-      return;
+      await processWhatsAppDisconnectJob(job)
+      return
     case JOB_TYPES.resyncSlackUsers:
-      await processResyncSlackUsersJob(job);
-      return;
+      await processResyncSlackUsersJob(job)
+      return
     case JOB_TYPES.resyncSlackChannels:
-      await processResyncSlackChannelsJob(job);
-      return;
+      await processResyncSlackChannelsJob(job)
+      return
     case JOB_TYPES.syncTenantSessions:
-      await processSyncTenantSessionsJob(job);
-      return;
+      await processSyncTenantSessionsJob(job)
+      return
     case JOB_TYPES.pruneJobHistory:
-      await processPruneJobHistoryJob(job);
-      return;
+      await processPruneJobHistoryJob(job)
+      return
     default:
-      await markJobFailed(job.id, `Unsupported job type: ${job.jobType}`);
-      throw new Error(`Unsupported job type: ${job.jobType}`);
+      await markJobFailed(job.id, `Unsupported job type: ${job.jobType}`)
+      throw new Error(`Unsupported job type: ${job.jobType}`)
   }
 }
 
@@ -130,7 +126,7 @@ const WORKER_LANE_ORDER: JobLane[] = [
   JOB_LANES.integrations,
   JOB_LANES.metering,
   JOB_LANES.settlement,
-];
+]
 
 const WORKER_LANE_CONCURRENCY: Record<JobLane, number> = {
   [JOB_LANES.chat]: 2,
@@ -138,30 +134,30 @@ const WORKER_LANE_CONCURRENCY: Record<JobLane, number> = {
   [JOB_LANES.integrations]: 2,
   [JOB_LANES.metering]: 4,
   [JOB_LANES.settlement]: 2,
-};
+}
 
 export function getWorkerLanes() {
-  return WORKER_LANE_ORDER;
+  return WORKER_LANE_ORDER
 }
 
 export function getLaneConcurrency(lane: JobLane) {
   return Math.max(
     1,
     Math.min(getEnv().WORKER_BATCH_SIZE, WORKER_LANE_CONCURRENCY[lane]),
-  );
+  )
 }
 
 export async function ensureWorkerSchedulerJobsSeeded() {
   for (const jobType of getRecurringSchedulerJobTypes()) {
     if (await hasQueuedOrRunningJobOfType(jobType)) {
-      continue;
+      continue
     }
 
     await enqueueJob({
       jobType,
       payload: {},
-    });
-    console.info(`[worker] seeded recurring scheduler job ${jobType}`);
+    })
+    console.info(`[worker] seeded recurring scheduler job ${jobType}`)
   }
 }
 
@@ -169,39 +165,39 @@ export async function runWorkerLaneIteration(lane: JobLane): Promise<number> {
   const jobs = await claimAvailableJobsForLane({
     lane,
     limit: getLaneConcurrency(lane),
-  });
+  })
 
   if (jobs.length === 0) {
-    return 0;
+    return 0
   }
 
   const results = await Promise.allSettled(
     jobs.map(async (job) => {
       try {
-        await processClaimedJob(job);
+        await processClaimedJob(job)
       } catch (error) {
         console.error(
           `[worker] job ${job.id} failed: ${getErrorMessage(error)}`,
-        );
+        )
       }
     }),
-  );
+  )
 
   for (const result of results) {
     if (result.status === "rejected") {
       console.error(
         `[worker] ${lane} lane execution failed: ${getErrorMessage(result.reason)}`,
-      );
+      )
     }
   }
 
-  return jobs.length;
+  return jobs.length
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message.length > 0) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown worker error";
+  return "Unknown worker error"
 }

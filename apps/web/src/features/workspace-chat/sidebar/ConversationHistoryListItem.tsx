@@ -3,10 +3,7 @@
 import type { WorkspaceChatConversationSummary } from "@otto/feature-workspace-chat"
 import { Link, useMatchRoute } from "@tanstack/react-router"
 
-import {
-  SidebarMenuButton,
-  SidebarMenuItem,
-} from "@/components/ui/sidebar"
+import { SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar"
 
 import {
   describeConversationHistoryType,
@@ -52,12 +49,15 @@ export function ConversationHistoryListItem({
         className="h-8 gap-2 pr-2.5"
       >
         <span
-          aria-label={describeConversationHistoryType(conversation)}
           className={`size-1.5 shrink-0 rounded-full ${getConversationHistoryIndicatorClassName(
             conversation,
           )}`}
           title={describeConversationHistoryType(conversation)}
-        />
+        >
+          <span className="sr-only">
+            {describeConversationHistoryType(conversation)}
+          </span>
+        </span>
         <span className="min-w-0 flex-1 truncate">
           {formatConversationHistoryTitle(conversation.title)}
         </span>

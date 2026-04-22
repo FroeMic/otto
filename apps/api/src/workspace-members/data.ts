@@ -1,16 +1,28 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { memberships, organizations, users } from "@otto/feature-integrations-runtime/db/schema"
+import {
+  memberships,
+  users,
+} from "@otto/feature-integrations-runtime/db/schema"
 import type {
   InviteWorkspaceMembersInput,
   WorkspaceMemberDirectory,
   WorkspaceMemberDirectoryEntry,
   WorkspaceMemberRoleOption,
 } from "@otto/feature-workspace-members"
-import { WorkOS, type Invitation, type OrganizationMembership, type Role, type User } from "@workos-inc/node"
+import {
+  type Invitation,
+  type OrganizationMembership,
+  type Role,
+  type User,
+  WorkOS,
+} from "@workos-inc/node"
 import { and, desc, eq } from "drizzle-orm"
 
 import { getApiEnv } from "../env"
-import { getOrganizationWorkspaceBySlug, syncUserFromSession } from "../workspace/data"
+import {
+  getOrganizationWorkspaceBySlug,
+  syncUserFromSession,
+} from "../workspace/data"
 
 const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active"
 
@@ -86,7 +98,9 @@ function buildWorkspaceRoleOption(role: Role): WorkspaceMemberRoleOption {
   }
 }
 
-function buildFallbackWorkspaceRoleOption(roleSlug: string): WorkspaceMemberRoleOption {
+function buildFallbackWorkspaceRoleOption(
+  roleSlug: string,
+): WorkspaceMemberRoleOption {
   return {
     description: null,
     id: roleSlug,
@@ -397,8 +411,8 @@ async function buildWorkspaceMemberEntryFromMembership(input: {
   currentMembershipId: string
   membership: OrganizationMembership
 }) {
-  const user = await getWorkOs().userManagement
-    .getUser(input.membership.userId)
+  const user = await getWorkOs()
+    .userManagement.getUser(input.membership.userId)
     .catch(() => null)
   const isCurrentUser =
     input.membership.id === input.currentMembershipId ||
@@ -519,20 +533,23 @@ export async function listWorkspaceMembers(input: {
       })
     })
 
-  const entries = [...memberEntries, ...invitationEntries].sort((left, right) => {
-    const orderDifference =
-      getWorkspaceMemberSortOrder(left) - getWorkspaceMemberSortOrder(right)
+  const entries = [...memberEntries, ...invitationEntries].sort(
+    (left, right) => {
+      const orderDifference =
+        getWorkspaceMemberSortOrder(left) - getWorkspaceMemberSortOrder(right)
 
-    if (orderDifference !== 0) {
-      return orderDifference
-    }
+      if (orderDifference !== 0) {
+        return orderDifference
+      }
 
-    return left.name.localeCompare(right.name)
-  })
+      return left.name.localeCompare(right.name)
+    },
+  )
 
   return {
-    activeMemberCount: memberEntries.filter((entry) => entry.status === "active")
-      .length,
+    activeMemberCount: memberEntries.filter(
+      (entry) => entry.status === "active",
+    ).length,
     availableRoles,
     canManageMembers,
     entries,
@@ -898,7 +915,8 @@ export async function resendWorkspaceInvitation(input: {
         (getWorkspaceRoleOptionBySlug(
           availableRoles,
           pendingMembership.role.slug,
-        ) ?? buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
     }),
   }
 }
@@ -958,7 +976,8 @@ export async function revokeWorkspaceInvitation(input: {
         (getWorkspaceRoleOptionBySlug(
           availableRoles,
           pendingMembership.role.slug,
-        ) ?? buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
+        ) ??
+          buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
     }),
   }
 }

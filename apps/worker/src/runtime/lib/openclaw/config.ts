@@ -1,102 +1,102 @@
-import { normalizeTimeFormatPreference, normalizeTimeZone } from "../date-time";
-import { getControlPlaneBaseUrl, getEnv, getOpenAiProxyBaseUrl } from "../env";
-import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "../managed-skills/system-skills";
-import { validateOpenClawSlackConfig } from "./slack-schema";
+import { normalizeTimeFormatPreference, normalizeTimeZone } from "../date-time"
+import { getControlPlaneBaseUrl, getEnv, getOpenAiProxyBaseUrl } from "../env"
+import { DEFAULT_BUNDLED_SKILL_ALLOWLIST } from "../managed-skills/system-skills"
 import {
   getDefaultSlackRuntimeConfig,
   parseSlackRuntimeConfig,
-} from "../slack-config";
-import type { OpenClawWebSearchConfig } from "../web-search-config";
-import { parseWebSearchRuntimeConfig } from "../web-search-config";
+} from "../slack-config"
+import type { OpenClawWebSearchConfig } from "../web-search-config"
+import { parseWebSearchRuntimeConfig } from "../web-search-config"
 import {
   getDefaultWhatsAppRuntimeConfig,
   parseWhatsAppRuntimeConfig,
-} from "../whatsapp-config";
+} from "../whatsapp-config"
+import { validateOpenClawSlackConfig } from "./slack-schema"
 
 export type OpenClawAudioModelConfig = {
-  model: string;
-  provider: string;
-};
+  model: string
+  provider: string
+}
 
 export type OpenClawTenantAudioConfig = {
-  echoTranscript?: boolean;
-  enabled: boolean;
-  maxBytes?: number;
-  models: OpenClawAudioModelConfig[];
-};
+  echoTranscript?: boolean
+  enabled: boolean
+  maxBytes?: number
+  models: OpenClawAudioModelConfig[]
+}
 
 export type OpenClawTenantConfig = {
-  audio?: OpenClawTenantAudioConfig;
-  authTokenEnvVar: string;
-  envelopeTimezone?: "local" | "utc" | "user" | string;
-  gatewayPort: number;
+  audio?: OpenClawTenantAudioConfig
+  authTokenEnvVar: string
+  envelopeTimezone?: "local" | "utc" | "user" | string
+  gatewayPort: number
   modelProviders?: Record<
     string,
     {
-      api?: string;
-      apiKey?: string;
-      baseUrl?: string;
+      api?: string
+      apiKey?: string
+      baseUrl?: string
       models?: Array<{
-        id: string;
-        name: string;
-      }>;
+        id: string
+        name: string
+      }>
     }
-  >;
+  >
   ottoPlugins?: Array<{
-    config?: Record<string, unknown>;
-    id: string;
-    timeoutMs?: number;
-  }>;
+    config?: Record<string, unknown>
+    id: string
+    timeoutMs?: number
+  }>
   ottoProviderPlugins?: Array<{
-    id: string;
-  }>;
-  bundledSkillAllowlist?: string[];
-  primaryModel?: string;
-  timeFormat?: "12" | "24" | "auto";
+    id: string
+  }>
+  bundledSkillAllowlist?: string[]
+  primaryModel?: string
+  timeFormat?: "12" | "24" | "auto"
   slack?: {
-    ackReactionEnabled: boolean;
-    allowedChannelIds: string[];
-    allowedUserIds: string[];
-    answerInThreads: boolean;
-    channelAccessMode: "manual_allowlist" | "member_of_channels";
-    enabled: boolean;
-    mode: "socket" | "http";
-    requireMentionInChannels: boolean;
-    signingSecret?: string;
-    webhookPath?: string;
-  };
+    ackReactionEnabled: boolean
+    allowedChannelIds: string[]
+    allowedUserIds: string[]
+    answerInThreads: boolean
+    channelAccessMode: "manual_allowlist" | "member_of_channels"
+    enabled: boolean
+    mode: "socket" | "http"
+    requireMentionInChannels: boolean
+    signingSecret?: string
+    webhookPath?: string
+  }
   whatsapp?: {
-    ackReactionEnabled: boolean;
-    allowedGroupIds: string[];
-    allowedNumbers: string[];
-    dmPolicy: "pairing" | "allowlist" | "disabled";
-    enabled: boolean;
-    groupAllowedNumbers: string[];
-    groupPolicy: "disabled" | "allowlist";
-    requireMentionInGroups: boolean;
-  };
-  tenantId: string;
-  integrations: string[];
-  prompts: Record<string, string>;
-  userTimezone?: string;
-  webSearch?: OpenClawWebSearchConfig;
-  workspacePath: string;
-};
+    ackReactionEnabled: boolean
+    allowedGroupIds: string[]
+    allowedNumbers: string[]
+    dmPolicy: "pairing" | "allowlist" | "disabled"
+    enabled: boolean
+    groupAllowedNumbers: string[]
+    groupPolicy: "disabled" | "allowlist"
+    requireMentionInGroups: boolean
+  }
+  tenantId: string
+  integrations: string[]
+  prompts: Record<string, string>
+  userTimezone?: string
+  webSearch?: OpenClawWebSearchConfig
+  workspacePath: string
+}
 
-export const OPENCLAW_GATEWAY_BIND = "lan";
-export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789;
-export const OPENCLAW_GATEWAY_HOST_PORT = 18791;
-export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events";
+export const OPENCLAW_GATEWAY_BIND = "lan"
+export const OPENCLAW_GATEWAY_CONTAINER_PORT = 18789
+export const OPENCLAW_GATEWAY_HOST_PORT = 18791
+export const TENANT_RUNTIME_SLACK_WEBHOOK_PATH = "/slack/events"
 
-const OPENAI_PROXY_PROVIDER_ID = "openai-proxy";
-const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider";
-export const OTTO_WEB_SEARCH_PROVIDER_ID = "otto-web-search";
-export const OTTO_WEB_PROVIDER_PLUGIN_ID = "otto-web-provider";
+const OPENAI_PROXY_PROVIDER_ID = "openai-proxy"
+const OTTO_AI_PROVIDER_PLUGIN_ID = "otto-ai-provider"
+export const OTTO_WEB_SEARCH_PROVIDER_ID = "otto-web-search"
+export const OTTO_WEB_PROVIDER_PLUGIN_ID = "otto-web-provider"
 const OPTIONAL_OTTO_TOOL_PLUGIN_IDS = new Set([
   "otto-managed-config",
   "otto-managed-skills",
   "otto-integrations",
-]);
+])
 const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
   "amazon-bedrock",
   "amazon-bedrock-mantle",
@@ -142,25 +142,25 @@ const DEFAULT_DISABLED_BUNDLED_PLUGIN_IDS = [
   "xai",
   "xiaomi",
   "zai",
-] as const;
+] as const
 
 function buildWebSearchPluginEntries(
   webSearch: OpenClawWebSearchConfig | undefined,
 ): Record<
   string,
   {
-    enabled: true;
+    enabled: true
   }
 > {
   if (!webSearch) {
-    return {};
+    return {}
   }
 
   return {
     [OTTO_WEB_PROVIDER_PLUGIN_ID]: {
       enabled: true,
     },
-  };
+  }
 }
 
 function shouldRouteAudioThroughOpenAiProxy(
@@ -171,17 +171,17 @@ function shouldRouteAudioThroughOpenAiProxy(
       audio.models.some(
         (model) => normalizeProviderId(model.provider) === "openai",
       ),
-  );
+  )
 }
 
 function normalizeProviderId(value: string) {
-  return value.trim().toLowerCase();
+  return value.trim().toLowerCase()
 }
 
 function buildDefaultDisabledPluginEntries(): Record<
   string,
   {
-    enabled: false;
+    enabled: false
   }
 > {
   return Object.fromEntries(
@@ -189,18 +189,17 @@ function buildDefaultDisabledPluginEntries(): Record<
       pluginId,
       { enabled: false as const },
     ]),
-  );
+  )
 }
 
 export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
   const bundledSkillAllowlist = config.bundledSkillAllowlist ?? [
     ...DEFAULT_BUNDLED_SKILL_ALLOWLIST,
-  ];
-  const ottoToolPluginIds =
-    config.ottoPlugins?.map((plugin) => plugin.id) ?? [];
+  ]
+  const ottoToolPluginIds = config.ottoPlugins?.map((plugin) => plugin.id) ?? []
   const optionalOttoToolPluginIds = ottoToolPluginIds.filter((pluginId) =>
     OPTIONAL_OTTO_TOOL_PLUGIN_IDS.has(pluginId),
-  );
+  )
   const workspaceChatChannelConfig = ottoToolPluginIds.includes(
     "otto-workspace-chat",
   )
@@ -208,7 +207,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         enabled: true,
         managed: true,
       }
-    : undefined;
+    : undefined
   const ottoToolPluginEntries = Object.fromEntries(
     (config.ottoPlugins ?? []).map((plugin) => [
       plugin.id,
@@ -219,18 +218,18 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
             ...(plugin.timeoutMs === undefined
               ? {}
               : { timeoutMs: plugin.timeoutMs }),
-          };
+          }
 
           return Object.keys(pluginConfig).length > 0
             ? { config: pluginConfig }
-            : {};
+            : {}
         })(),
         enabled: true,
       },
     ]),
-  );
+  )
   const ottoProviderPluginIds =
-    config.ottoProviderPlugins?.map((plugin) => plugin.id) ?? [];
+    config.ottoProviderPlugins?.map((plugin) => plugin.id) ?? []
   const ottoProviderPluginEntries = Object.fromEntries(
     (config.ottoProviderPlugins ?? []).map((plugin) => [
       plugin.id,
@@ -238,25 +237,25 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
         enabled: true,
       },
     ]),
-  );
-  const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch);
-  const defaultDisabledPluginEntries = buildDefaultDisabledPluginEntries();
+  )
+  const webSearchPluginEntries = buildWebSearchPluginEntries(config.webSearch)
+  const defaultDisabledPluginEntries = buildDefaultDisabledPluginEntries()
   const pluginIds = [
     ...new Set([
       ...ottoToolPluginIds,
       ...ottoProviderPluginIds,
       ...Object.keys(webSearchPluginEntries),
     ]),
-  ];
+  ]
   const pluginEntries = {
     ...defaultDisabledPluginEntries,
     ...ottoToolPluginEntries,
     ...ottoProviderPluginEntries,
     ...webSearchPluginEntries,
-  };
-  const slack = config.slack;
-  const whatsapp = config.whatsapp;
-  const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0;
+  }
+  const slack = config.slack
+  const whatsapp = config.whatsapp
+  const slackDirectMessagesEnabled = (slack?.allowedUserIds.length ?? 0) > 0
   const slackChannelConfig = slack
     ? {
         ackReaction: slack.ackReactionEnabled ? "eyes" : "",
@@ -308,16 +307,16 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           initialHistoryLimit: 20,
         },
       }
-    : undefined;
+    : undefined
   if (slackChannelConfig) {
-    validateOpenClawSlackConfig(slackChannelConfig);
+    validateOpenClawSlackConfig(slackChannelConfig)
   }
   const whatsappChannelConfig = whatsapp
     ? (() => {
         const whatsappGroupAllowedNumbers =
           whatsapp.groupAllowedNumbers.length > 0
             ? whatsapp.groupAllowedNumbers
-            : whatsapp.allowedNumbers;
+            : whatsapp.allowedNumbers
 
         return {
           ...(whatsapp.ackReactionEnabled
@@ -357,9 +356,9 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
                 ),
               }
             : {}),
-        };
+        }
       })()
-    : undefined;
+    : undefined
   const mediaTools = config.audio
     ? {
         media: {
@@ -379,7 +378,7 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           },
         },
       }
-    : undefined;
+    : undefined
   const webTools = config.webSearch
     ? {
         web: {
@@ -404,18 +403,18 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
           },
         },
       }
-    : undefined;
+    : undefined
   const execTools = {
     exec: {
       ask: "off",
       host: "gateway",
       security: "full",
     },
-  };
+  }
   const gatewayToolsAllow = [
     "cron",
     ...(whatsappChannelConfig ? ["whatsapp_login"] : []),
-  ];
+  ]
 
   return JSON.stringify(
     {
@@ -527,28 +526,28 @@ export function renderOpenClawConfig(config: OpenClawTenantConfig): string {
     },
     null,
     2,
-  );
+  )
 }
 
 export function buildOpenClawTenantConfig(input: {
-  configJson: unknown;
-  slackBotToken?: string | null;
-  tenantId: string;
+  configJson: unknown
+  slackBotToken?: string | null
+  tenantId: string
 }): OpenClawTenantConfig {
-  const config = parseRecord(input.configJson);
-  const env = getEnv();
-  const controlPlaneBaseUrl = getControlPlaneBaseUrl();
-  const openAiProxyBaseUrl = getOpenAiProxyBaseUrl();
-  const hasSlackBotToken = Boolean(input.slackBotToken);
-  const audio = parseAudioConfig(config.media);
-  const slackPolicy = parseSlackPolicy(config.slack);
-  const whatsappPolicy = parseWhatsAppPolicy(config.whatsapp);
-  const webSearch = parseWebSearchConfig(config.webSearch);
-  const userTimezone = normalizeTimeZone(readOptionalString(config.timezone));
+  const config = parseRecord(input.configJson)
+  const env = getEnv()
+  const controlPlaneBaseUrl = getControlPlaneBaseUrl()
+  const openAiProxyBaseUrl = getOpenAiProxyBaseUrl()
+  const hasSlackBotToken = Boolean(input.slackBotToken)
+  const audio = parseAudioConfig(config.media)
+  const slackPolicy = parseSlackPolicy(config.slack)
+  const whatsappPolicy = parseWhatsAppPolicy(config.whatsapp)
+  const webSearch = parseWebSearchConfig(config.webSearch)
+  const userTimezone = normalizeTimeZone(readOptionalString(config.timezone))
   const timeFormat = normalizeTimeFormatPreference(
     readOptionalString(config.timeFormat),
-  );
-  const primaryModel = env.RUNTIME_MODEL_PRIMARY;
+  )
+  const primaryModel = env.RUNTIME_MODEL_PRIMARY
   const ottoPlugins = mergeOttoPlugins(
     controlPlaneBaseUrl
       ? [
@@ -574,23 +573,23 @@ export function buildOpenClawTenantConfig(input: {
         ]
       : [],
     parseOttoPlugins(config.ottoPlugins),
-  );
+  )
   const proxyModelConfig = resolveProxyModelConfig({
     audioUsesOpenAi: shouldRouteAudioThroughOpenAiProxy(audio),
     openAiProxyBaseUrl,
     primaryModel,
-  });
+  })
 
   if (webSearch && !controlPlaneBaseUrl) {
     throw new Error(
       `${OTTO_WEB_SEARCH_PROVIDER_ID} requires OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
-    );
+    )
   }
 
   if (hasSlackBotToken && !env.SLACK_SIGNING_SECRET) {
     throw new Error(
       "SLACK_SIGNING_SECRET is required to render Slack in HTTP mode for tenant runtimes.",
-    );
+    )
   }
   return {
     ...(audio ? { audio } : {}),
@@ -613,7 +612,7 @@ export function buildOpenClawTenantConfig(input: {
               },
             ]
           : []),
-      ];
+      ]
 
       return {
         ...(proxyModelConfig
@@ -626,7 +625,7 @@ export function buildOpenClawTenantConfig(input: {
               ottoProviderPlugins,
             }
           : {}),
-      };
+      }
     })(),
     primaryModel,
     prompts: parseStringRecord(config.prompts),
@@ -670,26 +669,26 @@ export function buildOpenClawTenantConfig(input: {
     tenantId: input.tenantId,
     userTimezone,
     workspacePath: "/home/node/.openclaw/workspace",
-  };
+  }
 }
 
 function resolveProxyModelConfig(input: {
-  audioUsesOpenAi: boolean;
-  openAiProxyBaseUrl?: string;
-  primaryModel: string;
+  audioUsesOpenAi: boolean
+  openAiProxyBaseUrl?: string
+  primaryModel: string
 }) {
   const needsProxyConfig =
     input.primaryModel.startsWith(`${OPENAI_PROXY_PROVIDER_ID}/`) ||
-    input.audioUsesOpenAi;
+    input.audioUsesOpenAi
 
   if (!needsProxyConfig) {
-    return null;
+    return null
   }
 
   if (!input.openAiProxyBaseUrl) {
     throw new Error(
       `${OPENAI_PROXY_PROVIDER_ID} requires OTTO_OPENAI_PROXY_BASE_URL or OTTO_CONTROL_PLANE_BASE_URL to be configured.`,
-    );
+    )
   }
 
   return {
@@ -709,7 +708,7 @@ function resolveProxyModelConfig(input: {
         id: OTTO_AI_PROVIDER_PLUGIN_ID,
       },
     ],
-  };
+  }
 }
 
 function maybeRewriteAudioModelsToProxy(config: OpenClawTenantConfig) {
@@ -717,10 +716,10 @@ function maybeRewriteAudioModelsToProxy(config: OpenClawTenantConfig) {
     Boolean(config.modelProviders?.[OPENAI_PROXY_PROVIDER_ID]) &&
     (config.ottoProviderPlugins ?? []).some(
       (plugin) => plugin.id === OTTO_AI_PROVIDER_PLUGIN_ID,
-    );
+    )
 
   if (!hasOpenAiProxyProvider) {
-    return config.audio?.models;
+    return config.audio?.models
   }
 
   return config.audio?.models.map((model) =>
@@ -730,55 +729,55 @@ function maybeRewriteAudioModelsToProxy(config: OpenClawTenantConfig) {
           provider: OPENAI_PROXY_PROVIDER_ID,
         }
       : model,
-  );
+  )
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
+    return {}
   }
 
-  return value as Record<string, unknown>;
+  return value as Record<string, unknown>
 }
 
 function parseStringRecord(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
+    return {}
   }
 
   return Object.fromEntries(
     Object.entries(value).filter((entry): entry is [string, string] => {
-      return typeof entry[1] === "string";
+      return typeof entry[1] === "string"
     }),
-  );
+  )
 }
 
 function parseStringArray(value: unknown) {
   if (!Array.isArray(value)) {
-    return [];
+    return []
   }
 
   return value.filter(
     (entry): entry is string => typeof entry === "string" && entry.length > 0,
-  );
+  )
 }
 
 function parseOttoPlugins(
   value: unknown,
 ): NonNullable<OpenClawTenantConfig["ottoPlugins"]> {
   if (!Array.isArray(value)) {
-    return [];
+    return []
   }
 
   return value.flatMap((entry) => {
-    const plugin = parseRecord(entry);
-    const id = readOptionalString(plugin.id);
+    const plugin = parseRecord(entry)
+    const id = readOptionalString(plugin.id)
 
     if (!id) {
-      return [];
+      return []
     }
 
-    const config = parseRecord(plugin.config);
+    const config = parseRecord(plugin.config)
 
     return [
       {
@@ -789,8 +788,8 @@ function parseOttoPlugins(
           ? { timeoutMs: plugin.timeoutMs }
           : {}),
       },
-    ];
-  });
+    ]
+  })
 }
 
 function mergeOttoPlugins(
@@ -799,23 +798,23 @@ function mergeOttoPlugins(
   const merged = new Map<
     string,
     NonNullable<OpenClawTenantConfig["ottoPlugins"]>[number]
-  >();
+  >()
 
   for (const plugins of pluginGroups) {
     for (const plugin of plugins) {
-      merged.set(plugin.id, plugin);
+      merged.set(plugin.id, plugin)
     }
   }
 
-  return Array.from(merged.values());
+  return Array.from(merged.values())
 }
 
 function readOptionalString(value: unknown) {
-  return typeof value === "string" && value.trim().length > 0 ? value : null;
+  return typeof value === "string" && value.trim().length > 0 ? value : null
 }
 
 function parseSlackPolicy(value: unknown) {
-  const slackConfig = parseRecord(value);
+  const slackConfig = parseRecord(value)
 
   return parseSlackRuntimeConfig({
     ackReactionEnabled:
@@ -838,16 +837,16 @@ function parseSlackPolicy(value: unknown) {
       typeof slackConfig.requireMentionInChannels === "boolean"
         ? slackConfig.requireMentionInChannels
         : getDefaultSlackRuntimeConfig().requireMentionInChannels,
-  });
+  })
 }
 
 function parseAudioConfig(
   value: unknown,
 ): OpenClawTenantAudioConfig | undefined {
-  const mediaConfig = parseRecord(value);
-  const audioConfig = parseRecord(mediaConfig.audio);
-  const provider = audioConfig.provider;
-  const model = audioConfig.model;
+  const mediaConfig = parseRecord(value)
+  const audioConfig = parseRecord(mediaConfig.audio)
+  const provider = audioConfig.provider
+  const model = audioConfig.model
 
   if (
     audioConfig.enabled !== true ||
@@ -856,7 +855,7 @@ function parseAudioConfig(
     typeof model !== "string" ||
     model.length === 0
   ) {
-    return undefined;
+    return undefined
   }
 
   return {
@@ -879,18 +878,18 @@ function parseAudioConfig(
         provider,
       },
     ],
-  };
+  }
 }
 
 function parseWhatsAppPolicy(value: unknown) {
-  const whatsappConfig = parseRecord(value);
+  const whatsappConfig = parseRecord(value)
 
   if (
     Object.keys(whatsappConfig).length === 0 &&
     !("dmPolicy" in whatsappConfig) &&
     !("groupPolicy" in whatsappConfig)
   ) {
-    return undefined;
+    return undefined
   }
 
   return parseWhatsAppRuntimeConfig({
@@ -917,16 +916,16 @@ function parseWhatsAppPolicy(value: unknown) {
       typeof whatsappConfig.requireMentionInGroups === "boolean"
         ? whatsappConfig.requireMentionInGroups
         : getDefaultWhatsAppRuntimeConfig().requireMentionInGroups,
-  });
+  })
 }
 
 function parseWebSearchConfig(
   value: unknown,
 ): OpenClawWebSearchConfig | undefined {
-  const parsed = parseWebSearchRuntimeConfig(parseRecord(value));
+  const parsed = parseWebSearchRuntimeConfig(parseRecord(value))
 
   if (!parsed.provider) {
-    return undefined;
+    return undefined
   }
 
   return {
@@ -1009,5 +1008,5 @@ function parseWebSearchConfig(
           timeoutSeconds: parsed.timeoutSeconds,
         }
       : {}),
-  };
+  }
 }

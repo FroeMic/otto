@@ -1,9 +1,9 @@
+import type { RuntimeDirectoryFileSnapshot } from "@otto/feature-runtime-core/runtime-files/types"
 import {
   DownloadSimpleIcon,
   FileIcon,
   FolderOpenIcon,
 } from "@phosphor-icons/react"
-import type { RuntimeDirectoryFileSnapshot } from "@otto/feature-runtime-core/runtime-files/types"
 
 import { Badge } from "@/components/ui/badge"
 import { buttonVariants } from "@/components/ui/button"
@@ -99,7 +99,9 @@ export function RuntimeFilePreview({
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>{formatFileSize(file.sizeBytes)}</span>
             {file.contentType ? <span>{file.contentType}</span> : null}
-            {file.truncated ? <Badge variant="secondary">Preview truncated</Badge> : null}
+            {file.truncated ? (
+              <Badge variant="secondary">Preview truncated</Badge>
+            ) : null}
           </div>
         </div>
 
@@ -124,7 +126,8 @@ export function RuntimeFilePreview({
               src={inlineUrl}
             />
           </div>
-        ) : file.storageEncoding === "utf8_text" && file.contentText !== null ? (
+        ) : file.storageEncoding === "utf8_text" &&
+          file.contentText !== null ? (
           <pre className="h-full overflow-auto whitespace-pre-wrap break-words px-5 py-4 font-mono text-sm leading-6">
             {file.contentText}
           </pre>
@@ -132,10 +135,12 @@ export function RuntimeFilePreview({
           <div className="flex h-full flex-col items-center justify-center gap-3 px-6 py-12 text-center">
             <FileIcon className="size-8 text-muted-foreground" />
             <div className="flex max-w-sm flex-col gap-1">
-              <span className="text-sm font-medium">Binary file preview unavailable</span>
+              <span className="text-sm font-medium">
+                Binary file preview unavailable
+              </span>
               <span className="text-sm text-muted-foreground">
-                This file can be downloaded, but it cannot be previewed directly in
-                the browser.
+                This file can be downloaded, but it cannot be previewed directly
+                in the browser.
               </span>
             </div>
             <a

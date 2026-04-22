@@ -258,9 +258,7 @@ export function SettingsSidebar({
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      render={
-                        <Link to={href} />
-                      }
+                      render={<Link to={href} />}
                       className="px-2.5"
                       isActive={isSettingsItemActive(
                         href,
@@ -288,9 +286,7 @@ export function SettingsSidebar({
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton
-                      render={
-                        <Link to={href} />
-                      }
+                      render={<Link to={href} />}
                       className="px-2.5"
                       isActive={isSettingsItemActive(
                         href,
@@ -351,7 +347,10 @@ export function SettingsSidebar({
       </SidebarContent>
 
       <SidebarFooter>
-        <UserMenu currentOrganizationSlug={currentOrganization.slug} user={user} />
+        <UserMenu
+          currentOrganizationSlug={currentOrganization.slug}
+          user={user}
+        />
       </SidebarFooter>
     </Sidebar>
   )

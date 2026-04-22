@@ -3,24 +3,24 @@ export const BILLING_PLAN_KEYS = {
   maxMonthly: "max_monthly",
   plusMonthly: "plus_monthly",
   proMonthly: "pro_monthly",
-} as const;
+} as const
 
 export type BillingPlanKey =
-  (typeof BILLING_PLAN_KEYS)[keyof typeof BILLING_PLAN_KEYS];
+  (typeof BILLING_PLAN_KEYS)[keyof typeof BILLING_PLAN_KEYS]
 
 export type BillingPlan = {
-  creditsIncluded: number;
-  key: BillingPlanKey;
-  monthlyPriceUsd: number;
-  name: string;
-};
+  creditsIncluded: number
+  key: BillingPlanKey
+  monthlyPriceUsd: number
+  name: string
+}
 
 export type AutoTopOffPack = {
-  amountCents: number;
-  creditsGranted: number;
-  label: string;
-  lookupKey: string;
-};
+  amountCents: number
+  creditsGranted: number
+  label: string
+  lookupKey: string
+}
 
 export function getBillingPlans(): BillingPlan[] {
   return [
@@ -48,11 +48,11 @@ export function getBillingPlans(): BillingPlan[] {
       monthlyPriceUsd: 200,
       name: "Max",
     },
-  ];
+  ]
 }
 
 export function getBillingPlanByKey(key: string): BillingPlan | null {
-  return getBillingPlans().find((plan) => plan.key === key) ?? null;
+  return getBillingPlans().find((plan) => plan.key === key) ?? null
 }
 
 export function getAutoTopOffPacks(): AutoTopOffPack[] {
@@ -81,18 +81,18 @@ export function getAutoTopOffPacks(): AutoTopOffPack[] {
       label: "Max top-up",
       lookupKey: "top_up_200",
     },
-  ];
+  ]
 }
 
 export function getAutoTopOffPackByAmountCents(amountCents: number) {
   return (
     getAutoTopOffPacks().find((pack) => pack.amountCents === amountCents) ??
     null
-  );
+  )
 }
 
 export function getAutoTopOffPackByLookupKey(lookupKey: string) {
   return (
     getAutoTopOffPacks().find((pack) => pack.lookupKey === lookupKey) ?? null
-  );
+  )
 }

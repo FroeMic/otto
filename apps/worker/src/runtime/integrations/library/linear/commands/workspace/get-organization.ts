@@ -1,6 +1,6 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
-import { executeLinearGraphql } from "../../client";
+import { executeLinearGraphql } from "../../client"
 
 const GET_ORGANIZATION_QUERY = `
   query OttoLinearGetOrganization {
@@ -19,33 +19,33 @@ const GET_ORGANIZATION_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceGetOrganization: IntegrationCommandExecute =
   async ({ context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const data = await executeLinearGraphql<{
       organization: {
-        createdAt?: string | null;
-        createdIssueCount?: number | null;
-        customerCount?: number | null;
-        id: string;
-        logoUrl?: string | null;
-        name?: string | null;
-        periodUploadVolume?: number | null;
+        createdAt?: string | null
+        createdIssueCount?: number | null
+        customerCount?: number | null
+        id: string
+        logoUrl?: string | null
+        name?: string | null
+        periodUploadVolume?: number | null
         projectStatuses?: Array<{
-          id?: string | null;
-        }> | null;
-        roadmapEnabled?: boolean | null;
-        urlKey?: string | null;
-      };
+          id?: string | null
+        }> | null
+        roadmapEnabled?: boolean | null
+        urlKey?: string | null
+      }
     }>({
       accessToken: context.auth.accessToken,
       query: GET_ORGANIZATION_QUERY,
-    });
+    })
 
     return {
       commandKey: "workspace.get_organization",
@@ -74,5 +74,5 @@ export const executeLinearWorkspaceGetOrganization: IntegrationCommandExecute =
         urlKey: data.organization.urlKey?.trim() || null,
       },
       source: "linear",
-    };
-  };
+    }
+  }

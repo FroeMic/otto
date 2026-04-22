@@ -39,13 +39,14 @@ export function workspaceSkillDetailQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].$get({
-          param: {
-            orgSlug: input.orgSlug,
-            skillKey: input.skillKey,
-          },
-        })
+      const response = await apiClient.api.workspace[":orgSlug"].skills[
+        ":skillKey"
+      ].$get({
+        param: {
+          orgSlug: input.orgSlug,
+          skillKey: input.skillKey,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceSkillDetailResponseSchema.parse(data),
@@ -62,15 +63,14 @@ export function workspaceSkillLibraryDetailQueryOptions(input: {
 }) {
   return queryOptions({
     queryFn: async () => {
-      const response =
-        await apiClient.api.workspace[":orgSlug"].skills.library[":skillKey"].$get(
-          {
-            param: {
-              orgSlug: input.orgSlug,
-              skillKey: input.skillKey,
-            },
-          },
-        )
+      const response = await apiClient.api.workspace[":orgSlug"].skills.library[
+        ":skillKey"
+      ].$get({
+        param: {
+          orgSlug: input.orgSlug,
+          skillKey: input.skillKey,
+        },
+      })
 
       return fetchApiResponse(response, (data) =>
         workspaceSkillLibraryDetailResponseSchema.parse(data),
@@ -119,21 +119,22 @@ export async function updateWorkspaceSkill(input: {
   skillKey: string
   skillKeys: string[]
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].$patch({
-      json: workspaceSkillUpdateRequestSchema.parse({
-        description: input.description,
-        expectedVersion: input.expectedVersion,
-        integrationKeys: input.integrationKeys,
-        name: input.name,
-        skillBody: input.skillBody,
-        skillKeys: input.skillKeys,
-      }),
-      param: {
-        orgSlug: input.orgSlug,
-        skillKey: input.skillKey,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].skills[
+    ":skillKey"
+  ].$patch({
+    json: workspaceSkillUpdateRequestSchema.parse({
+      description: input.description,
+      expectedVersion: input.expectedVersion,
+      integrationKeys: input.integrationKeys,
+      name: input.name,
+      skillBody: input.skillBody,
+      skillKeys: input.skillKeys,
+    }),
+    param: {
+      orgSlug: input.orgSlug,
+      skillKey: input.skillKey,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillMutationResponseSchema.parse(data),
@@ -144,15 +145,14 @@ export async function installWorkspaceLibrarySkill(input: {
   orgSlug: string
   skillKey: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].skills.library[":skillKey"].install.$post(
-      {
-        param: {
-          orgSlug: input.orgSlug,
-          skillKey: input.skillKey,
-        },
-      },
-    )
+  const response = await apiClient.api.workspace[":orgSlug"].skills.library[
+    ":skillKey"
+  ].install.$post({
+    param: {
+      orgSlug: input.orgSlug,
+      skillKey: input.skillKey,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillMutationResponseSchema.parse(data),
@@ -165,17 +165,18 @@ export async function resetWorkspaceSkillPackage(input: {
   scope?: "companion_files"
   skillKey: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].reset.$post({
-      json: workspaceSkillResetRequestSchema.parse({
-        expectedVersion: input.expectedVersion,
-        scope: input.scope ?? "companion_files",
-      }),
-      param: {
-        orgSlug: input.orgSlug,
-        skillKey: input.skillKey,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].skills[
+    ":skillKey"
+  ].reset.$post({
+    json: workspaceSkillResetRequestSchema.parse({
+      expectedVersion: input.expectedVersion,
+      scope: input.scope ?? "companion_files",
+    }),
+    param: {
+      orgSlug: input.orgSlug,
+      skillKey: input.skillKey,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillResetResponseSchema.parse(data),
@@ -187,16 +188,17 @@ export async function removeWorkspaceSkill(input: {
   orgSlug: string
   skillKey: string
 }) {
-  const response =
-    await apiClient.api.workspace[":orgSlug"].skills[":skillKey"].$delete({
-      json: workspaceSkillDeleteRequestSchema.parse({
-        expectedVersion: input.expectedVersion,
-      }),
-      param: {
-        orgSlug: input.orgSlug,
-        skillKey: input.skillKey,
-      },
-    })
+  const response = await apiClient.api.workspace[":orgSlug"].skills[
+    ":skillKey"
+  ].$delete({
+    json: workspaceSkillDeleteRequestSchema.parse({
+      expectedVersion: input.expectedVersion,
+    }),
+    param: {
+      orgSlug: input.orgSlug,
+      skillKey: input.skillKey,
+    },
+  })
 
   return fetchApiResponse(response, (data) =>
     workspaceSkillDeleteResponseSchema.parse(data),

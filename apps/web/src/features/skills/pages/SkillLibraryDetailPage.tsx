@@ -118,7 +118,11 @@ function buildLibraryPreviewDownloadUrl(input: {
 }) {
   const file = input.snapshot.files.find((entry) => entry.path === input.path)
 
-  if (!file || file.storageEncoding !== "utf8_text" || file.contentText === null) {
+  if (
+    !file ||
+    file.storageEncoding !== "utf8_text" ||
+    file.contentText === null
+  ) {
     return "#"
   }
 

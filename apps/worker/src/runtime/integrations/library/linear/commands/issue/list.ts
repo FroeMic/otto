@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   executeLinearGraphql,
@@ -6,7 +6,7 @@ import {
   type LinearIssueNode,
   mapLinearIssue,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 
 const LIST_ISSUES_QUERY = `
   query OttoLinearIssueList($limit: Int!) {
@@ -16,32 +16,32 @@ const LIST_ISSUES_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearIssueList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 10,
     max: 50,
     value: args.limit,
-  });
+  })
   const data = await executeLinearGraphql<{
     issues?: {
-      nodes?: LinearIssueNode[] | null;
-    } | null;
+      nodes?: LinearIssueNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_ISSUES_QUERY,
     variables: {
       limit,
     },
-  });
+  })
 
   return {
     commandKey: "issue.list",
@@ -49,5 +49,5 @@ export const executeLinearIssueList: IntegrationCommandExecute = async ({
     items: (data.issues?.nodes ?? []).map(mapLinearIssue),
     limit,
     source: "linear",
-  };
-};
+  }
+}

@@ -1,11 +1,11 @@
-import assert from "node:assert/strict";
-import { describe, it } from "vitest";
+import assert from "node:assert/strict"
+import { describe, it } from "vitest"
 
 import {
   classifyManagedSkillFile,
   MANAGED_SKILL_ENTRY_FILE_PATH,
   validateManagedSkillPackage,
-} from "./package";
+} from "./package"
 
 const baseSkillContent = `---
 name: Name Generator
@@ -19,7 +19,7 @@ metadata:
 ---
 
 # Name Generator
-`;
+`
 
 describe("managed skill package", () => {
   it("classifies approved companion files as managed seeded files", () => {
@@ -34,8 +34,8 @@ describe("managed skill package", () => {
         path: "references/naming-strategies.md",
         storageEncoding: "utf8_text",
       },
-    );
-  });
+    )
+  })
 
   it("accepts canonical seeded companion files in approved subfolders", () => {
     const result = validateManagedSkillPackage({
@@ -53,7 +53,7 @@ describe("managed skill package", () => {
           path: "templates/output-shape.md",
         },
         {
-          contentText: "{\"recommendedNames\":[]}",
+          contentText: '{"recommendedNames":[]}',
           path: "examples/example-output.json",
         },
         {
@@ -64,7 +64,7 @@ describe("managed skill package", () => {
       knownIntegrationKeys: ["brave", "gandi"],
       knownSkillKeys: [],
       skillKey: "name-and-domain-research",
-    });
+    })
 
     assert.deepEqual(
       result.files.map((file) => ({
@@ -99,8 +99,8 @@ describe("managed skill package", () => {
           path: "templates/output-shape.md",
         },
       ],
-    );
-  });
+    )
+  })
 
   it("rejects canonical files in unsupported skill subfolders", () => {
     assert.throws(
@@ -121,6 +121,6 @@ describe("managed skill package", () => {
           skillKey: "name-and-domain-research",
         }),
       /Unsupported managed skill file path: notes\/private\.md/,
-    );
-  });
-});
+    )
+  })
+})

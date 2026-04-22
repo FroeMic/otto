@@ -1,7 +1,7 @@
 import { zValidator } from "@hono/zod-validator"
 import {
-  platformAddCurrentUserAdminResponseSchema,
   platformActionResponseSchema,
+  platformAddCurrentUserAdminResponseSchema,
   platformBootstrapSchema,
   platformCreateOrganizationResponseSchema,
   platformCreateOrganizationSchema,
@@ -13,9 +13,9 @@ import {
   platformJobStatusResponseSchema,
   platformOrganizationDetailResponseSchema,
   platformOrganizationsResponseSchema,
+  platformProvisionOpenAiKeyResponseSchema,
   platformProvisionServerResponseSchema,
   platformProvisionServerSchema,
-  platformProvisionOpenAiKeyResponseSchema,
   platformUsageQuerySchema,
   platformUsageSchema,
 } from "@otto/feature-platform"
@@ -29,7 +29,6 @@ import {
   syncUserFromSession,
   type WorkspaceSummary,
 } from "../workspace/data"
-import { authenticatePlatformRequest, type PlatformGuardDependencies } from "./guard"
 import {
   addCurrentUserAsPlatformOrganizationAdmin,
   cancelPlatformJob,
@@ -41,14 +40,18 @@ import {
   getTenantRuntimeGatewayToken,
   grantPlatformOrganizationCredits,
   triggerPlatformOrganizationApply,
-  triggerPlatformOrganizationProvisionServer,
   triggerPlatformOrganizationDeleteTenantServer,
   triggerPlatformOrganizationDeleteWorkspace,
   triggerPlatformOrganizationDeployRuntime,
   triggerPlatformOrganizationProvisionOpenAiKey,
+  triggerPlatformOrganizationProvisionServer,
   triggerPlatformOrganizationRefreshImage,
   triggerPlatformOrganizationSyncSkills,
 } from "./data"
+import {
+  authenticatePlatformRequest,
+  type PlatformGuardDependencies,
+} from "./guard"
 
 const workspaceParamsSchema = z.object({
   orgSlug: z.string().min(1),
@@ -133,7 +136,9 @@ export interface PlatformRouteDependencies extends PlatformGuardDependencies {
     orgSlug: string
     user: WorkspaceShellUser
   }) => Promise<unknown>
-  getDashboardOrganizations: (userExternalId: string) => Promise<WorkspaceSummary[]>
+  getDashboardOrganizations: (
+    userExternalId: string,
+  ) => Promise<WorkspaceSummary[]>
 }
 
 function createDefaultPlatformRouteDependencies(): PlatformRouteDependencies {
@@ -636,13 +641,12 @@ export function createPlatformRouter(
         const payload = context.req.valid("json")
 
         try {
-          const result = await dependencies.triggerPlatformOrganizationProvisionServer(
-            {
+          const result =
+            await dependencies.triggerPlatformOrganizationProvisionServer({
               orgSlug,
               provisioningStrategy: payload.provisioningStrategy,
               user: authResult.user,
-            },
-          )
+            })
 
           return context.json(
             platformProvisionServerResponseSchema.parse(result),
@@ -764,10 +768,11 @@ export function createPlatformRouter(
         const { orgSlug } = context.req.valid("param")
 
         try {
-          const result = await dependencies.triggerPlatformOrganizationDeployRuntime({
-            orgSlug,
-            user: authResult.user,
-          })
+          const result =
+            await dependencies.triggerPlatformOrganizationDeployRuntime({
+              orgSlug,
+              user: authResult.user,
+            })
 
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",
@@ -843,10 +848,11 @@ export function createPlatformRouter(
         const { orgSlug } = context.req.valid("param")
 
         try {
-          const result = await dependencies.triggerPlatformOrganizationRefreshImage({
-            orgSlug,
-            user: authResult.user,
-          })
+          const result =
+            await dependencies.triggerPlatformOrganizationRefreshImage({
+              orgSlug,
+              user: authResult.user,
+            })
 
           return context.json(platformActionResponseSchema.parse(result), 200, {
             "Cache-Control": "no-store",

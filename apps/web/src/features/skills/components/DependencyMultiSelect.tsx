@@ -19,13 +19,15 @@ import {
 import { cn } from "@/lib/utils"
 
 import {
-  filterDependencySelectOptions,
-  toggleDependencySelection,
   type DependencySelectOption,
+  filterDependencySelectOptions,
   type IntegrationDependencySelectOption,
+  toggleDependencySelection,
 } from "../dependency-select-options"
 
-export interface DependencyMultiSelectProps<TOption extends DependencySelectOption> {
+export interface DependencyMultiSelectProps<
+  TOption extends DependencySelectOption,
+> {
   disabled?: boolean
   emptyMessage: string
   getOptionMeta?: (option: TOption) => React.ReactNode
@@ -49,7 +51,9 @@ function getSelectionSummary<TOption extends DependencySelectOption>(
     return placeholder
   }
 
-  const labelByValue = new Map(options.map((option) => [option.value, option.label]))
+  const labelByValue = new Map(
+    options.map((option) => [option.value, option.label]),
+  )
 
   return selectedValues
     .map((value) => labelByValue.get(value) ?? value)

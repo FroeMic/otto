@@ -68,8 +68,7 @@ export function describeCronExpression(
     return expression
   }
 
-  const [minuteExpr, hourExpr, dayOfMonthExpr, monthExpr, dayOfWeekExpr] =
-    parts
+  const [minuteExpr, hourExpr, dayOfMonthExpr, monthExpr, dayOfWeekExpr] = parts
   const minute = parseField(minuteExpr, { max: 59, min: 0, names: null })
   const hour = parseField(hourExpr, { max: 23, min: 0, names: null })
   const dayOfMonth = parseField(dayOfMonthExpr, {
@@ -230,8 +229,7 @@ function convertCronTime(
   )
   const adjusted = new Date(
     guess.getTime() +
-      ((hour - (taskHour === 24 ? 0 : taskHour)) * 60 +
-        (minute - taskMinute)) *
+      ((hour - (taskHour === 24 ? 0 : taskHour)) * 60 + (minute - taskMinute)) *
         60_000,
   )
   const workspaceParts = new Intl.DateTimeFormat("en-US", {
@@ -261,8 +259,7 @@ function formatCronTime(
   taskTimeZone: string,
   preferences?: WorkspaceDateTimePreferences,
 ) {
-  const workspaceTimeZone =
-    preferences?.timeZone ?? DEFAULT_WORKSPACE_TIME_ZONE
+  const workspaceTimeZone = preferences?.timeZone ?? DEFAULT_WORKSPACE_TIME_ZONE
   const converted = convertCronTime(
     hour,
     minute,
@@ -466,4 +463,3 @@ function isNamedOrNumericList(
 function pad2(value: number) {
   return String(value).padStart(2, "0")
 }
-

@@ -1,6 +1,11 @@
 import type { ReactNode } from "react"
 
-import { SettingsCard, SettingsSection, SettingsSectionDescription, SettingsSectionTitle } from "@/client/app/app-shell/SettingsLayout"
+import {
+  SettingsCard,
+  SettingsSection,
+  SettingsSectionDescription,
+  SettingsSectionTitle,
+} from "@/client/app/app-shell/SettingsLayout"
 
 import type { WorkspaceIntegrationCatalogEntry } from "../types"
 

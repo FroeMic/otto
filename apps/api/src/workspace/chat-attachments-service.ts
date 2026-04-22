@@ -82,7 +82,7 @@ export async function getWorkspaceChatAttachmentContentForTenant(input: {
     return null
   }
 
-  let file
+  let file: Awaited<ReturnType<typeof readWorkspaceChatAttachmentFile>>
 
   try {
     file = await readWorkspaceChatAttachmentFile(record.storageKey)
@@ -121,7 +121,7 @@ export async function getWorkspaceChatAttachmentContentForUser(input: {
     return null
   }
 
-  let file
+  let file: Awaited<ReturnType<typeof readWorkspaceChatAttachmentFile>>
 
   try {
     file = await readWorkspaceChatAttachmentFile(record.storageKey)
@@ -198,8 +198,7 @@ export async function transcribeWorkspaceChatAttachmentForUser(input: {
   }
 
   const payload = (await response.json()) as { text?: unknown }
-  const transcript =
-    typeof payload.text === "string" ? payload.text.trim() : ""
+  const transcript = typeof payload.text === "string" ? payload.text.trim() : ""
 
   return transcript.length > 0 ? transcript : null
 }
@@ -257,7 +256,10 @@ function validateWorkspaceChatUpload(file: WorkspaceChatUploadFile) {
 }
 
 function sanitizeUploadedFileName(value: string) {
-  const normalized = path.basename(value ?? "").replace(/\0/g, "").trim()
+  const normalized = path
+    .basename(value ?? "")
+    .replace(/\0/g, "")
+    .trim()
   return normalized
 }
 

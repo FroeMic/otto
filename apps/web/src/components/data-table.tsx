@@ -1,11 +1,11 @@
 "use client"
 
 import {
-  flexRender,
-  getFilteredRowModel,
-  getCoreRowModel,
-  getSortedRowModel,
   type ColumnDef,
+  flexRender,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getSortedRowModel,
   type SortingState,
   useReactTable,
 } from "@tanstack/react-table"
@@ -124,7 +124,9 @@ export function DataTable<TData, TValue>({
                 value={globalFilter}
               />
             ) : null}
-            {toolbar ? <div className="flex min-w-0 flex-1">{toolbar}</div> : null}
+            {toolbar ? (
+              <div className="flex min-w-0 flex-1">{toolbar}</div>
+            ) : null}
           </div>
         </div>
       ) : null}

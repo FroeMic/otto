@@ -1,4 +1,4 @@
-import { JOB_TYPES, type JobType } from "./types";
+import { JOB_TYPES, type JobType } from "./types"
 
 export const JOB_LANES = {
   chat: "chat",
@@ -6,9 +6,9 @@ export const JOB_LANES = {
   integrations: "integrations",
   metering: "metering",
   settlement: "settlement",
-} as const;
+} as const
 
-export type JobLane = (typeof JOB_LANES)[keyof typeof JOB_LANES];
+export type JobLane = (typeof JOB_LANES)[keyof typeof JOB_LANES]
 
 const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.provisionTenantServer]: JOB_LANES.runtime,
@@ -33,9 +33,9 @@ const JOB_TYPE_TO_LANE: Record<JobType, JobLane> = {
   [JOB_TYPES.scheduleBillingAutoTopOffEnqueue]: JOB_LANES.settlement,
   [JOB_TYPES.executeBillingAutoTopOff]: JOB_LANES.settlement,
   [JOB_TYPES.pruneJobHistory]: JOB_LANES.settlement,
-};
+}
 
-const ALL_JOB_TYPES = Object.values(JOB_TYPES);
+const ALL_JOB_TYPES = Object.values(JOB_TYPES)
 const TENANT_MUTEX_GUARD_JOB_TYPES = [
   JOB_TYPES.provisionTenantServer,
   JOB_TYPES.provisionTenantOpenAiKey,
@@ -44,18 +44,18 @@ const TENANT_MUTEX_GUARD_JOB_TYPES = [
   JOB_TYPES.deleteTenantServer,
   JOB_TYPES.whatsappLinkSession,
   JOB_TYPES.whatsappDisconnect,
-] as const satisfies readonly JobType[];
+] as const satisfies readonly JobType[]
 
 export function getJobLane(jobType: JobType) {
-  return JOB_TYPE_TO_LANE[jobType];
+  return JOB_TYPE_TO_LANE[jobType]
 }
 
 export function getJobTypesForLane(lane: JobLane): JobType[] {
-  return ALL_JOB_TYPES.filter((jobType) => JOB_TYPE_TO_LANE[jobType] === lane);
+  return ALL_JOB_TYPES.filter((jobType) => JOB_TYPE_TO_LANE[jobType] === lane)
 }
 
 export function laneUsesTenantMutex(lane: JobLane) {
-  return getTenantMutexGuardJobTypesForLane(lane).length > 0;
+  return getTenantMutexGuardJobTypesForLane(lane).length > 0
 }
 
 export function getTenantMutexGuardJobTypesForLane(lane: JobLane): JobType[] {
@@ -64,10 +64,10 @@ export function getTenantMutexGuardJobTypesForLane(lane: JobLane): JobType[] {
     lane === JOB_LANES.runtime ||
     lane === JOB_LANES.integrations
   ) {
-    return [...TENANT_MUTEX_GUARD_JOB_TYPES];
+    return [...TENANT_MUTEX_GUARD_JOB_TYPES]
   }
 
-  return [];
+  return []
 }
 
 export function getRecurringSchedulerJobTypes(): RecurringSchedulerJobType[] {
@@ -77,11 +77,11 @@ export function getRecurringSchedulerJobTypes(): RecurringSchedulerJobType[] {
     JOB_TYPES.scheduleCreditSettlement,
     JOB_TYPES.scheduleBillingAutoTopOffEnqueue,
     JOB_TYPES.pruneJobHistory,
-  ];
+  ]
 }
 export type RecurringSchedulerJobType =
   | typeof JOB_TYPES.scheduleOauthConnectionRefresh
   | typeof JOB_TYPES.scheduleOpenAiUsageSync
   | typeof JOB_TYPES.scheduleCreditSettlement
   | typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue
-  | typeof JOB_TYPES.pruneJobHistory;
+  | typeof JOB_TYPES.pruneJobHistory

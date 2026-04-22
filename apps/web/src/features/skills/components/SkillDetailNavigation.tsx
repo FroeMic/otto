@@ -13,7 +13,9 @@ export function SkillDetailNavigation({
 }: SkillDetailNavigationProps) {
   return (
     <Tabs
-      onValueChange={(nextValue) => onSectionChange(nextValue as WorkspaceSkillSection)}
+      onValueChange={(nextValue) =>
+        onSectionChange(nextValue as WorkspaceSkillSection)
+      }
       value={currentSection}
     >
       <TabsList className="h-auto justify-start overflow-x-auto p-1">

@@ -1,6 +1,11 @@
 import { useMutation } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
-
+import { useEffect, useId, useState } from "react"
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsRowLabel,
+  SettingsRowTitle,
+} from "@/client/app/app-shell/SettingsLayout"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,12 +16,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsRowLabel,
-  SettingsRowTitle,
-} from "@/client/app/app-shell/SettingsLayout"
 import { updateUserProfile } from "@/features/workspace/api/workspace"
 
 export interface AccountDetailsCardProps {
@@ -36,6 +35,8 @@ export function AccountDetailsCard({
   const [nextFirstName, setNextFirstName] = useState(firstName)
   const [nextLastName, setNextLastName] = useState(lastName)
   const [error, setError] = useState<string | null>(null)
+  const firstNameFieldId = useId()
+  const lastNameFieldId = useId()
   const mutation = useMutation({
     mutationFn: updateUserProfile,
     onSuccess: async () => {
@@ -79,30 +80,40 @@ export function AccountDetailsCard({
               </DialogHeader>
               <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="firstName" className="text-sm font-medium">
+                  <label
+                    htmlFor={firstNameFieldId}
+                    className="text-sm font-medium"
+                  >
                     First name
                   </label>
                   <Input
-                    id="firstName"
+                    id={firstNameFieldId}
                     value={nextFirstName}
                     onChange={(event) => setNextFirstName(event.target.value)}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <label htmlFor="lastName" className="text-sm font-medium">
+                  <label
+                    htmlFor={lastNameFieldId}
+                    className="text-sm font-medium"
+                  >
                     Last name
                   </label>
                   <Input
-                    id="lastName"
+                    id={lastNameFieldId}
                     value={nextLastName}
                     onChange={(event) => setNextLastName(event.target.value)}
                   />
                 </div>
-                {error ? <p className="text-sm text-destructive">{error}</p> : null}
+                {error ? (
+                  <p className="text-sm text-destructive">{error}</p>
+                ) : null}
               </div>
               <DialogFooter>
                 <Button
-                  disabled={mutation.isPending || nextFirstName.trim().length === 0}
+                  disabled={
+                    mutation.isPending || nextFirstName.trim().length === 0
+                  }
                   onClick={async () => {
                     try {
                       setError(null)

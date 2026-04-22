@@ -1,5 +1,5 @@
-import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat";
-import type { ProviderUsageType } from "../providers/types";
+import type { WorkspaceChatMessagePart } from "@otto/feature-workspace-chat"
+import type { ProviderUsageType } from "../providers/types"
 
 export const JOB_TYPES = {
   provisionTenantServer: "provision_tenant_server",
@@ -24,9 +24,9 @@ export const JOB_TYPES = {
   resyncSlackChannels: "resync_slack_channels",
   syncTenantSessions: "sync_tenant_sessions",
   pruneJobHistory: "prune_job_history",
-} as const;
+} as const
 
-export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES];
+export type JobType = (typeof JOB_TYPES)[keyof typeof JOB_TYPES]
 
 export const JOB_STATUSES = {
   canceled: "canceled",
@@ -34,9 +34,9 @@ export const JOB_STATUSES = {
   running: "running",
   succeeded: "succeeded",
   failed: "failed",
-} as const;
+} as const
 
-export type JobStatus = (typeof JOB_STATUSES)[keyof typeof JOB_STATUSES];
+export type JobStatus = (typeof JOB_STATUSES)[keyof typeof JOB_STATUSES]
 
 export const PROVISIONING_STEPS = {
   createServer: "create_server",
@@ -48,10 +48,10 @@ export const PROVISIONING_STEPS = {
   startRuntime: "start_runtime",
   verifyRuntime: "verify_runtime",
   markServerReady: "mark_server_ready",
-} as const;
+} as const
 
 export type ProvisioningStep =
-  (typeof PROVISIONING_STEPS)[keyof typeof PROVISIONING_STEPS];
+  (typeof PROVISIONING_STEPS)[keyof typeof PROVISIONING_STEPS]
 
 export const APPLY_STEPS = {
   loadingDesiredState: "loading_desired_state",
@@ -62,209 +62,209 @@ export const APPLY_STEPS = {
   verifyingRuntime: "verifying_runtime",
   succeeded: "succeeded",
   failed: "failed",
-} as const;
+} as const
 
-export type ApplyStep = (typeof APPLY_STEPS)[keyof typeof APPLY_STEPS];
+export type ApplyStep = (typeof APPLY_STEPS)[keyof typeof APPLY_STEPS]
 
 export type ProvisionTenantServerPayload = {
-  tenantId: string;
-  step?: ProvisioningStep;
-  providerServerId?: string;
-  actionId?: string;
-  ipv4?: string;
-};
+  tenantId: string
+  step?: ProvisioningStep
+  providerServerId?: string
+  actionId?: string
+  ipv4?: string
+}
 
 export type ProvisionTenantOpenAiKeyPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type ApplyTenantConfigPayload = {
-  tenantId: string;
-  desiredStateVersion: number;
+  tenantId: string
+  desiredStateVersion: number
   managedSkillRenameOperations?: Array<{
-    fromSkillKey: string;
-    toSkillKey: string;
-  }>;
+    fromSkillKey: string
+    toSkillKey: string
+  }>
   managedSkillResetOperations?: Array<{
-    scope: "companion_files";
-    skillKey: string;
-  }>;
-  pullImageFirst?: boolean;
-  step?: ApplyStep;
-};
+    scope: "companion_files"
+    skillKey: string
+  }>
+  pullImageFirst?: boolean
+  step?: ApplyStep
+}
 
 export type RefreshRuntimeImagePayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type DeleteWorkspacePayload = {
-  organizationId: string;
-  organizationSlug: string;
-  organizationExternalId: string;
-};
+  organizationId: string
+  organizationSlug: string
+  organizationExternalId: string
+}
 
 export type DeleteTenantServerPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type RunWorkspaceChatTurnPayload = {
-  assistantMessageId?: string;
-  conversationKind: "ad_hoc" | "durable_named" | "external_surface";
-  conversationId: string;
-  conversationTitle: string;
-  conversationVisibility: "open" | "personal";
-  parts: WorkspaceChatMessagePart[];
-  senderDisplayName: string;
-  senderExternalId: string;
-  tenantId: string;
-  userMessageId: string;
-};
+  assistantMessageId?: string
+  conversationKind: "ad_hoc" | "durable_named" | "external_surface"
+  conversationId: string
+  conversationTitle: string
+  conversationVisibility: "open" | "personal"
+  parts: WorkspaceChatMessagePart[]
+  senderDisplayName: string
+  senderExternalId: string
+  tenantId: string
+  userMessageId: string
+}
 
-export type ScheduleOauthConnectionRefreshPayload = Record<string, never>;
+export type ScheduleOauthConnectionRefreshPayload = Record<string, never>
 
 export type RefreshOauthConnectionPayload = {
-  connectionId: string;
-  tenantId: string;
-};
+  connectionId: string
+  tenantId: string
+}
 
-export type ScheduleOpenAiUsageSyncPayload = Record<string, never>;
+export type ScheduleOpenAiUsageSyncPayload = Record<string, never>
 
 export type SyncOpenAiUsageTargetPayload = {
-  providerAccountId: string;
-  usageType: ProviderUsageType;
-};
+  providerAccountId: string
+  usageType: ProviderUsageType
+}
 
-export type ScheduleCreditSettlementPayload = Record<string, never>;
+export type ScheduleCreditSettlementPayload = Record<string, never>
 
 export type SettleCreditUsageChunkPayload = {
-  bucketIds: string[];
-};
+  bucketIds: string[]
+}
 
-export type ScheduleBillingAutoTopOffEnqueuePayload = Record<string, never>;
+export type ScheduleBillingAutoTopOffEnqueuePayload = Record<string, never>
 
 export type ExecuteBillingAutoTopOffPayload = {
-  organizationId: string;
-  tenantId: string;
-};
+  organizationId: string
+  tenantId: string
+}
 
 export type ReconcileTenantScheduledTasksPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type WhatsAppLinkSessionPayload = {
-  linkSessionId: string;
-  tenantId: string;
-};
+  linkSessionId: string
+  tenantId: string
+}
 
 export type WhatsAppDisconnectPayload = {
-  desiredStateVersion?: number;
-  tenantId: string;
-};
+  desiredStateVersion?: number
+  tenantId: string
+}
 
 export type ResyncSlackUsersPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type ResyncSlackChannelsPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
 export type SyncTenantSessionsPayload = {
-  tenantId: string;
-};
+  tenantId: string
+}
 
-export type PruneJobHistoryPayload = Record<string, never>;
+export type PruneJobHistoryPayload = Record<string, never>
 
 export type ControlPlaneJobPayload =
   | {
-      jobType: typeof JOB_TYPES.provisionTenantServer;
-      payload: ProvisionTenantServerPayload;
+      jobType: typeof JOB_TYPES.provisionTenantServer
+      payload: ProvisionTenantServerPayload
     }
   | {
-      jobType: typeof JOB_TYPES.provisionTenantOpenAiKey;
-      payload: ProvisionTenantOpenAiKeyPayload;
+      jobType: typeof JOB_TYPES.provisionTenantOpenAiKey
+      payload: ProvisionTenantOpenAiKeyPayload
     }
   | {
-      jobType: typeof JOB_TYPES.applyTenantConfig;
-      payload: ApplyTenantConfigPayload;
+      jobType: typeof JOB_TYPES.applyTenantConfig
+      payload: ApplyTenantConfigPayload
     }
   | {
-      jobType: typeof JOB_TYPES.deleteWorkspace;
-      payload: DeleteWorkspacePayload;
+      jobType: typeof JOB_TYPES.deleteWorkspace
+      payload: DeleteWorkspacePayload
     }
   | {
-      jobType: typeof JOB_TYPES.refreshRuntimeImage;
-      payload: RefreshRuntimeImagePayload;
+      jobType: typeof JOB_TYPES.refreshRuntimeImage
+      payload: RefreshRuntimeImagePayload
     }
   | {
-      jobType: typeof JOB_TYPES.runWorkspaceChatTurn;
-      payload: RunWorkspaceChatTurnPayload;
+      jobType: typeof JOB_TYPES.runWorkspaceChatTurn
+      payload: RunWorkspaceChatTurnPayload
     }
   | {
-      jobType: typeof JOB_TYPES.scheduleOauthConnectionRefresh;
-      payload: ScheduleOauthConnectionRefreshPayload;
+      jobType: typeof JOB_TYPES.scheduleOauthConnectionRefresh
+      payload: ScheduleOauthConnectionRefreshPayload
     }
   | {
-      jobType: typeof JOB_TYPES.refreshOauthConnection;
-      payload: RefreshOauthConnectionPayload;
+      jobType: typeof JOB_TYPES.refreshOauthConnection
+      payload: RefreshOauthConnectionPayload
     }
   | {
-      jobType: typeof JOB_TYPES.scheduleOpenAiUsageSync;
-      payload: ScheduleOpenAiUsageSyncPayload;
+      jobType: typeof JOB_TYPES.scheduleOpenAiUsageSync
+      payload: ScheduleOpenAiUsageSyncPayload
     }
   | {
-      jobType: typeof JOB_TYPES.syncOpenAiUsageTarget;
-      payload: SyncOpenAiUsageTargetPayload;
+      jobType: typeof JOB_TYPES.syncOpenAiUsageTarget
+      payload: SyncOpenAiUsageTargetPayload
     }
   | {
-      jobType: typeof JOB_TYPES.scheduleCreditSettlement;
-      payload: ScheduleCreditSettlementPayload;
+      jobType: typeof JOB_TYPES.scheduleCreditSettlement
+      payload: ScheduleCreditSettlementPayload
     }
   | {
-      jobType: typeof JOB_TYPES.settleCreditUsageChunk;
-      payload: SettleCreditUsageChunkPayload;
+      jobType: typeof JOB_TYPES.settleCreditUsageChunk
+      payload: SettleCreditUsageChunkPayload
     }
   | {
-      jobType: typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue;
-      payload: ScheduleBillingAutoTopOffEnqueuePayload;
+      jobType: typeof JOB_TYPES.scheduleBillingAutoTopOffEnqueue
+      payload: ScheduleBillingAutoTopOffEnqueuePayload
     }
   | {
-      jobType: typeof JOB_TYPES.executeBillingAutoTopOff;
-      payload: ExecuteBillingAutoTopOffPayload;
+      jobType: typeof JOB_TYPES.executeBillingAutoTopOff
+      payload: ExecuteBillingAutoTopOffPayload
     }
   | {
-      jobType: typeof JOB_TYPES.reconcileTenantScheduledTasks;
-      payload: ReconcileTenantScheduledTasksPayload;
+      jobType: typeof JOB_TYPES.reconcileTenantScheduledTasks
+      payload: ReconcileTenantScheduledTasksPayload
     }
   | {
-      jobType: typeof JOB_TYPES.whatsappLinkSession;
-      payload: WhatsAppLinkSessionPayload;
+      jobType: typeof JOB_TYPES.whatsappLinkSession
+      payload: WhatsAppLinkSessionPayload
     }
   | {
-      jobType: typeof JOB_TYPES.whatsappDisconnect;
-      payload: WhatsAppDisconnectPayload;
+      jobType: typeof JOB_TYPES.whatsappDisconnect
+      payload: WhatsAppDisconnectPayload
     }
   | {
-      jobType: typeof JOB_TYPES.resyncSlackUsers;
-      payload: ResyncSlackUsersPayload;
+      jobType: typeof JOB_TYPES.resyncSlackUsers
+      payload: ResyncSlackUsersPayload
     }
   | {
-      jobType: typeof JOB_TYPES.resyncSlackChannels;
-      payload: ResyncSlackChannelsPayload;
+      jobType: typeof JOB_TYPES.resyncSlackChannels
+      payload: ResyncSlackChannelsPayload
     }
   | {
-      jobType: typeof JOB_TYPES.syncTenantSessions;
-      payload: SyncTenantSessionsPayload;
+      jobType: typeof JOB_TYPES.syncTenantSessions
+      payload: SyncTenantSessionsPayload
     }
   | {
-      jobType: typeof JOB_TYPES.pruneJobHistory;
-      payload: PruneJobHistoryPayload;
-    };
+      jobType: typeof JOB_TYPES.pruneJobHistory
+      payload: PruneJobHistoryPayload
+    }
 
 export type ClaimedJob = {
-  id: string;
-  jobType: JobType;
-  tenantId: string | null;
-  attempt: number;
-  payload: Record<string, unknown>;
-};
+  id: string
+  jobType: JobType
+  tenantId: string | null
+  attempt: number
+  payload: Record<string, unknown>
+}

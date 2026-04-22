@@ -47,4 +47,6 @@ export type UserProfile = z.infer<typeof userProfileSchema>
 export type UserWorkspaceMenuWorkspace = z.infer<
   typeof userWorkspaceMenuWorkspaceSchema
 >
-export type UserWorkspacesResponse = z.infer<typeof userWorkspacesResponseSchema>
+export type UserWorkspacesResponse = z.infer<
+  typeof userWorkspacesResponseSchema
+>

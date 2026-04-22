@@ -12,7 +12,9 @@ export interface WorkspaceAgentPromptCardProps {
   orgSlug: string
   onStop?: () => Promise<void> | void
   onSubmit: (input: {
-    parts: ReturnType<typeof import("../composer-parts").buildWorkspaceChatComposerParts>
+    parts: ReturnType<
+      typeof import("../composer-parts").buildWorkspaceChatComposerParts
+    >
   }) => Promise<void> | void
   onUploadAttachment?: (file: File) => Promise<WorkspaceChatAttachment>
 }

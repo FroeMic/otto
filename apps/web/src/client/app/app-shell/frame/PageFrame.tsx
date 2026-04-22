@@ -1,14 +1,14 @@
 import {
   Children,
   createContext,
+  type HTMLAttributes,
   isValidElement,
+  type PropsWithChildren,
+  type MouseEvent as ReactMouseEvent,
   useCallback,
   useContext,
   useMemo,
   useState,
-  type HTMLAttributes,
-  type MouseEvent as ReactMouseEvent,
-  type PropsWithChildren,
 } from "react"
 
 import { cn } from "@/lib/utils"
@@ -178,7 +178,7 @@ export function PageFrameAside({
     usePageFrame()
 
   const startResizing = useCallback(
-    (event: ReactMouseEvent<HTMLDivElement>) => {
+    (event: ReactMouseEvent<HTMLButtonElement>) => {
       const startX = event.clientX
       const initialWidth = asideWidth
 
@@ -217,13 +217,14 @@ export function PageFrameAside({
       {...props}
     >
       {resizableAside ? (
-        <div
+        <button
           aria-label="Resize page aside"
           className="absolute bottom-0 left-[-6px] top-0 z-10 w-3 cursor-col-resize"
           onMouseDown={startResizing}
+          type="button"
         >
           <div className="mx-auto h-full w-px rounded-full bg-border transition-colors hover:bg-foreground/25" />
-        </div>
+        </button>
       ) : null}
 
       <div className="h-full min-h-0 overflow-auto px-4 py-5">{children}</div>

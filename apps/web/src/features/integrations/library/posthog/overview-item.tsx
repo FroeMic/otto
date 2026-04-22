@@ -23,7 +23,9 @@ export function PostHogIntegrationOverviewItem({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{entry.label}</span>
-            {entry.connected ? <Badge variant="outline">Connected</Badge> : null}
+            {entry.connected ? (
+              <Badge variant="outline">Connected</Badge>
+            ) : null}
             {entry.needsAttention ? (
               <Badge variant="destructive">Needs attention</Badge>
             ) : null}
@@ -31,9 +33,7 @@ export function PostHogIntegrationOverviewItem({
           <p className="text-sm text-muted-foreground">{entry.description}</p>
         </div>
       </div>
-      <span className="shrink-0 text-xs text-muted-foreground">
-        Analytics
-      </span>
+      <span className="shrink-0 text-xs text-muted-foreground">Analytics</span>
     </Link>
   )
 }

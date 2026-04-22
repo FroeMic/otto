@@ -121,7 +121,10 @@ describe("managed config definitions", () => {
     assert.match(agentsDefinition.systemContent, /read_managed_file/)
     assert.match(agentsDefinition.systemContent, /patch_managed_file/)
     assert.match(agentsDefinition.systemContent, /Do not edit the root copies/)
-    assert.match(toolsDefinition.systemContent, /managed versions are canonical/)
+    assert.match(
+      toolsDefinition.systemContent,
+      /managed versions are canonical/,
+    )
     assert.match(toolsDefinition.systemContent, /Never edit the root copies/)
   })
 })

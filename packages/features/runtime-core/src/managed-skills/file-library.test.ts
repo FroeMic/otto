@@ -1,7 +1,7 @@
+import assert from "node:assert/strict"
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs"
 import { tmpdir } from "node:os"
 import path from "node:path"
-import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import { loadSystemManagedSkillDefinitionsFromDirectory } from "./file-library"

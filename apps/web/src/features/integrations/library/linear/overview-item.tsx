@@ -23,7 +23,9 @@ export function LinearIntegrationOverviewItem({
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">{entry.label}</span>
-            {entry.connected ? <Badge variant="outline">Connected</Badge> : null}
+            {entry.connected ? (
+              <Badge variant="outline">Connected</Badge>
+            ) : null}
             {entry.needsAttention ? (
               <Badge variant="destructive">Needs attention</Badge>
             ) : null}

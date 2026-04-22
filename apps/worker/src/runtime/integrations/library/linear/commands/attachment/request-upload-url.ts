@@ -1,27 +1,27 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   normalizeOptionalBoolean,
   normalizeOptionalInteger,
   requestLinearUploadUrl,
-} from "../../client";
+} from "../../client"
 
 export const executeLinearAttachmentRequestUploadUrl: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const filename =
-      typeof args.filename === "string" ? args.filename.trim() : "";
+      typeof args.filename === "string" ? args.filename.trim() : ""
     const contentType =
-      typeof args.contentType === "string" ? args.contentType.trim() : "";
-    const size = normalizeOptionalInteger(args.size);
+      typeof args.contentType === "string" ? args.contentType.trim() : ""
+    const size = normalizeOptionalInteger(args.size)
 
     if (!filename || !contentType || size === null) {
       throw new Error(
         "attachment.request_upload_url requires filename, contentType, and size.",
-      );
+      )
     }
 
     const upload = await requestLinearUploadUrl({
@@ -36,7 +36,7 @@ export const executeLinearAttachmentRequestUploadUrl: IntegrationCommandExecute 
           ? (args.metaData as Record<string, unknown>)
           : null,
       size,
-    });
+    })
 
     return {
       commandKey: "attachment.request_upload_url",
@@ -72,5 +72,5 @@ export const executeLinearAttachmentRequestUploadUrl: IntegrationCommandExecute 
       source: "linear",
       success: upload.success,
       uploadFile: upload.uploadFile,
-    };
-  };
+    }
+  }

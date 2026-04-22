@@ -2,31 +2,31 @@ import type {
   ToolInstallState,
   ToolSurfaceAction,
   ToolSurfaceLifecycleState,
-} from "./types";
-import { whatsappToolSurfaceDefinition } from "./whatsapp";
+} from "./types"
+import { whatsappToolSurfaceDefinition } from "./whatsapp"
 
-const registry = [whatsappToolSurfaceDefinition] as const;
-type ToolSurfaceRegistryEntry = (typeof registry)[number];
-const registryIds = new Set<string>();
-const registrySurfaceKeys = new Set<string>();
+const registry = [whatsappToolSurfaceDefinition] as const
+type ToolSurfaceRegistryEntry = (typeof registry)[number]
+const registryIds = new Set<string>()
+const registrySurfaceKeys = new Set<string>()
 
 for (const definition of registry) {
-  const surfaceId = getToolSurfaceId(definition.kind, definition.key);
+  const surfaceId = getToolSurfaceId(definition.kind, definition.key)
 
   if (registryIds.has(definition.id)) {
-    throw new Error(`Duplicate tool definition id: ${definition.id}`);
+    throw new Error(`Duplicate tool definition id: ${definition.id}`)
   }
 
   if (registrySurfaceKeys.has(surfaceId)) {
-    throw new Error(`Duplicate runtime surface definition: ${surfaceId}`);
+    throw new Error(`Duplicate runtime surface definition: ${surfaceId}`)
   }
 
-  registryIds.add(definition.id);
-  registrySurfaceKeys.add(surfaceId);
+  registryIds.add(definition.id)
+  registrySurfaceKeys.add(surfaceId)
 }
 
 export function listToolDefinitions() {
-  return [...registry];
+  return [...registry]
 }
 
 export function getToolDefinition(surfaceKind: string, surfaceKey: string) {
@@ -34,49 +34,49 @@ export function getToolDefinition(surfaceKind: string, surfaceKey: string) {
     registry.find(
       (entry) => entry.kind === surfaceKind && entry.key === surfaceKey,
     ) ?? null
-  );
+  )
 }
 
 export function getToolSurfaceId(surfaceKind: string, surfaceKey: string) {
-  return `${surfaceKind}:${surfaceKey}`;
+  return `${surfaceKind}:${surfaceKey}`
 }
 
 export function listAvailableToolActions(
   definition: ToolSurfaceRegistryEntry,
   state: ToolSurfaceLifecycleState,
 ) {
-  const actions: ToolSurfaceAction[] = [];
+  const actions: ToolSurfaceAction[] = []
 
   if (definition.supportsInstall && state.installState === "uninstalled") {
-    actions.push("install");
-    return actions;
+    actions.push("install")
+    return actions
   }
 
   if (state.installState !== "installed") {
-    return actions;
+    return actions
   }
 
   if (definition.supportsConfig) {
-    actions.push("update");
+    actions.push("update")
   }
 
   if (definition.supportsEnable) {
-    actions.push(state.enabled ? "disable" : "enable");
+    actions.push(state.enabled ? "disable" : "enable")
   }
 
   if (definition.supportsInstall) {
-    actions.push("uninstall");
+    actions.push("uninstall")
   }
 
   if (definition.supportsReapply) {
-    actions.push("reapply");
+    actions.push("reapply")
   }
 
-  return actions;
+  return actions
 }
 
 export function normalizeInstallState(value: string | null | undefined) {
   return value === "uninstalled"
     ? ("uninstalled" as ToolInstallState)
-    : ("installed" as ToolInstallState);
+    : ("installed" as ToolInstallState)
 }

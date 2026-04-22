@@ -4,10 +4,7 @@ import { WorkspaceSessionAuthError } from "@otto/auth"
 import { Hono } from "hono"
 import { describe, it } from "vitest"
 
-import {
-  createFilesRouter,
-  type FilesRouteDependencies,
-} from "./routes"
+import { createFilesRouter, type FilesRouteDependencies } from "./routes"
 
 const user = {
   email: "test@getyourotto.com",

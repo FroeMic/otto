@@ -7,18 +7,17 @@ import {
 import type { WorkspaceShellUser } from "@otto/feature-workspace-core"
 import { Hono } from "hono"
 import { z } from "zod"
-
-import {
-  consumeWorkspaceOnboardingStarterPrompt,
-  WorkspaceOnboardingConflictError,
-  getWorkspaceOnboardingRunSummary,
-  saveWorkspaceOnboardingRun,
-} from "./data"
 import {
   workspaceOnboardingRunSummarySchema,
   workspaceOnboardingSaveRequestSchema,
 } from "../../../../packages/features/workspace-onboarding/src/index"
 import { syncUserFromSession } from "../workspace/data"
+import {
+  consumeWorkspaceOnboardingStarterPrompt,
+  getWorkspaceOnboardingRunSummary,
+  saveWorkspaceOnboardingRun,
+  WorkspaceOnboardingConflictError,
+} from "./data"
 
 const workspaceOnboardingParamsSchema = z.object({
   orgSlug: z.string().min(1),

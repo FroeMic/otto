@@ -8,8 +8,8 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 import { workspaceSkillDetailQueryOptions } from "../api/skills"
-import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { SkillDetailHeader } from "../components/SkillDetailHeader"
+import { SkillDetailNavigation } from "../components/SkillDetailNavigation"
 import { SkillEditorCard } from "../components/SkillEditorCard"
 
 export interface SkillOverviewPageProps {

@@ -1,96 +1,96 @@
-const DEFAULT_LOCALE = "en-US";
-export const DEFAULT_WORKSPACE_TIME_ZONE = "UTC";
-export const DEFAULT_TIME_FORMAT_PREFERENCE = "auto";
+const DEFAULT_LOCALE = "en-US"
+export const DEFAULT_WORKSPACE_TIME_ZONE = "UTC"
+export const DEFAULT_TIME_FORMAT_PREFERENCE = "auto"
 
-export type WorkspaceTimeFormatPreference = "auto" | "12" | "24";
+export type WorkspaceTimeFormatPreference = "auto" | "12" | "24"
 
 export type WorkspaceDateTimePreferences = {
-  locale: string;
-  timeFormatPreference: WorkspaceTimeFormatPreference;
-  timeZone: string;
-};
+  locale: string
+  timeFormatPreference: WorkspaceTimeFormatPreference
+  timeZone: string
+}
 
 export type TimeZoneOption = {
-  label: string;
-  value: string;
-};
+  label: string
+  value: string
+}
 
 export type TimeZoneOptionGroup = {
-  items: TimeZoneOption[];
-  value: string;
-};
+  items: TimeZoneOption[]
+  value: string
+}
 
 type DateFormatterInput = {
-  locale?: string;
-  options: Intl.DateTimeFormatOptions;
-  timeZone?: string | null;
-};
+  locale?: string
+  options: Intl.DateTimeFormatOptions
+  timeZone?: string | null
+}
 
 type FormatDateInput = {
-  locale?: string;
-  timeZone?: string | null;
-  timeFormatPreference?: WorkspaceTimeFormatPreference | string | null;
-};
+  locale?: string
+  timeZone?: string | null
+  timeFormatPreference?: WorkspaceTimeFormatPreference | string | null
+}
 
-const formatterCache = new Map<string, Intl.DateTimeFormat>();
+const formatterCache = new Map<string, Intl.DateTimeFormat>()
 
 function getFormatter(input: DateFormatterInput) {
-  const locale = input.locale ?? DEFAULT_LOCALE;
-  const timeZone = normalizeTimeZone(input.timeZone);
+  const locale = input.locale ?? DEFAULT_LOCALE
+  const timeZone = normalizeTimeZone(input.timeZone)
   const cacheKey = JSON.stringify({
     locale,
     options: input.options,
     timeZone,
-  });
+  })
 
-  const cached = formatterCache.get(cacheKey);
+  const cached = formatterCache.get(cacheKey)
 
   if (cached) {
-    return cached;
+    return cached
   }
 
   const formatter = new Intl.DateTimeFormat(locale, {
     ...input.options,
     timeZone,
-  });
+  })
 
-  formatterCache.set(cacheKey, formatter);
+  formatterCache.set(cacheKey, formatter)
 
-  return formatter;
+  return formatter
 }
 
 export function normalizeTimeZone(timeZone?: string | null) {
   if (!timeZone) {
-    return DEFAULT_WORKSPACE_TIME_ZONE;
+    return DEFAULT_WORKSPACE_TIME_ZONE
   }
 
   try {
     new Intl.DateTimeFormat(DEFAULT_LOCALE, {
       timeZone,
-    }).format(new Date());
+    }).format(new Date())
 
-    return timeZone;
+    return timeZone
   } catch {
-    return DEFAULT_WORKSPACE_TIME_ZONE;
+    return DEFAULT_WORKSPACE_TIME_ZONE
   }
 }
 
 export function normalizeLocale(locale?: string | null) {
   if (!locale) {
-    return DEFAULT_LOCALE;
+    return DEFAULT_LOCALE
   }
 
   try {
-    const [canonicalLocale] = Intl.getCanonicalLocales(locale);
+    const [canonicalLocale] = Intl.getCanonicalLocales(locale)
 
-    return canonicalLocale ?? DEFAULT_LOCALE;
+    return canonicalLocale ?? DEFAULT_LOCALE
   } catch {
-    return DEFAULT_LOCALE;
+    return DEFAULT_LOCALE
   }
 }
 
 export function isSupportedLocale(locale: string) {
-  return normalizeLocale(locale) === locale;
+  return normalizeLocale(locale) === locale
 }
 
 export function normalizeTimeFormatPreference(
@@ -101,10 +101,10 @@ export function normalizeTimeFormatPreference(
     timeFormatPreference === "24" ||
     timeFormatPreference === "auto"
   ) {
-    return timeFormatPreference;
+    return timeFormatPreference
   }
 
-  return DEFAULT_TIME_FORMAT_PREFERENCE;
+  return DEFAULT_TIME_FORMAT_PREFERENCE
 }
 
 export function resolveDateTimePreferences(
@@ -116,11 +116,11 @@ export function resolveDateTimePreferences(
       input.timeFormatPreference,
     ),
     timeZone: normalizeTimeZone(input.timeZone),
-  };
+  }
 }
 
 export function isSupportedTimeZone(timeZone: string) {
-  return normalizeTimeZone(timeZone) === timeZone;
+  return normalizeTimeZone(timeZone) === timeZone
 }
 
 function getTimeOptions(
@@ -134,7 +134,7 @@ function getTimeOptions(
       : timeFormatPreference === "24"
         ? { hour12: false }
         : {}),
-  };
+  }
 }
 
 export function formatShortDateTime(
@@ -142,10 +142,10 @@ export function formatShortDateTime(
   input: FormatDateInput = {},
 ) {
   if (value === null) {
-    return "-";
+    return "-"
   }
 
-  const preferences = resolveDateTimePreferences(input);
+  const preferences = resolveDateTimePreferences(input)
 
   return getFormatter({
     locale: preferences.locale,
@@ -159,7 +159,7 @@ export function formatShortDateTime(
       preferences.timeFormatPreference,
     ),
     timeZone: preferences.timeZone,
-  }).format(value);
+  }).format(value)
 }
 
 export function formatShortDate(
@@ -167,10 +167,10 @@ export function formatShortDate(
   input: FormatDateInput = {},
 ) {
   if (value === null) {
-    return "-";
+    return "-"
   }
 
-  const preferences = resolveDateTimePreferences(input);
+  const preferences = resolveDateTimePreferences(input)
 
   return getFormatter({
     locale: preferences.locale,
@@ -180,20 +180,20 @@ export function formatShortDate(
       year: "numeric",
     },
     timeZone: preferences.timeZone,
-  }).format(value);
+  }).format(value)
 }
 
 export function formatTimeOfDay(
   value: Date | number | null,
   input: FormatDateInput & {
-    includeSeconds?: boolean;
+    includeSeconds?: boolean
   } = {},
 ) {
   if (value === null) {
-    return "";
+    return ""
   }
 
-  const preferences = resolveDateTimePreferences(input);
+  const preferences = resolveDateTimePreferences(input)
 
   return getFormatter({
     locale: preferences.locale,
@@ -206,7 +206,7 @@ export function formatTimeOfDay(
       preferences.timeFormatPreference,
     ),
     timeZone: preferences.timeZone,
-  }).format(value);
+  }).format(value)
 }
 
 export function formatPreciseDateTime(
@@ -214,10 +214,10 @@ export function formatPreciseDateTime(
   input: FormatDateInput = {},
 ) {
   if (value === null) {
-    return "Not available";
+    return "Not available"
   }
 
-  const preferences = resolveDateTimePreferences(input);
+  const preferences = resolveDateTimePreferences(input)
 
   return getFormatter({
     locale: preferences.locale,
@@ -234,7 +234,7 @@ export function formatPreciseDateTime(
       preferences.timeFormatPreference,
     ),
     timeZone: preferences.timeZone,
-  }).format(value);
+  }).format(value)
 }
 
 export function formatSearchDateTime(
@@ -242,10 +242,10 @@ export function formatSearchDateTime(
   input: FormatDateInput = {},
 ) {
   if (value === null) {
-    return "";
+    return ""
   }
 
-  const preferences = resolveDateTimePreferences(input);
+  const preferences = resolveDateTimePreferences(input)
 
   return getFormatter({
     locale: preferences.locale,
@@ -260,7 +260,7 @@ export function formatSearchDateTime(
       preferences.timeFormatPreference,
     ),
     timeZone: preferences.timeZone,
-  }).format(value);
+  }).format(value)
 }
 
 function getTimeZoneOffsetLabel(timeZone: string) {
@@ -272,18 +272,18 @@ function getTimeZoneOffsetLabel(timeZone: string) {
         timeZoneName: "shortOffset",
       },
       timeZone,
-    }).formatToParts(new Date());
+    }).formatToParts(new Date())
 
-    return parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0";
+    return parts.find((part) => part.type === "timeZoneName")?.value ?? "GMT+0"
   } catch {
-    return "GMT+0";
+    return "GMT+0"
   }
 }
 
 export function getSupportedTimeZones() {
   const supportedValuesOf = Intl.supportedValuesOf as
     | ((key: "timeZone") => string[])
-    | undefined;
+    | undefined
 
   const values = supportedValuesOf
     ? supportedValuesOf("timeZone")
@@ -298,11 +298,11 @@ export function getSupportedTimeZones() {
         "Asia/Singapore",
         "Asia/Tokyo",
         "Australia/Sydney",
-      ];
+      ]
 
   return values.includes(DEFAULT_WORKSPACE_TIME_ZONE)
     ? values
-    : [DEFAULT_WORKSPACE_TIME_ZONE, ...values];
+    : [DEFAULT_WORKSPACE_TIME_ZONE, ...values]
 }
 
 const COMMON_LOCALE_OPTIONS = [
@@ -317,10 +317,10 @@ const COMMON_LOCALE_OPTIONS = [
   { label: "Japanese", value: "ja-JP" },
   { label: "Korean", value: "ko-KR" },
   { label: "Chinese (Simplified)", value: "zh-CN" },
-] as const;
+] as const
 
 export function getLocaleOptions() {
-  return COMMON_LOCALE_OPTIONS;
+  return COMMON_LOCALE_OPTIONS
 }
 
 export function getTimeFormatPreferenceOptions() {
@@ -337,14 +337,14 @@ export function getTimeFormatPreferenceOptions() {
       label: "24-hour",
       value: "24" as const,
     },
-  ];
+  ]
 }
 
 export function getTimeZoneOptions() {
   return getSupportedTimeZones().map((timeZone) => ({
     label: `${timeZone} (${getTimeZoneOffsetLabel(timeZone)})`,
     value: timeZone,
-  }));
+  }))
 }
 
 const CURATED_TIME_ZONE_GROUPS = [
@@ -387,29 +387,29 @@ const CURATED_TIME_ZONE_GROUPS = [
   },
 ] satisfies Array<{
   items: Array<{
-    city: string;
-    value: string;
-  }>;
-  value: string;
-}>;
+    city: string
+    value: string
+  }>
+  value: string
+}>
 
 function createTimeZoneOption(input: { city: string; value: string }) {
   return {
     label: `(${getTimeZoneOffsetLabel(input.value)}) ${input.city}`,
     value: input.value,
-  } satisfies TimeZoneOption;
+  } satisfies TimeZoneOption
 }
 
 export function getGroupedTimeZoneOptions(currentTimeZone?: string | null) {
   const groups = CURATED_TIME_ZONE_GROUPS.map((group) => ({
     items: group.items.map(createTimeZoneOption),
     value: group.value,
-  })) satisfies TimeZoneOptionGroup[];
+  })) satisfies TimeZoneOptionGroup[]
 
-  const normalizedCurrentTimeZone = normalizeTimeZone(currentTimeZone);
+  const normalizedCurrentTimeZone = normalizeTimeZone(currentTimeZone)
   const isCurrentIncluded = groups.some((group) =>
     group.items.some((item) => item.value === normalizedCurrentTimeZone),
-  );
+  )
 
   if (
     normalizedCurrentTimeZone !== DEFAULT_WORKSPACE_TIME_ZONE &&
@@ -423,8 +423,8 @@ export function getGroupedTimeZoneOptions(currentTimeZone?: string | null) {
         },
       ],
       value: "Current",
-    });
+    })
   }
 
-  return groups;
+  return groups
 }

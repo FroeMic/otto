@@ -1,6 +1,6 @@
 import type {
-  WorkspaceIntegrationCatalogEntry,
   WorkspaceIntegrationCapabilityRow,
+  WorkspaceIntegrationCatalogEntry,
   WorkspaceIntegrationDetail,
   WorkspaceIntegrationSetupDiscoverResponse,
 } from "@otto/feature-integrations-runtime/workspace"

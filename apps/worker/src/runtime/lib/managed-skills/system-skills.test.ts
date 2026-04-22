@@ -24,7 +24,7 @@ describe("system managed skill definitions", () => {
 
     assert.ok(onboardingSkill)
     assert.equal(onboardingSkill.installMode, "default_installed")
-    assert.equal(onboardingSkill.visibleInLibrary, false)
+    assert.equal(onboardingSkill.visibleInLibrary, true)
     assert.deepEqual(
       onboardingSkill.files.map((file) => file.path),
       [
@@ -52,7 +52,7 @@ describe("system managed skill definitions", () => {
     assert.doesNotMatch(skillMarkdown, /```markdown\n# Business Profile/)
     assert.doesNotMatch(skillMarkdown, /## Done Recently/)
     assert.match(allContent, /projects\/<project-key>\//)
-    assert.match(skillMarkdown, /projects\/_index\.md/)
+    assert.match(skillMarkdown, /projects\/PROJECTS\.md/)
     assert.match(allContent, /greenfield/)
     assert.match(allContent, /brownfield/)
     assert.match(allContent, /projects\/<project-key>\/<project-key>\.md/)
@@ -65,7 +65,10 @@ describe("system managed skill definitions", () => {
     assert.match(allContent, /context\/onboarding\.md/)
     assert.match(allContent, /context\/roadmap\.md/)
     assert.match(allContent, /context\//)
-    assert.match(allContent, /create `context\/` only when writing the first supporting file/i)
+    assert.match(
+      allContent,
+      /create `context\/` only when writing the first supporting file/i,
+    )
     assert.match(allContent, /Do not create empty supporting files/i)
     assert.doesNotMatch(allContent, /projects\/<project-key>\/project\.md/)
     assert.doesNotMatch(allContent, /projects\/<project-key>\/onboarding\.md/)
@@ -123,7 +126,7 @@ describe("system managed skill definitions", () => {
     )
     assert.ok(onboardingSkill)
     assert.equal(onboardingSkill.installMode, "default_installed")
-    assert.equal(onboardingSkill.visibleInLibrary, false)
+    assert.equal(onboardingSkill.visibleInLibrary, true)
 
     assert.ok(namingSkill)
     assert.equal(namingSkill.installMode, "manual_install")

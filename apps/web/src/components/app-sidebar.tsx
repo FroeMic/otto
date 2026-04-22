@@ -1,5 +1,6 @@
 "use client"
 
+import type { ShellBootstrap } from "@otto/feature-workspace-core"
 import {
   BuildingsIcon,
   ChartPieSliceIcon,
@@ -7,7 +8,6 @@ import {
   HouseLineIcon,
   SparkleIcon,
 } from "@phosphor-icons/react"
-import type { ShellBootstrap } from "@otto/feature-workspace-core"
 import { Link, useMatchRoute } from "@tanstack/react-router"
 
 import { NavMain } from "@/components/nav-main"

@@ -61,7 +61,9 @@ export function IntegrationsPage({ orgSlug }: IntegrationsPageProps) {
       <SettingsPageContent className="flex max-w-3xl flex-col gap-8">
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <h1 className="text-2xl font-semibold tracking-tight">Integrations</h1>
+            <h1 className="text-2xl font-semibold tracking-tight">
+              Integrations
+            </h1>
             <p className="text-sm text-muted-foreground">
               Connect the tools your team already uses to Otto.
             </p>

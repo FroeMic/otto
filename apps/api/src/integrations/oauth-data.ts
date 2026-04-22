@@ -16,9 +16,7 @@ import {
   tenantDesiredStates,
   tenantIntegrations,
 } from "@otto/feature-integrations-runtime/db/schema"
-import {
-  getIntegrationDefinition,
-} from "@otto/feature-integrations-runtime/integrations/framework"
+import { getIntegrationDefinition } from "@otto/feature-integrations-runtime/integrations/framework"
 import { fetchSlackMessagingDirectory } from "@otto/feature-integrations-runtime/lib/slack"
 import {
   createManagedIntegrationOauthAuthorizationUrl,
@@ -243,7 +241,9 @@ export async function completeWorkspaceIntegrationOauth(input: {
         })
 
         try {
-          const directory = await fetchSlackMessagingDirectory(tokenResult.accessToken)
+          const directory = await fetchSlackMessagingDirectory(
+            tokenResult.accessToken,
+          )
 
           await syncMessagingDirectoryForTenantIntegration({
             conversations: directory.conversations,

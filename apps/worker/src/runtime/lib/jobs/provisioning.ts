@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
+import { getDb } from "../../db/client"
 import {
   ensureTenantRuntimeGatewayToken,
   ensureTenantRuntimeTenantToken,
@@ -10,26 +10,26 @@ import {
   getManagedSkillVersionMapFromConfigJson,
   getTenantManagedConfigByVersion,
   getTenantSlackBotToken,
-} from "../../db/control-plane";
+} from "../../db/control-plane"
 import {
   listLatestTenantManagedSkillVersionMapForTenant,
   listProjectedManagedSkillFilesForTenant,
-} from "../../db/managed-skills";
+} from "../../db/managed-skills"
 import {
   getProviderAccountByTenantAndKey,
   getTenantOpenAiApiKey,
   PROVIDER_CREDENTIAL_TYPES,
   persistProvisionedProviderCredential,
-} from "../../db/provider-accounts";
-import { organizations, tenantServers, tenants } from "../../db/schema";
-import { getEnv } from "../env";
-import { HetznerClient } from "../hetzner/client";
-import { renderCloudInit } from "../hetzner/cloud-init";
-import { FakeHetznerClient } from "../hetzner/fake";
-import { buildOpenClawTenantConfig } from "../openclaw/config";
-import { OpenAiProvisioner } from "../providers/openai/provisioning";
-import { RuntimeManager } from "../runtime/manager";
-import { SshClient } from "../ssh/client";
+} from "../../db/provider-accounts"
+import { organizations, tenantServers, tenants } from "../../db/schema"
+import { getEnv } from "../env"
+import { HetznerClient } from "../hetzner/client"
+import { renderCloudInit } from "../hetzner/cloud-init"
+import { FakeHetznerClient } from "../hetzner/fake"
+import { buildOpenClawTenantConfig } from "../openclaw/config"
+import { OpenAiProvisioner } from "../providers/openai/provisioning"
+import { RuntimeManager } from "../runtime/manager"
+import { SshClient } from "../ssh/client"
 
 import {
   appendJobEvent,
@@ -37,20 +37,20 @@ import {
   markJobFailed,
   markJobSucceeded,
   requeueJob,
-} from "./queue";
+} from "./queue"
 import {
   type ClaimedJob,
   JOB_TYPES,
   PROVISIONING_STEPS,
   type ProvisioningStep,
   type ProvisionTenantServerPayload,
-} from "./types";
+} from "./types"
 
-const fakeHetznerClient = new FakeHetznerClient();
-const openAiProvisioner = new OpenAiProvisioner();
-const runtimeManager = new RuntimeManager();
-const sshClient = new SshClient();
-const STEP_DELAY_MS = 10_000;
+const fakeHetznerClient = new FakeHetznerClient()
+const openAiProvisioner = new OpenAiProvisioner()
+const runtimeManager = new RuntimeManager()
+const sshClient = new SshClient()
+const STEP_DELAY_MS = 10_000
 
 export async function processProvisionTenantServerJob(
   job: ClaimedJob,
@@ -58,69 +58,69 @@ export async function processProvisionTenantServerJob(
   if (job.jobType !== JOB_TYPES.provisionTenantServer) {
     throw new Error(
       `Unsupported job type for provisioning handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseProvisionPayload(job.payload);
-  logStep(job.id, payload.tenantId, payload.step, "starting");
+  const payload = parseProvisionPayload(job.payload)
+  logStep(job.id, payload.tenantId, payload.step, "starting")
 
   try {
     switch (payload.step) {
       case PROVISIONING_STEPS.createServer:
-        await createServer(job.id, payload);
-        return;
+        await createServer(job.id, payload)
+        return
       case PROVISIONING_STEPS.waitForHetznerAction:
-        await waitForServerAction(job.id, payload);
-        return;
+        await waitForServerAction(job.id, payload)
+        return
       case PROVISIONING_STEPS.fetchServerIp:
-        await fetchServerIp(job.id, payload);
-        return;
+        await fetchServerIp(job.id, payload)
+        return
       case PROVISIONING_STEPS.waitForSsh:
-        await waitForSsh(job.id, payload);
-        return;
+        await waitForSsh(job.id, payload)
+        return
       case PROVISIONING_STEPS.waitForHostBootstrap:
-        await waitForHostBootstrap(job.id, payload);
-        return;
+        await waitForHostBootstrap(job.id, payload)
+        return
       case PROVISIONING_STEPS.bootstrapRuntime:
-        await bootstrapRuntime(job.id, payload);
-        return;
+        await bootstrapRuntime(job.id, payload)
+        return
       case PROVISIONING_STEPS.startRuntime:
-        await startRuntime(job.id, payload);
-        return;
+        await startRuntime(job.id, payload)
+        return
       case PROVISIONING_STEPS.verifyRuntime:
-        await verifyRuntime(job.id, payload);
-        return;
+        await verifyRuntime(job.id, payload)
+        return
       case PROVISIONING_STEPS.markServerReady:
-        await markServerReady(job.id, payload);
-        return;
+        await markServerReady(job.id, payload)
+        return
       default:
-        throw new Error(`Unsupported provisioning step: ${payload.step}`);
+        throw new Error(`Unsupported provisioning step: ${payload.step}`)
     }
   } catch (error) {
     console.error(
       `[worker] job ${job.id} tenant ${payload.tenantId} step ${payload.step} failed: ${getErrorMessage(error)}`,
-    );
-    await markTenantProvisioningFailed(payload.tenantId);
+    )
+    await markTenantProvisioningFailed(payload.tenantId)
     await appendJobEvent(job.id, "failed", "Provisioning failed", {
       error: getErrorMessage(error),
       step: payload.step,
-    });
-    await markJobFailed(job.id, getErrorMessage(error));
-    throw error;
+    })
+    await markJobFailed(job.id, getErrorMessage(error))
+    throw error
   }
 }
 
 function parseProvisionPayload(
   payload: Record<string, unknown>,
 ): ProvisionTenantServerPayload {
-  const tenantId = payload.tenantId;
-  const step = payload.step;
-  const providerServerId = payload.providerServerId;
-  const actionId = payload.actionId;
-  const ipv4 = payload.ipv4;
+  const tenantId = payload.tenantId
+  const step = payload.step
+  const providerServerId = payload.providerServerId
+  const actionId = payload.actionId
+  const ipv4 = payload.ipv4
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Provisioning job payload is missing tenantId");
+    throw new Error("Provisioning job payload is missing tenantId")
   }
 
   return {
@@ -133,13 +133,13 @@ function parseProvisionPayload(
       typeof providerServerId === "string" ? providerServerId : undefined,
     actionId: typeof actionId === "string" ? actionId : undefined,
     ipv4: typeof ipv4 === "string" ? ipv4 : undefined,
-  };
+  }
 }
 
 function isProvisioningStep(value: string): value is ProvisioningStep {
   return Object.values(PROVISIONING_STEPS).includes(
     value as (typeof PROVISIONING_STEPS)[keyof typeof PROVISIONING_STEPS],
-  );
+  )
 }
 
 async function createServer(
@@ -151,28 +151,28 @@ async function createServer(
     payload.tenantId,
     PROVISIONING_STEPS.createServer,
     `creating ${getProvisioningProvider()} server`,
-  );
-  const createdServer = await createProviderServer(payload.tenantId);
-  const provider = getProvisioningProvider();
+  )
+  const createdServer = await createProviderServer(payload.tenantId)
+  const provider = getProvisioningProvider()
 
   await updateTenantServer(payload.tenantId, {
     provider,
     providerServerId: createdServer.id,
     sshUsername: getEnv().RUNTIME_SSH_USERNAME,
     status: "creating_server",
-  });
+  })
 
   await appendJobEvent(jobId, "creating_server", `Created ${provider} server`, {
     provider,
     providerServerId: createdServer.id,
-  });
+  })
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForHetznerAction,
     createdServer.id,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -182,7 +182,7 @@ async function createServer(
       step: PROVISIONING_STEPS.waitForHetznerAction,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function waitForServerAction(
@@ -192,7 +192,7 @@ async function waitForServerAction(
   if (!payload.providerServerId || !payload.actionId) {
     throw new Error(
       "Provisioning job cannot wait for action without server ids",
-    );
+    )
   }
 
   logStep(
@@ -200,15 +200,15 @@ async function waitForServerAction(
     payload.tenantId,
     PROVISIONING_STEPS.waitForHetznerAction,
     `waiting for action ${payload.actionId}`,
-  );
+  )
   await getProvisioningClient().waitForServerAction(
     payload.providerServerId,
     payload.actionId,
-  );
+  )
 
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_server_action",
-  });
+  })
 
   await appendJobEvent(
     jobId,
@@ -219,14 +219,14 @@ async function waitForServerAction(
       provider: getProvisioningProvider(),
       providerServerId: payload.providerServerId,
     },
-  );
+  )
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.fetchServerIp,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -234,7 +234,7 @@ async function waitForServerAction(
       step: PROVISIONING_STEPS.fetchServerIp,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function fetchServerIp(
@@ -244,7 +244,7 @@ async function fetchServerIp(
   if (!payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot fetch server IP without a server id",
-    );
+    )
   }
 
   logStep(
@@ -252,15 +252,15 @@ async function fetchServerIp(
     payload.tenantId,
     PROVISIONING_STEPS.fetchServerIp,
     `fetching IP for ${payload.providerServerId}`,
-  );
+  )
   const server = await getProvisioningClient().getServer(
     payload.providerServerId,
-  );
+  )
 
   await updateTenantServer(payload.tenantId, {
     ipv4: server.ipv4,
     status: "fetching_server_ip",
-  });
+  })
 
   await appendJobEvent(
     jobId,
@@ -271,17 +271,17 @@ async function fetchServerIp(
       provider: getProvisioningProvider(),
       providerServerId: payload.providerServerId,
     },
-  );
+  )
 
   console.info(
     `[worker] job ${jobId} tenant ${payload.tenantId} got ${getProvisioningProvider()} IP ${server.ipv4}`,
-  );
+  )
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForSsh,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -290,7 +290,7 @@ async function fetchServerIp(
       step: PROVISIONING_STEPS.waitForSsh,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function waitForSsh(
@@ -300,7 +300,7 @@ async function waitForSsh(
   if (!payload.ipv4) {
     throw new Error(
       "Provisioning job cannot wait for SSH without an IPv4 address",
-    );
+    )
   }
 
   logStep(
@@ -308,10 +308,10 @@ async function waitForSsh(
     payload.tenantId,
     PROVISIONING_STEPS.waitForSsh,
     `waiting for SSH on ${payload.ipv4}`,
-  );
+  )
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_ssh",
-  });
+  })
 
   if (getProvisioningProvider() === "hetzner") {
     await appendJobEvent(
@@ -322,13 +322,13 @@ async function waitForSsh(
         ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
       },
-    );
+    )
 
     await sshClient.waitUntilReachable({
       host: payload.ipv4,
       port: getEnv().RUNTIME_SSH_PORT,
       username: getEnv().RUNTIME_SSH_USERNAME,
-    });
+    })
   }
 
   await appendJobEvent(
@@ -338,14 +338,14 @@ async function waitForSsh(
     {
       ipv4: payload.ipv4,
     },
-  );
+  )
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForHostBootstrap,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -353,7 +353,7 @@ async function waitForSsh(
       step: PROVISIONING_STEPS.waitForHostBootstrap,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function waitForHostBootstrap(
@@ -363,7 +363,7 @@ async function waitForHostBootstrap(
   if (!payload.ipv4 || !payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot wait for host bootstrap without server metadata",
-    );
+    )
   }
 
   logStep(
@@ -371,10 +371,10 @@ async function waitForHostBootstrap(
     payload.tenantId,
     PROVISIONING_STEPS.waitForHostBootstrap,
     `waiting for cloud-init and Docker on ${payload.ipv4}`,
-  );
+  )
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_host_bootstrap",
-  });
+  })
 
   if (getProvisioningProvider() === "hetzner") {
     await appendJobEvent(
@@ -385,13 +385,13 @@ async function waitForHostBootstrap(
         ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
       },
-    );
+    )
 
     await runtimeManager.waitForHostBootstrap({
       host: payload.ipv4,
       port: getEnv().RUNTIME_SSH_PORT,
       username: getEnv().RUNTIME_SSH_USERNAME,
-    });
+    })
   }
 
   await appendJobEvent(
@@ -402,14 +402,14 @@ async function waitForHostBootstrap(
       ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
     },
-  );
+  )
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.bootstrapRuntime,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -417,7 +417,7 @@ async function waitForHostBootstrap(
       step: PROVISIONING_STEPS.bootstrapRuntime,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function bootstrapRuntime(
@@ -427,7 +427,7 @@ async function bootstrapRuntime(
   if (!payload.ipv4 || !payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot bootstrap runtime without server metadata",
-    );
+    )
   }
 
   logStep(
@@ -435,10 +435,10 @@ async function bootstrapRuntime(
     payload.tenantId,
     PROVISIONING_STEPS.bootstrapRuntime,
     `bootstrapping runtime on ${payload.ipv4}`,
-  );
+  )
   await updateTenantServer(payload.tenantId, {
     status: "bootstrapping_runtime",
-  });
+  })
 
   if (getProvisioningProvider() === "hetzner") {
     await appendJobEvent(
@@ -449,11 +449,11 @@ async function bootstrapRuntime(
         ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
       },
-    );
+    )
 
     const openAiCredential = await ensureTenantOpenAiCredential(
       payload.tenantId,
-    );
+    )
 
     if (openAiCredential.created) {
       await appendJobEvent(
@@ -466,33 +466,31 @@ async function bootstrapRuntime(
           serviceAccountId: openAiCredential.serviceAccountId,
           tenantId: payload.tenantId,
         },
-      );
+      )
     }
 
-    const desiredState = await getLatestTenantDesiredState(payload.tenantId);
-    const gatewayToken = await ensureTenantRuntimeGatewayToken(
-      payload.tenantId,
-    );
-    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId);
-    const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
+    const desiredState = await getLatestTenantDesiredState(payload.tenantId)
+    const gatewayToken = await ensureTenantRuntimeGatewayToken(payload.tenantId)
+    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId)
+    const slackBotToken = await getTenantSlackBotToken(payload.tenantId)
     const managedConfigVersion = getManagedConfigVersionFromConfigJson(
       desiredState.configJson,
-    );
+    )
     const managedConfig = managedConfigVersion
       ? await getTenantManagedConfigByVersion({
           tenantId: payload.tenantId,
           version: managedConfigVersion,
         })
-      : await getLatestTenantManagedConfig(payload.tenantId);
+      : await getLatestTenantManagedConfig(payload.tenantId)
     const managedSkillVersionMap =
       getManagedSkillVersionMapFromConfigJson(desiredState.configJson) ??
       (await listLatestTenantManagedSkillVersionMapForTenant({
         tenantId: payload.tenantId,
-      }));
+      }))
     const managedSkillFiles = await listProjectedManagedSkillFilesForTenant({
       tenantId: payload.tenantId,
       versionMap: managedSkillVersionMap,
-    });
+    })
 
     await runtimeManager.bootstrapTenantRuntime(
       {
@@ -521,7 +519,7 @@ async function bootstrapRuntime(
         slackBotToken,
         tenantId: payload.tenantId,
       },
-    );
+    )
   }
 
   await appendJobEvent(
@@ -532,14 +530,14 @@ async function bootstrapRuntime(
       ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
     },
-  );
+  )
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.startRuntime,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -547,16 +545,16 @@ async function bootstrapRuntime(
       step: PROVISIONING_STEPS.startRuntime,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function ensureTenantOpenAiCredential(tenantId: string): Promise<{
-  apiKeyId: string | null;
-  created: boolean;
-  projectId: string | null;
-  serviceAccountId: string | null;
+  apiKeyId: string | null
+  created: boolean
+  projectId: string | null
+  serviceAccountId: string | null
 }> {
-  const existingKey = await getTenantOpenAiApiKey(tenantId);
+  const existingKey = await getTenantOpenAiApiKey(tenantId)
 
   if (existingKey) {
     return {
@@ -564,7 +562,7 @@ async function ensureTenantOpenAiCredential(tenantId: string): Promise<{
       created: false,
       projectId: null,
       serviceAccountId: null,
-    };
+    }
   }
 
   const [tenant] = await getDb()
@@ -574,22 +572,22 @@ async function ensureTenantOpenAiCredential(tenantId: string): Promise<{
     })
     .from(tenants)
     .where(eq(tenants.id, tenantId))
-    .limit(1);
+    .limit(1)
 
   if (!tenant) {
-    throw new Error(`Provisioning could not find tenant ${tenantId}`);
+    throw new Error(`Provisioning could not find tenant ${tenantId}`)
   }
 
   const existingAccount = await getProviderAccountByTenantAndKey(
     tenant.id,
     "openai",
-  );
+  )
   const provisionedCredential = await openAiProvisioner.createTenantCredential({
     existingProjectId: existingAccount?.externalProjectId ?? null,
     tenantId: tenant.id,
     tenantName: tenant.name,
     verify: true,
-  });
+  })
 
   await persistProvisionedProviderCredential({
     credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
@@ -603,14 +601,14 @@ async function ensureTenantOpenAiCredential(tenantId: string): Promise<{
     revokedAt: null,
     status: "active",
     tenantId: tenant.id,
-  });
+  })
 
   return {
     apiKeyId: provisionedCredential.apiKeyId,
     created: true,
     projectId: provisionedCredential.projectId,
     serviceAccountId: provisionedCredential.serviceAccountId,
-  };
+  }
 }
 
 async function startRuntime(
@@ -620,7 +618,7 @@ async function startRuntime(
   if (!payload.ipv4 || !payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot start runtime without server metadata",
-    );
+    )
   }
 
   logStep(
@@ -628,10 +626,10 @@ async function startRuntime(
     payload.tenantId,
     PROVISIONING_STEPS.startRuntime,
     `starting OpenClaw runtime on ${payload.ipv4}`,
-  );
+  )
   await updateTenantServer(payload.tenantId, {
     status: "starting_runtime",
-  });
+  })
 
   if (getProvisioningProvider() === "hetzner") {
     await appendJobEvent(
@@ -643,13 +641,13 @@ async function startRuntime(
         providerServerId: payload.providerServerId,
         runtimeImage: getEnv().RUNTIME_OPENCLAW_IMAGE,
       },
-    );
+    )
 
     await runtimeManager.restartGateway({
       host: payload.ipv4,
       port: getEnv().RUNTIME_SSH_PORT,
       username: getEnv().RUNTIME_SSH_USERNAME,
-    });
+    })
   }
 
   logRequeue(
@@ -657,7 +655,7 @@ async function startRuntime(
     payload.tenantId,
     PROVISIONING_STEPS.verifyRuntime,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -665,7 +663,7 @@ async function startRuntime(
       step: PROVISIONING_STEPS.verifyRuntime,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function verifyRuntime(
@@ -675,7 +673,7 @@ async function verifyRuntime(
   if (!payload.ipv4 || !payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot verify runtime without server metadata",
-    );
+    )
   }
 
   logStep(
@@ -683,10 +681,10 @@ async function verifyRuntime(
     payload.tenantId,
     PROVISIONING_STEPS.verifyRuntime,
     `verifying OpenClaw runtime on ${payload.ipv4}`,
-  );
+  )
   await updateTenantServer(payload.tenantId, {
     status: "verifying_runtime",
-  });
+  })
 
   if (getProvisioningProvider() === "hetzner") {
     await appendJobEvent(
@@ -697,13 +695,13 @@ async function verifyRuntime(
         ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
       },
-    );
+    )
 
     await runtimeManager.checkGatewayHealth({
       host: payload.ipv4,
       port: getEnv().RUNTIME_SSH_PORT,
       username: getEnv().RUNTIME_SSH_USERNAME,
-    });
+    })
   }
 
   await appendJobEvent(
@@ -714,14 +712,14 @@ async function verifyRuntime(
       ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
     },
-  );
+  )
 
   logRequeue(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.markServerReady,
     payload.providerServerId,
-  );
+  )
   await requeueJob(
     jobId,
     {
@@ -729,7 +727,7 @@ async function verifyRuntime(
       step: PROVISIONING_STEPS.markServerReady,
     },
     new Date(Date.now() + getProvisioningDelayMs()),
-  );
+  )
 }
 
 async function markServerReady(
@@ -737,7 +735,7 @@ async function markServerReady(
   payload: ProvisionTenantServerPayload,
 ) {
   if (!payload.providerServerId || !payload.ipv4) {
-    throw new Error("Provisioning job cannot complete without server metadata");
+    throw new Error("Provisioning job cannot complete without server metadata")
   }
 
   logStep(
@@ -745,8 +743,8 @@ async function markServerReady(
     payload.tenantId,
     PROVISIONING_STEPS.markServerReady,
     `marking ready with IP ${payload.ipv4}`,
-  );
-  const db = getDb();
+  )
+  const db = getDb()
 
   await db.transaction(async (tx) => {
     const [tenant] = await tx
@@ -755,10 +753,10 @@ async function markServerReady(
       })
       .from(tenants)
       .where(eq(tenants.id, payload.tenantId))
-      .limit(1);
+      .limit(1)
 
     if (!tenant) {
-      throw new Error("Tenant not found while marking server ready");
+      throw new Error("Tenant not found while marking server ready")
     }
 
     await tx
@@ -770,7 +768,7 @@ async function markServerReady(
         status: "ready",
         updatedAt: new Date(),
       })
-      .where(eq(tenantServers.tenantId, payload.tenantId));
+      .where(eq(tenantServers.tenantId, payload.tenantId))
 
     await tx
       .update(tenants)
@@ -778,7 +776,7 @@ async function markServerReady(
         status: "ready",
         updatedAt: new Date(),
       })
-      .where(eq(tenants.id, payload.tenantId));
+      .where(eq(tenants.id, payload.tenantId))
 
     await tx
       .update(organizations)
@@ -786,20 +784,20 @@ async function markServerReady(
         isReady: true,
         updatedAt: new Date(),
       })
-      .where(eq(organizations.id, tenant.organizationId));
-  });
+      .where(eq(organizations.id, tenant.organizationId))
+  })
 
   await appendJobEvent(jobId, "ready", "Tenant server marked ready", {
     ipv4: payload.ipv4,
     providerServerId: payload.providerServerId,
-  });
+  })
 
   const scheduledTasksRefreshJobId = await enqueueJob({
     jobType: JOB_TYPES.reconcileTenantScheduledTasks,
     payload: {
       tenantId: payload.tenantId,
     },
-  });
+  })
 
   await appendJobEvent(
     jobId,
@@ -809,31 +807,31 @@ async function markServerReady(
       scheduledTasksRefreshJobId,
       tenantId: payload.tenantId,
     },
-  );
+  )
 
   await markJobSucceeded(jobId, {
     ipv4: payload.ipv4,
     provider: getProvisioningProvider(),
     providerServerId: payload.providerServerId,
     scheduledTasksRefreshJobId,
-  });
+  })
 
   console.info(
     `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${getProvisioningProvider()} server ${payload.providerServerId} (${payload.ipv4})`,
-  );
+  )
 }
 
 async function updateTenantServer(
   tenantId: string,
   input: {
-    ipv4?: string | null;
-    provider?: string;
-    providerServerId?: string;
-    sshUsername?: string;
-    status: string;
+    ipv4?: string | null
+    provider?: string
+    providerServerId?: string
+    sshUsername?: string
+    status: string
   },
 ) {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(tenantServers)
@@ -847,11 +845,11 @@ async function updateTenantServer(
       status: input.status,
       updatedAt: new Date(),
     })
-    .where(eq(tenantServers.tenantId, tenantId));
+    .where(eq(tenantServers.tenantId, tenantId))
 }
 
 async function markTenantProvisioningFailed(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
 
   await db.transaction(async (tx) => {
     await tx
@@ -860,7 +858,7 @@ async function markTenantProvisioningFailed(tenantId: string) {
         status: "failed",
         updatedAt: new Date(),
       })
-      .where(eq(tenantServers.tenantId, tenantId));
+      .where(eq(tenantServers.tenantId, tenantId))
 
     await tx
       .update(tenants)
@@ -868,16 +866,16 @@ async function markTenantProvisioningFailed(tenantId: string) {
         status: "failed",
         updatedAt: new Date(),
       })
-      .where(eq(tenants.id, tenantId));
-  });
+      .where(eq(tenants.id, tenantId))
+  })
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown provisioning error";
+  return "Unknown provisioning error"
 }
 
 function logStep(
@@ -888,7 +886,7 @@ function logStep(
 ) {
   console.info(
     `[worker] job ${jobId} tenant ${tenantId} step ${step ?? "unknown"}: ${message}`,
-  );
+  )
 }
 
 function logRequeue(
@@ -899,24 +897,24 @@ function logRequeue(
 ) {
   const availableAt = new Date(
     Date.now() + getProvisioningDelayMs(),
-  ).toISOString();
-  const serverText = providerServerId ? ` server ${providerServerId}` : "";
+  ).toISOString()
+  const serverText = providerServerId ? ` server ${providerServerId}` : ""
 
   console.info(
     `[worker] job ${jobId} tenant ${tenantId}${serverText} requeued for ${nextStep} at ${availableAt}`,
-  );
+  )
 }
 
 async function createProviderServer(tenantId: string) {
   if (getProvisioningProvider() === "hetzner") {
-    const env = getEnv();
+    const env = getEnv()
     const sshKeys = env.HETZNER_SSH_KEY_NAMES.split(",")
       .map((value) => value.trim())
-      .filter(Boolean);
+      .filter(Boolean)
 
     console.info(
       `[worker] tenant ${tenantId} hetzner config: server_type=${env.HETZNER_DEFAULT_SERVER_TYPE} image=${env.HETZNER_DEFAULT_IMAGE} location=${env.HETZNER_DEFAULT_LOCATION} ssh_keys=${sshKeys.join(",") || "none"}`,
-    );
+    )
 
     return getHetznerClient().createServer({
       image: env.HETZNER_DEFAULT_IMAGE,
@@ -930,36 +928,36 @@ async function createProviderServer(tenantId: string) {
       serverType: env.HETZNER_DEFAULT_SERVER_TYPE,
       sshKeys,
       userData: renderCloudInit(),
-    });
+    })
   }
 
-  return fakeHetznerClient.createServer({ tenantId });
+  return fakeHetznerClient.createServer({ tenantId })
 }
 
 function buildHetznerServerName(tenantId: string) {
-  return `otto-${tenantId.slice(0, 12)}`;
+  return `otto-${tenantId.slice(0, 12)}`
 }
 
 function getProvisioningClient() {
   return getProvisioningProvider() === "hetzner"
     ? getHetznerClient()
-    : fakeHetznerClient;
+    : fakeHetznerClient
 }
 
 function getProvisioningDelayMs() {
-  return getProvisioningProvider() === "hetzner" ? 0 : STEP_DELAY_MS;
+  return getProvisioningProvider() === "hetzner" ? 0 : STEP_DELAY_MS
 }
 
 function getProvisioningProvider() {
-  return getEnv().HETZNER_API_TOKEN ? "hetzner" : "fake";
+  return getEnv().HETZNER_API_TOKEN ? "hetzner" : "fake"
 }
 
-let cachedHetznerClient: HetznerClient | null = null;
+let cachedHetznerClient: HetznerClient | null = null
 
 function getHetznerClient() {
   if (!cachedHetznerClient) {
-    cachedHetznerClient = new HetznerClient();
+    cachedHetznerClient = new HetznerClient()
   }
 
-  return cachedHetznerClient;
+  return cachedHetznerClient
 }

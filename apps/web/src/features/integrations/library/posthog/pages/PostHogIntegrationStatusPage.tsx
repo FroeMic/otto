@@ -79,12 +79,15 @@ function getSetupRecord(detail: WorkspaceIntegrationDetail) {
 function getSelectedResourceLabels(detail: WorkspaceIntegrationDetail) {
   const setup = getSetupRecord(detail)
   const selectedKeys = Array.isArray(setup?.selectedResourceKeys)
-    ? setup.selectedResourceKeys.filter((key): key is string => typeof key === "string")
+    ? setup.selectedResourceKeys.filter(
+        (key): key is string => typeof key === "string",
+      )
     : []
   const resources = Array.isArray(setup?.resources)
-    ? setup.resources.filter(
-        (resource): resource is Record<string, unknown> =>
-          Boolean(resource && typeof resource === "object" && !Array.isArray(resource)),
+    ? setup.resources.filter((resource): resource is Record<string, unknown> =>
+        Boolean(
+          resource && typeof resource === "object" && !Array.isArray(resource),
+        ),
       )
     : []
 
@@ -99,11 +102,14 @@ function getSelectedResourceLabels(detail: WorkspaceIntegrationDetail) {
 function getDefaultResourceLabel(detail: WorkspaceIntegrationDetail) {
   const setup = getSetupRecord(detail)
   const defaultKey =
-    typeof setup?.defaultResourceKey === "string" ? setup.defaultResourceKey : null
+    typeof setup?.defaultResourceKey === "string"
+      ? setup.defaultResourceKey
+      : null
   const resources = Array.isArray(setup?.resources)
-    ? setup.resources.filter(
-        (resource): resource is Record<string, unknown> =>
-          Boolean(resource && typeof resource === "object" && !Array.isArray(resource)),
+    ? setup.resources.filter((resource): resource is Record<string, unknown> =>
+        Boolean(
+          resource && typeof resource === "object" && !Array.isArray(resource),
+        ),
       )
     : []
 
@@ -137,7 +143,11 @@ export function PostHogIntegrationStatusPage({
       queryKey: ["workspace-integrations", orgSlug],
     })
     void queryClient.invalidateQueries({
-      queryKey: ["workspace-integration-detail", orgSlug, detail.integration.key],
+      queryKey: [
+        "workspace-integration-detail",
+        orgSlug,
+        detail.integration.key,
+      ],
     })
   }
 
@@ -198,7 +208,11 @@ export function PostHogIntegrationStatusPage({
       <section className="flex max-w-3xl flex-col gap-4">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-3">
-            <img alt="" className="size-8" src={detail.integration.iconSrc ?? ""} />
+            <img
+              alt=""
+              className="size-8"
+              src={detail.integration.iconSrc ?? ""}
+            />
             <h1 className="text-3xl font-semibold tracking-tight">
               {detail.integration.label}
             </h1>
@@ -237,10 +251,12 @@ export function PostHogIntegrationStatusPage({
           ) : (
             <SettingsPage className="mx-0 mt-4 max-w-3xl">
               <SettingsSection>
-                <SettingsSectionTitle>Connect PostHog first</SettingsSectionTitle>
+                <SettingsSectionTitle>
+                  Connect PostHog first
+                </SettingsSectionTitle>
                 <SettingsSectionDescription>
-                  Capabilities are based on access detected from the Personal API
-                  key. Complete setup before configuring them.
+                  Capabilities are based on access detected from the Personal
+                  API key. Complete setup before configuring them.
                 </SettingsSectionDescription>
               </SettingsSection>
             </SettingsPage>
@@ -265,7 +281,8 @@ export function PostHogIntegrationStatusPage({
                       <SettingsRowLabel>
                         <SettingsRowTitle>Status</SettingsRowTitle>
                         <SettingsRowDescription>
-                          Whether Otto can currently use PostHog in this workspace.
+                          Whether Otto can currently use PostHog in this
+                          workspace.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <Badge variant={getStatusVariant(detail)}>
@@ -274,7 +291,9 @@ export function PostHogIntegrationStatusPage({
                     </SettingsRow>
                     <SettingsRow>
                       <SettingsRowLabel>
-                        <SettingsRowTitle>Projects Otto can use</SettingsRowTitle>
+                        <SettingsRowTitle>
+                          Projects Otto can use
+                        </SettingsRowTitle>
                         <SettingsRowDescription>
                           Selected during setup and stored as integration state.
                         </SettingsRowDescription>
@@ -324,7 +343,8 @@ export function PostHogIntegrationStatusPage({
                       <SettingsRowLabel>
                         <SettingsRowTitle>Disconnect PostHog</SettingsRowTitle>
                         <SettingsRowDescription>
-                          Remove the current PostHog API key from this workspace.
+                          Remove the current PostHog API key from this
+                          workspace.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <Button

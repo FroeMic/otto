@@ -1,12 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
-
-import { getDb } from "./client";
-import {
-  tenantSkillFiles,
-  tenantSkillFileVersions,
-  tenantSkills,
-  tenantSkillVersions,
-} from "./schema";
+import { and, desc, eq } from "drizzle-orm"
 import {
   buildManagedSkillMarkdown,
   listKnownManagedSkillDependencyIntegrationKeys,
@@ -19,61 +11,68 @@ import {
   normalizeManagedSkillKey,
   parseManagedSkillMarkdown,
   validateManagedSkillPackage,
-} from "../lib/managed-skills/package";
-import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "../lib/managed-skills/system-skills";
+} from "../lib/managed-skills/package"
+import { SYSTEM_MANAGED_SKILL_DEFINITIONS } from "../lib/managed-skills/system-skills"
+import { getDb } from "./client"
+import {
+  tenantSkillFiles,
+  tenantSkillFileVersions,
+  tenantSkills,
+  tenantSkillVersions,
+} from "./schema"
 
-type DbExecutor = ReturnType<typeof getDb>;
-type DbTransaction = Parameters<Parameters<DbExecutor["transaction"]>[0]>[0];
+type DbExecutor = ReturnType<typeof getDb>
+type DbTransaction = Parameters<Parameters<DbExecutor["transaction"]>[0]>[0]
 
-type ManagedSkillVersionMap = Record<string, number>;
+type ManagedSkillVersionMap = Record<string, number>
 
 export type ManagedSkillProjectedFile = {
-  contents: string;
-  projectionMode: "install_if_missing" | "managed_entry";
-  relativePath: string;
-  skillKey: string;
-};
+  contents: string
+  projectionMode: "install_if_missing" | "managed_entry"
+  relativePath: string
+  skillKey: string
+}
 
 export type TenantManagedSkillDetail = {
   dependencies: {
-    integrations: string[];
-    skills: string[];
-  };
-  description: string;
-  displayName: string;
-  enabled: boolean;
+    integrations: string[]
+    skills: string[]
+  }
+  description: string
+  displayName: string
+  enabled: boolean
   files: Array<{
-    contentSha256: string | null;
-    contentText: string | null;
-    contentType: string | null;
-    editability: ManagedSkillFileEditability;
-    path: string;
-    storageEncoding: "binary" | "utf8_text";
-  }>;
-  skillId: string;
-  skillKey: string;
-  sourceType: ManagedSkillSourceType;
-  status: ManagedSkillStatus;
-  summary: string | null;
-  updatedAt: Date;
-  version: number;
-};
+    contentSha256: string | null
+    contentText: string | null
+    contentType: string | null
+    editability: ManagedSkillFileEditability
+    path: string
+    storageEncoding: "binary" | "utf8_text"
+  }>
+  skillId: string
+  skillKey: string
+  sourceType: ManagedSkillSourceType
+  status: ManagedSkillStatus
+  summary: string | null
+  updatedAt: Date
+  version: number
+}
 
 export type TenantManagedSkillPatch = {
-  contentText?: string;
-  description?: string;
-  enabled?: boolean;
-  integrationKeys?: string[];
-  skillBody?: string;
-  skillKeys?: string[];
-};
+  contentText?: string
+  description?: string
+  enabled?: boolean
+  integrationKeys?: string[]
+  skillBody?: string
+  skillKeys?: string[]
+}
 
 export type TenantManagedSkillRenameResult = {
-  changed: boolean;
-  currentVersion: number;
-  renamedFromSkillKey: string;
-  skillKey: string;
-};
+  changed: boolean
+  currentVersion: number
+  renamedFromSkillKey: string
+  skillKey: string
+}
 
 export class ManagedSkillVersionConflictError extends Error {
   constructor(
@@ -82,67 +81,67 @@ export class ManagedSkillVersionConflictError extends Error {
   ) {
     super(
       `Managed skill version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
-    );
+    )
   }
 }
 
 export async function createTenantManagedSkillForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  enabled?: boolean;
-  files: ManagedSkillPackageFileInput[];
-  skillKey: string;
-  sourceType?: ManagedSkillSourceType;
-  status?: ManagedSkillStatus;
-  summary?: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  enabled?: boolean
+  files: ManagedSkillPackageFileInput[]
+  skillKey: string
+  sourceType?: ManagedSkillSourceType
+  status?: ManagedSkillStatus
+  summary?: string
+  tenantId: string
 }) {
-  const normalizedSkillKey = normalizeManagedSkillKey(input.skillKey);
-  const db = getDb();
+  const normalizedSkillKey = normalizeManagedSkillKey(input.skillKey)
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     await ensureTenantSystemManagedSkillsForTenantTx(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     return createTenantManagedSkillForTenantTx(tx, {
       ...input,
       skillKey: normalizedSkillKey,
-    });
-  });
+    })
+  })
 }
 
 async function createTenantManagedSkillForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    createdByExternalId?: string | null;
-    createdByType: "runtime" | "system" | "user";
-    enabled?: boolean;
-    files: ManagedSkillPackageFileInput[];
-    skillKey: string;
-    sourceType?: ManagedSkillSourceType;
-    status?: ManagedSkillStatus;
-    summary?: string;
-    tenantId: string;
+    createdByExternalId?: string | null
+    createdByType: "runtime" | "system" | "user"
+    enabled?: boolean
+    files: ManagedSkillPackageFileInput[]
+    skillKey: string
+    sourceType?: ManagedSkillSourceType
+    status?: ManagedSkillStatus
+    summary?: string
+    tenantId: string
   },
 ) {
   const knownSkillKeys = await listTenantManagedSkillKeysForTenantTx(tx, {
     tenantId: input.tenantId,
-  });
+  })
   const validated = validateManagedSkillPackage({
     files: input.files,
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
     knownSkillKeys,
     skillKey: input.skillKey,
-  });
+  })
   const binaryManagedFiles = validated.files.filter(
     (file) => file.fileKind !== "state" && file.storageEncoding === "binary",
-  );
+  )
 
   if (binaryManagedFiles.length > 0) {
     throw new Error(
       "Managed skill binary file storage is not implemented yet. Create the skill with text files only in the first slice.",
-    );
+    )
   }
 
   const [existingSkill] = await tx
@@ -156,12 +155,12 @@ async function createTenantManagedSkillForTenantTx(
         eq(tenantSkills.skillKey, validated.skillKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingSkill) {
     throw new Error(
       `Managed skill ${validated.skillKey} already exists for this tenant.`,
-    );
+    )
   }
 
   assertManagedSkillDependencyGraphValid({
@@ -170,7 +169,7 @@ async function createTenantManagedSkillForTenantTx(
     }),
     nextDependencies: validated.dependencies.skills,
     skillKey: validated.skillKey,
-  });
+  })
 
   const [createdSkill] = await tx
     .insert(tenantSkills)
@@ -191,7 +190,7 @@ async function createTenantManagedSkillForTenantTx(
     .returning({
       id: tenantSkills.id,
       skillKey: tenantSkills.skillKey,
-    });
+    })
 
   const [createdVersion] = await tx
     .insert(tenantSkillVersions)
@@ -205,11 +204,11 @@ async function createTenantManagedSkillForTenantTx(
     .returning({
       id: tenantSkillVersions.id,
       version: tenantSkillVersions.version,
-    });
+    })
 
   const managedFiles = validated.files.filter(
     (file) => file.fileKind !== "state",
-  );
+  )
 
   const insertedFiles = await tx
     .insert(tenantSkillFiles)
@@ -231,16 +230,16 @@ async function createTenantManagedSkillForTenantTx(
     .returning({
       id: tenantSkillFiles.id,
       relativePath: tenantSkillFiles.relativePath,
-    });
+    })
 
   const insertedFilesByPath = new Map(
     insertedFiles.map((file) => [file.relativePath, file.id]),
-  );
+  )
   const managedTextFiles = managedFiles.filter(
     (file): file is (typeof managedFiles)[number] & { contentText: string } =>
       file.storageEncoding === "utf8_text" &&
       typeof file.contentText === "string",
-  );
+  )
 
   if (managedTextFiles.length > 0) {
     await tx.insert(tenantSkillFileVersions).values(
@@ -248,7 +247,7 @@ async function createTenantManagedSkillForTenantTx(
         contentSha256:
           file.contentSha256 ??
           (() => {
-            throw new Error(`Missing checksum for managed file ${file.path}`);
+            throw new Error(`Missing checksum for managed file ${file.path}`)
           })(),
         contentText: file.contentText,
         createdByExternalId: input.createdByExternalId ?? null,
@@ -256,12 +255,12 @@ async function createTenantManagedSkillForTenantTx(
         tenantSkillFileId:
           insertedFilesByPath.get(file.path) ??
           (() => {
-            throw new Error(`Inserted managed file missing for ${file.path}`);
+            throw new Error(`Inserted managed file missing for ${file.path}`)
           })(),
         tenantSkillVersionId: createdVersion.id,
         version: 1,
       })),
-    );
+    )
   }
 
   return {
@@ -272,17 +271,17 @@ async function createTenantManagedSkillForTenantTx(
     skillId: createdSkill.id,
     skillKey: createdSkill.skillKey,
     version: createdVersion.version,
-  };
+  }
 }
 
 export async function listTenantManagedSkillsForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await ensureTenantSystemManagedSkillsForTenantTx(db, {
     tenantId: input.tenantId,
-  });
+  })
 
   return db
     .select({
@@ -297,23 +296,23 @@ export async function listTenantManagedSkillsForTenant(input: {
     })
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
-    .orderBy(desc(tenantSkills.updatedAt), tenantSkills.skillKey);
+    .orderBy(desc(tenantSkills.updatedAt), tenantSkills.skillKey)
 }
 
 export async function listTenantManagedSkillKeysForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
-  await ensureTenantSystemManagedSkillsForTenantTx(db, input);
+  await ensureTenantSystemManagedSkillsForTenantTx(db, input)
 
-  return await listTenantManagedSkillKeysForTenantTx(db, input);
+  return await listTenantManagedSkillKeysForTenantTx(db, input)
 }
 
 export async function listTenantManagedSkillKeysForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const rows = await tx
@@ -322,38 +321,38 @@ export async function listTenantManagedSkillKeysForTenantTx(
     })
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
-    .orderBy(tenantSkills.skillKey);
+    .orderBy(tenantSkills.skillKey)
 
-  return rows.map((row) => row.skillKey);
+  return rows.map((row) => row.skillKey)
 }
 
 export async function listLatestTenantManagedSkillVersionMapForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
-  await ensureTenantSystemManagedSkillsForTenantTx(db, input);
+  await ensureTenantSystemManagedSkillsForTenantTx(db, input)
 
-  return await listLatestTenantManagedSkillVersionMapTx(db, input);
+  return await listLatestTenantManagedSkillVersionMapTx(db, input)
 }
 
 export async function listProjectedManagedSkillFilesForTenant(input: {
-  tenantId: string;
-  versionMap?: ManagedSkillVersionMap | null;
+  tenantId: string
+  versionMap?: ManagedSkillVersionMap | null
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await ensureTenantSystemManagedSkillsForTenantTx(db, {
     tenantId: input.tenantId,
-  });
+  })
 
-  return await listProjectedManagedSkillFilesTx(db, input);
+  return await listProjectedManagedSkillFilesTx(db, input)
 }
 
 export async function listLatestTenantManagedSkillVersionMapTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const skillRows = await tx
@@ -368,9 +367,9 @@ export async function listLatestTenantManagedSkillVersionMapTx(
         eq(tenantSkills.enabled, true),
       ),
     )
-    .orderBy(tenantSkills.skillKey);
+    .orderBy(tenantSkills.skillKey)
 
-  const versionMap: ManagedSkillVersionMap = {};
+  const versionMap: ManagedSkillVersionMap = {}
 
   for (const skill of skillRows) {
     const [latestVersion] = await tx
@@ -380,35 +379,35 @@ export async function listLatestTenantManagedSkillVersionMapTx(
       .from(tenantSkillVersions)
       .where(eq(tenantSkillVersions.tenantSkillId, skill.skillId))
       .orderBy(desc(tenantSkillVersions.version))
-      .limit(1);
+      .limit(1)
 
     if (latestVersion?.version) {
-      versionMap[skill.skillKey] = latestVersion.version;
+      versionMap[skill.skillKey] = latestVersion.version
     }
   }
 
-  return versionMap;
+  return versionMap
 }
 
 export async function listProjectedManagedSkillFilesTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    tenantId: string;
-    versionMap?: ManagedSkillVersionMap | null;
+    tenantId: string
+    versionMap?: ManagedSkillVersionMap | null
   },
 ) {
   const versionMap =
     input.versionMap ??
-    (await listLatestTenantManagedSkillVersionMapTx(tx, input));
+    (await listLatestTenantManagedSkillVersionMapTx(tx, input))
   const entries = Object.entries(versionMap).sort(([left], [right]) =>
     left.localeCompare(right),
-  );
+  )
 
   if (entries.length === 0) {
-    return [] satisfies ManagedSkillProjectedFile[];
+    return [] satisfies ManagedSkillProjectedFile[]
   }
 
-  const projectedFiles: ManagedSkillProjectedFile[] = [];
+  const projectedFiles: ManagedSkillProjectedFile[] = []
 
   for (const [skillKey, version] of entries) {
     const [skill] = await tx
@@ -424,10 +423,10 @@ export async function listProjectedManagedSkillFilesTx(
           eq(tenantSkills.enabled, true),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!skill) {
-      continue;
+      continue
     }
 
     const [skillVersion] = await tx
@@ -441,12 +440,12 @@ export async function listProjectedManagedSkillFilesTx(
           eq(tenantSkillVersions.version, version),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!skillVersion) {
       throw new Error(
         `Managed skill ${skillKey} does not have version ${version}.`,
-      );
+      )
     }
 
     const fileRows = await tx
@@ -461,13 +460,13 @@ export async function listProjectedManagedSkillFilesTx(
         eq(tenantSkillFiles.id, tenantSkillFileVersions.tenantSkillFileId),
       )
       .where(eq(tenantSkillFileVersions.tenantSkillVersionId, skillVersion.id))
-      .orderBy(tenantSkillFiles.relativePath);
+      .orderBy(tenantSkillFiles.relativePath)
 
     for (const file of fileRows) {
       if (file.contentEncoding !== "utf8_text") {
         throw new Error(
           `Managed skill ${skillKey} includes non-text file ${file.relativePath}, which cannot be projected yet.`,
-        );
+        )
       }
 
       projectedFiles.push({
@@ -478,31 +477,31 @@ export async function listProjectedManagedSkillFilesTx(
             : "install_if_missing",
         relativePath: `skills/${skillKey}/${file.relativePath}`,
         skillKey,
-      });
+      })
     }
   }
 
-  return projectedFiles;
+  return projectedFiles
 }
 
 export async function getLatestTenantManagedSkillDetailForTenant(input: {
-  skillKey: string;
-  tenantId: string;
+  skillKey: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await ensureTenantSystemManagedSkillsForTenantTx(db, {
     tenantId: input.tenantId,
-  });
+  })
 
-  return await getLatestTenantManagedSkillDetailForTenantTx(db, input);
+  return await getLatestTenantManagedSkillDetailForTenantTx(db, input)
 }
 
 export async function getLatestTenantManagedSkillDetailForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    skillKey: string;
-    tenantId: string;
+    skillKey: string
+    tenantId: string
   },
 ): Promise<TenantManagedSkillDetail | null> {
   const [skill] = await tx
@@ -524,10 +523,10 @@ export async function getLatestTenantManagedSkillDetailForTenantTx(
         eq(tenantSkills.skillKey, input.skillKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!skill) {
-    return null;
+    return null
   }
 
   const [latestVersion] = await tx
@@ -539,12 +538,12 @@ export async function getLatestTenantManagedSkillDetailForTenantTx(
     .from(tenantSkillVersions)
     .where(eq(tenantSkillVersions.tenantSkillId, skill.skillId))
     .orderBy(desc(tenantSkillVersions.version))
-    .limit(1);
+    .limit(1)
 
   if (!latestVersion) {
     throw new Error(
       `Managed skill ${input.skillKey} has no stored versions for tenant ${input.tenantId}.`,
-    );
+    )
   }
 
   const fileRows = await tx
@@ -561,7 +560,7 @@ export async function getLatestTenantManagedSkillDetailForTenantTx(
       eq(tenantSkillFiles.id, tenantSkillFileVersions.tenantSkillFileId),
     )
     .where(eq(tenantSkillFileVersions.tenantSkillVersionId, latestVersion.id))
-    .orderBy(tenantSkillFiles.relativePath);
+    .orderBy(tenantSkillFiles.relativePath)
 
   return {
     dependencies: normalizeManagedSkillDependencies(skill.dependsOnJson),
@@ -589,31 +588,31 @@ export async function getLatestTenantManagedSkillDetailForTenantTx(
     summary: latestVersion.summary,
     updatedAt: skill.updatedAt,
     version: latestVersion.version,
-  };
+  }
 }
 
 export async function updateTenantManagedSkillTextFileForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    contentText: string;
-    createdByExternalId?: string | null;
-    createdByType: "runtime" | "system" | "user";
-    expectedVersion?: number;
-    relativePath: string;
-    skillKey: string;
-    summary?: string;
-    tenantId: string;
+    contentText: string
+    createdByExternalId?: string | null
+    createdByType: "runtime" | "system" | "user"
+    expectedVersion?: number
+    relativePath: string
+    skillKey: string
+    summary?: string
+    tenantId: string
   },
 ) {
   const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
     skillKey: input.skillKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!detail) {
     throw new Error(
       `Managed skill ${input.skillKey} does not exist for this workspace.`,
-    );
+    )
   }
 
   if (
@@ -623,33 +622,33 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     throw new ManagedSkillVersionConflictError(
       input.expectedVersion,
       detail.version,
-    );
+    )
   }
 
-  const normalizedPath = input.relativePath.trim().replaceAll("\\", "/");
+  const normalizedPath = input.relativePath.trim().replaceAll("\\", "/")
 
   if (detail.sourceType === "system" && input.createdByType !== "system") {
     throw new Error(
       "System-managed skills cannot be edited through the managed-skills surface.",
-    );
+    )
   }
 
   if (normalizedPath !== MANAGED_SKILL_ENTRY_FILE_PATH) {
     throw new Error(
       "Only SKILL.md can be edited through the managed-skills surface.",
-    );
+    )
   }
 
-  const targetFile = detail.files.find((file) => file.path === normalizedPath);
+  const targetFile = detail.files.find((file) => file.path === normalizedPath)
 
   if (!targetFile) {
     throw new Error(
       `Managed skill file ${normalizedPath} does not exist in ${detail.skillKey}.`,
-    );
+    )
   }
 
   if (targetFile.storageEncoding !== "utf8_text") {
-    throw new Error(`Managed skill file ${normalizedPath} is not editable.`);
+    throw new Error(`Managed skill file ${normalizedPath} is not editable.`)
   }
 
   if (targetFile.contentText === input.contentText) {
@@ -657,7 +656,7 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
       changed: false,
       currentVersion: detail.version,
       skillKey: detail.skillKey,
-    };
+    }
   }
 
   const nextPackageFiles: ManagedSkillPackageFileInput[] = detail.files.map(
@@ -667,7 +666,7 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
       contentType: file.contentType,
       path: file.path,
     }),
-  );
+  )
   const validated = validateManagedSkillPackage({
     files: nextPackageFiles,
     knownIntegrationKeys: listKnownManagedSkillDependencyIntegrationKeys(),
@@ -675,14 +674,14 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
       tenantId: input.tenantId,
     }),
     skillKey: detail.skillKey,
-  });
+  })
   assertManagedSkillDependencyGraphValid({
     dependencyMap: await listTenantManagedSkillDependencyGraphForTenantTx(tx, {
       tenantId: input.tenantId,
     }),
     nextDependencies: validated.dependencies.skills,
     skillKey: detail.skillKey,
-  });
+  })
   const managedFileRows = await tx
     .select({
       contentType: tenantSkillFiles.contentType,
@@ -691,10 +690,10 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     })
     .from(tenantSkillFiles)
     .where(eq(tenantSkillFiles.tenantSkillId, detail.skillId))
-    .orderBy(tenantSkillFiles.relativePath);
+    .orderBy(tenantSkillFiles.relativePath)
   const fileIdByPath = new Map(
     managedFileRows.map((file) => [file.relativePath, file.fileId]),
-  );
+  )
   const [createdVersion] = await tx
     .insert(tenantSkillVersions)
     .values({
@@ -707,15 +706,15 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     .returning({
       id: tenantSkillVersions.id,
       version: tenantSkillVersions.version,
-    });
+    })
 
   for (const file of validated.files) {
-    const fileId = fileIdByPath.get(file.path);
+    const fileId = fileIdByPath.get(file.path)
 
     if (!fileId) {
       throw new Error(
         `Managed skill file metadata is missing for ${detail.skillKey}/${file.path}.`,
-      );
+      )
     }
 
     await tx
@@ -730,7 +729,7 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
             : "application/octet-stream"),
         updatedAt: new Date(),
       })
-      .where(eq(tenantSkillFiles.id, fileId));
+      .where(eq(tenantSkillFiles.id, fileId))
 
     if (
       file.storageEncoding !== "utf8_text" ||
@@ -738,14 +737,14 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     ) {
       throw new Error(
         `Managed skill file ${detail.skillKey}/${file.path} cannot be versioned as non-text in the current slice.`,
-      );
+      )
     }
 
     await tx.insert(tenantSkillFileVersions).values({
       contentSha256:
         file.contentSha256 ??
         (() => {
-          throw new Error(`Missing checksum for managed file ${file.path}`);
+          throw new Error(`Missing checksum for managed file ${file.path}`)
         })(),
       contentText: file.contentText,
       createdByExternalId: input.createdByExternalId ?? null,
@@ -753,7 +752,7 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
       tenantSkillFileId: fileId,
       tenantSkillVersionId: createdVersion.id,
       version: createdVersion.version,
-    });
+    })
   }
 
   await tx
@@ -767,7 +766,7 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
       updatedByExternalId: input.createdByExternalId ?? null,
       updatedByType: input.createdByType,
     })
-    .where(eq(tenantSkills.id, detail.skillId));
+    .where(eq(tenantSkills.id, detail.skillId))
 
   return {
     changed: true,
@@ -776,30 +775,30 @@ export async function updateTenantManagedSkillTextFileForTenantTx(
     description: validated.description,
     displayName: validated.name,
     skillKey: detail.skillKey,
-  };
+  }
 }
 
 export async function updateTenantManagedSkillForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    createdByExternalId?: string | null;
-    createdByType: "runtime" | "system" | "user";
-    expectedVersion?: number;
-    patch: TenantManagedSkillPatch;
-    skillKey: string;
-    summary?: string;
-    tenantId: string;
+    createdByExternalId?: string | null
+    createdByType: "runtime" | "system" | "user"
+    expectedVersion?: number
+    patch: TenantManagedSkillPatch
+    skillKey: string
+    summary?: string
+    tenantId: string
   },
 ) {
   const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
     skillKey: input.skillKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!detail) {
     throw new Error(
       `Managed skill ${input.skillKey} does not exist for this workspace.`,
-    );
+    )
   }
 
   if (
@@ -809,23 +808,23 @@ export async function updateTenantManagedSkillForTenantTx(
     throw new ManagedSkillVersionConflictError(
       input.expectedVersion,
       detail.version,
-    );
+    )
   }
 
   if (detail.sourceType === "system" && input.createdByType !== "system") {
     throw new Error(
       "System-managed skills cannot be edited through the managed-skills surface.",
-    );
+    )
   }
 
-  const currentContent = getManagedSkillEntryContent(detail);
+  const currentContent = getManagedSkillEntryContent(detail)
   const nextContent = buildNextManagedSkillContent({
     currentContent,
     patch: input.patch,
-  });
+  })
 
-  let changed = false;
-  let currentVersion = detail.version;
+  let changed = false
+  let currentVersion = detail.version
 
   if (nextContent !== currentContent) {
     const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
@@ -837,13 +836,13 @@ export async function updateTenantManagedSkillForTenantTx(
       skillKey: detail.skillKey,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
 
-    changed = changed || updatedSkill.changed;
-    currentVersion = updatedSkill.currentVersion;
+    changed = changed || updatedSkill.changed
+    currentVersion = updatedSkill.currentVersion
   }
 
-  const nextEnabled = input.patch.enabled ?? detail.enabled;
+  const nextEnabled = input.patch.enabled ?? detail.enabled
 
   if (nextEnabled !== detail.enabled) {
     await tx
@@ -855,9 +854,9 @@ export async function updateTenantManagedSkillForTenantTx(
         updatedByExternalId: input.createdByExternalId ?? null,
         updatedByType: input.createdByType,
       })
-      .where(eq(tenantSkills.id, detail.skillId));
+      .where(eq(tenantSkills.id, detail.skillId))
 
-    changed = true;
+    changed = true
   }
 
   return {
@@ -865,30 +864,30 @@ export async function updateTenantManagedSkillForTenantTx(
     currentVersion,
     enabled: nextEnabled,
     skillKey: detail.skillKey,
-  };
+  }
 }
 
 export async function renameTenantManagedSkillForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    createdByExternalId?: string | null;
-    createdByType: "runtime" | "user";
-    expectedVersion?: number;
-    newSkillKey: string;
-    skillKey: string;
-    summary?: string;
-    tenantId: string;
+    createdByExternalId?: string | null
+    createdByType: "runtime" | "user"
+    expectedVersion?: number
+    newSkillKey: string
+    skillKey: string
+    summary?: string
+    tenantId: string
   },
 ): Promise<TenantManagedSkillRenameResult> {
   const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
     skillKey: input.skillKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!detail) {
     throw new Error(
       `Managed skill ${input.skillKey} does not exist for this workspace.`,
-    );
+    )
   }
 
   if (
@@ -898,16 +897,16 @@ export async function renameTenantManagedSkillForTenantTx(
     throw new ManagedSkillVersionConflictError(
       input.expectedVersion,
       detail.version,
-    );
+    )
   }
 
   if (detail.sourceType !== "user") {
     throw new Error(
       "Only workspace-managed skills can be renamed through this surface.",
-    );
+    )
   }
 
-  const nextSkillKey = normalizeManagedSkillKey(input.newSkillKey);
+  const nextSkillKey = normalizeManagedSkillKey(input.newSkillKey)
 
   if (nextSkillKey === detail.skillKey) {
     return {
@@ -915,7 +914,7 @@ export async function renameTenantManagedSkillForTenantTx(
       currentVersion: detail.version,
       renamedFromSkillKey: detail.skillKey,
       skillKey: detail.skillKey,
-    };
+    }
   }
 
   const [existingSkill] = await tx
@@ -929,12 +928,12 @@ export async function renameTenantManagedSkillForTenantTx(
         eq(tenantSkills.skillKey, nextSkillKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingSkill) {
     throw new Error(
       `Managed skill ${nextSkillKey} already exists for this tenant.`,
-    );
+    )
   }
 
   const dependencyRows = await tx
@@ -943,17 +942,17 @@ export async function renameTenantManagedSkillForTenantTx(
     })
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
-    .orderBy(tenantSkills.skillKey);
+    .orderBy(tenantSkills.skillKey)
 
   const dependentUpdates: Array<{
-    contentText: string;
-    currentVersion: number;
-    skillKey: string;
-  }> = [];
+    contentText: string
+    currentVersion: number
+    skillKey: string
+  }> = []
 
   for (const row of dependencyRows) {
     if (row.skillKey === detail.skillKey) {
-      continue;
+      continue
     }
 
     const dependencyDetail = await getLatestTenantManagedSkillDetailForTenantTx(
@@ -962,28 +961,28 @@ export async function renameTenantManagedSkillForTenantTx(
         skillKey: row.skillKey,
         tenantId: input.tenantId,
       },
-    );
+    )
 
     if (!dependencyDetail) {
-      continue;
+      continue
     }
 
-    const currentContent = getManagedSkillEntryContent(dependencyDetail);
+    const currentContent = getManagedSkillEntryContent(dependencyDetail)
     const nextContent = rewriteManagedSkillDependencySkillKey({
       contentText: currentContent,
       fromSkillKey: detail.skillKey,
       toSkillKey: nextSkillKey,
-    });
+    })
 
     if (nextContent === currentContent) {
-      continue;
+      continue
     }
 
     dependentUpdates.push({
       contentText: nextContent,
       currentVersion: dependencyDetail.version,
       skillKey: dependencyDetail.skillKey,
-    });
+    })
   }
 
   await tx
@@ -994,7 +993,7 @@ export async function renameTenantManagedSkillForTenantTx(
       updatedByExternalId: input.createdByExternalId ?? null,
       updatedByType: input.createdByType,
     })
-    .where(eq(tenantSkills.id, detail.skillId));
+    .where(eq(tenantSkills.id, detail.skillId))
 
   const currentVersion = await createTenantManagedSkillVersionSnapshotTx(tx, {
     createdByExternalId: input.createdByExternalId ?? null,
@@ -1003,9 +1002,8 @@ export async function renameTenantManagedSkillForTenantTx(
       ...detail,
       skillKey: nextSkillKey,
     },
-    summary:
-      input.summary ?? `Renamed ${detail.skillKey} to ${nextSkillKey}`,
-  });
+    summary: input.summary ?? `Renamed ${detail.skillKey} to ${nextSkillKey}`,
+  })
 
   for (const dependencyUpdate of dependentUpdates) {
     await updateTenantManagedSkillTextFileForTenantTx(tx, {
@@ -1017,7 +1015,7 @@ export async function renameTenantManagedSkillForTenantTx(
       skillKey: dependencyUpdate.skillKey,
       summary: `Updated ${dependencyUpdate.skillKey} after renaming ${detail.skillKey} to ${nextSkillKey}`,
       tenantId: input.tenantId,
-    });
+    })
   }
 
   return {
@@ -1025,27 +1023,27 @@ export async function renameTenantManagedSkillForTenantTx(
     currentVersion,
     renamedFromSkillKey: detail.skillKey,
     skillKey: nextSkillKey,
-  };
+  }
 }
 
 export async function deleteTenantManagedSkillForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    createdByType: "runtime" | "system" | "user";
-    expectedVersion?: number;
-    skillKey: string;
-    tenantId: string;
+    createdByType: "runtime" | "system" | "user"
+    expectedVersion?: number
+    skillKey: string
+    tenantId: string
   },
 ) {
   const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
     skillKey: input.skillKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!detail) {
     throw new Error(
       `Managed skill ${input.skillKey} does not exist for this workspace.`,
-    );
+    )
   }
 
   if (
@@ -1055,21 +1053,21 @@ export async function deleteTenantManagedSkillForTenantTx(
     throw new ManagedSkillVersionConflictError(
       input.expectedVersion,
       detail.version,
-    );
+    )
   }
 
   if (detail.sourceType === "system" && input.createdByType !== "system") {
     throw new Error(
       "System-managed skills cannot be deleted through the managed-skills surface.",
-    );
+    )
   }
 
-  await tx.delete(tenantSkills).where(eq(tenantSkills.id, detail.skillId));
+  await tx.delete(tenantSkills).where(eq(tenantSkills.id, detail.skillId))
 
   return {
     deleted: true,
     skillKey: detail.skillKey,
-  };
+  }
 }
 
 function normalizeManagedSkillDependencies(value: unknown) {
@@ -1077,7 +1075,7 @@ function normalizeManagedSkillDependencies(value: unknown) {
     return {
       integrations: [],
       skills: [],
-    };
+    }
   }
 
   const integrations = Array.isArray(
@@ -1086,12 +1084,12 @@ function normalizeManagedSkillDependencies(value: unknown) {
     ? (value as { integrations: unknown[] }).integrations.filter(
         (entry): entry is string => typeof entry === "string",
       )
-    : [];
+    : []
   const skills = Array.isArray((value as { skills?: unknown }).skills)
     ? (value as { skills: unknown[] }).skills.filter(
         (entry): entry is string => typeof entry === "string",
       )
-    : [];
+    : []
 
   return {
     integrations: [...new Set(integrations)].sort((left, right) =>
@@ -1100,13 +1098,13 @@ function normalizeManagedSkillDependencies(value: unknown) {
     skills: [...new Set(skills)].sort((left, right) =>
       left.localeCompare(right),
     ),
-  };
+  }
 }
 
 async function listTenantManagedSkillDependencyGraphForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const rows = await tx
@@ -1116,73 +1114,71 @@ async function listTenantManagedSkillDependencyGraphForTenantTx(
     })
     .from(tenantSkills)
     .where(eq(tenantSkills.tenantId, input.tenantId))
-    .orderBy(tenantSkills.skillKey);
+    .orderBy(tenantSkills.skillKey)
 
   return Object.fromEntries(
     rows.map((row) => [
       row.skillKey,
       normalizeManagedSkillDependencies(row.dependsOnJson).skills,
     ]),
-  ) satisfies Record<string, string[]>;
+  ) satisfies Record<string, string[]>
 }
 
 export function assertManagedSkillDependencyGraphValid(input: {
-  dependencyMap: Record<string, string[]>;
-  nextDependencies: string[];
-  skillKey: string;
+  dependencyMap: Record<string, string[]>
+  nextDependencies: string[]
+  skillKey: string
 }) {
   const graph: Record<string, string[]> = {
     ...input.dependencyMap,
     [input.skillKey]: [...new Set(input.nextDependencies)].sort((left, right) =>
       left.localeCompare(right),
     ),
-  };
-  const visiting = new Set<string>();
-  const visited = new Set<string>();
+  }
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
 
   function visit(skillKey: string, stack: string[]) {
     if (visiting.has(skillKey)) {
-      const cycleStartIndex = stack.indexOf(skillKey);
-      const cyclePath = [...stack.slice(cycleStartIndex), skillKey].join(
-        " -> ",
-      );
-      throw new Error(`Managed skill dependency cycle detected: ${cyclePath}`);
+      const cycleStartIndex = stack.indexOf(skillKey)
+      const cyclePath = [...stack.slice(cycleStartIndex), skillKey].join(" -> ")
+      throw new Error(`Managed skill dependency cycle detected: ${cyclePath}`)
     }
 
     if (visited.has(skillKey)) {
-      return;
+      return
     }
 
-    visiting.add(skillKey);
-    const nextStack = [...stack, skillKey];
+    visiting.add(skillKey)
+    const nextStack = [...stack, skillKey]
 
     for (const dependencySkillKey of graph[skillKey] ?? []) {
-      visit(dependencySkillKey, nextStack);
+      visit(dependencySkillKey, nextStack)
     }
 
-    visiting.delete(skillKey);
-    visited.add(skillKey);
+    visiting.delete(skillKey)
+    visited.add(skillKey)
   }
 
-  visit(input.skillKey, []);
+  visit(input.skillKey, [])
 }
 
 export function rewriteManagedSkillDependencySkillKey(input: {
-  contentText: string;
-  fromSkillKey: string;
-  toSkillKey: string;
+  contentText: string
+  fromSkillKey: string
+  toSkillKey: string
 }) {
-  const fromSkillKey = normalizeManagedSkillKey(input.fromSkillKey);
-  const toSkillKey = normalizeManagedSkillKey(input.toSkillKey);
+  const fromSkillKey = normalizeManagedSkillKey(input.fromSkillKey)
+  const toSkillKey = normalizeManagedSkillKey(input.toSkillKey)
 
   if (fromSkillKey === toSkillKey) {
-    return input.contentText;
+    return input.contentText
   }
 
-  const current = parseManagedSkillMarkdown(input.contentText);
+  const current = parseManagedSkillMarkdown(input.contentText)
 
   if (!current.skillKeys.includes(fromSkillKey)) {
-    return input.contentText;
+    return input.contentText
   }
 
   return buildManagedSkillMarkdown({
@@ -1193,7 +1189,7 @@ export function rewriteManagedSkillDependencySkillKey(input: {
     skillKeys: current.skillKeys.map((skillKey) =>
       skillKey === fromSkillKey ? toSkillKey : skillKey,
     ),
-  });
+  })
 }
 
 function normalizeManagedSkillSourceType(
@@ -1203,28 +1199,28 @@ function normalizeManagedSkillSourceType(
     ? "integration_contribution"
     : value === "system"
       ? "system"
-      : "user";
+      : "user"
 }
 
 export async function ensureTenantSystemManagedSkillsForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await db.transaction(async (tx) => {
-    await ensureTenantSystemManagedSkillsForTenantTx(tx, input);
-  });
+    await ensureTenantSystemManagedSkillsForTenantTx(tx, input)
+  })
 }
 
 export async function ensureTenantSystemManagedSkillsForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   for (const definition of SYSTEM_MANAGED_SKILL_DEFINITIONS) {
     if (definition.installMode !== "default_installed") {
-      continue;
+      continue
     }
 
     const validatedDefinition = validateManagedSkillPackage({
@@ -1234,11 +1230,11 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
         tenantId: input.tenantId,
       }),
       skillKey: definition.skillKey,
-    });
+    })
     const detail = await getLatestTenantManagedSkillDetailForTenantTx(tx, {
       skillKey: definition.skillKey,
       tenantId: input.tenantId,
-    });
+    })
 
     if (!detail) {
       await createTenantManagedSkillForTenantTx(tx, {
@@ -1249,16 +1245,18 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
         status: "ready",
         summary: definition.summary,
         tenantId: input.tenantId,
-      });
-      continue;
+      })
+      continue
     }
 
     if (detail.sourceType !== "system") {
-      continue;
+      continue
     }
 
-    if (doesSystemManagedSkillMatchDefinition(detail, validatedDefinition.files)) {
-      continue;
+    if (
+      doesSystemManagedSkillMatchDefinition(detail, validatedDefinition.files)
+    ) {
+      continue
     }
 
     await replaceTenantManagedSkillPackageForTenantTx(tx, {
@@ -1266,7 +1264,7 @@ export async function ensureTenantSystemManagedSkillsForTenantTx(
       files: validatedDefinition.files,
       summary: definition.summary,
       tenantId: input.tenantId,
-    });
+    })
   }
 }
 
@@ -1274,52 +1272,52 @@ function doesSystemManagedSkillMatchDefinition(
   detail: TenantManagedSkillDetail,
   files: ManagedSkillPackageValidationResult["files"],
 ) {
-  const managedFiles = files.filter((file) => file.fileKind !== "state");
+  const managedFiles = files.filter((file) => file.fileKind !== "state")
   const currentFilesByPath = new Map(
     detail.files.map((file) => [file.path, file]),
-  );
+  )
 
   if (currentFilesByPath.size !== managedFiles.length) {
-    return false;
+    return false
   }
 
   for (const file of managedFiles) {
-    const currentFile = currentFilesByPath.get(file.path);
+    const currentFile = currentFilesByPath.get(file.path)
 
     if (!currentFile) {
-      return false;
+      return false
     }
 
     if (currentFile.storageEncoding !== file.storageEncoding) {
-      return false;
+      return false
     }
 
     if (currentFile.contentText !== file.contentText) {
-      return false;
+      return false
     }
   }
 
-  return true;
+  return true
 }
 
 async function replaceTenantManagedSkillPackageForTenantTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    detail: TenantManagedSkillDetail;
-    files: ManagedSkillPackageValidationResult["files"];
-    summary: string;
-    tenantId: string;
+    detail: TenantManagedSkillDetail
+    files: ManagedSkillPackageValidationResult["files"]
+    summary: string
+    tenantId: string
   },
 ) {
-  const managedFiles = input.files.filter((file) => file.fileKind !== "state");
+  const managedFiles = input.files.filter((file) => file.fileKind !== "state")
   const binaryManagedFiles = managedFiles.filter(
     (file) => file.storageEncoding === "binary",
-  );
+  )
 
   if (binaryManagedFiles.length > 0) {
     throw new Error(
       "Managed skill binary file storage is not implemented yet. Create the skill with text files only in the first slice.",
-    );
+    )
   }
 
   const existingFiles = await tx
@@ -1329,12 +1327,14 @@ async function replaceTenantManagedSkillPackageForTenantTx(
     })
     .from(tenantSkillFiles)
     .where(eq(tenantSkillFiles.tenantSkillId, input.detail.skillId))
-    .orderBy(tenantSkillFiles.relativePath);
+    .orderBy(tenantSkillFiles.relativePath)
 
   const fileIdByPath = new Map(
     existingFiles.map((file) => [file.relativePath, file.fileId]),
-  );
-  const missingFiles = managedFiles.filter((file) => !fileIdByPath.has(file.path));
+  )
+  const missingFiles = managedFiles.filter(
+    (file) => !fileIdByPath.has(file.path),
+  )
 
   if (missingFiles.length > 0) {
     const insertedFiles = await tx
@@ -1357,10 +1357,10 @@ async function replaceTenantManagedSkillPackageForTenantTx(
       .returning({
         fileId: tenantSkillFiles.id,
         relativePath: tenantSkillFiles.relativePath,
-      });
+      })
 
     for (const file of insertedFiles) {
-      fileIdByPath.set(file.relativePath, file.fileId);
+      fileIdByPath.set(file.relativePath, file.fileId)
     }
   }
 
@@ -1376,13 +1376,13 @@ async function replaceTenantManagedSkillPackageForTenantTx(
     .returning({
       id: tenantSkillVersions.id,
       version: tenantSkillVersions.version,
-    });
+    })
 
   const managedTextFiles = managedFiles.filter(
     (file): file is (typeof managedFiles)[number] & { contentText: string } =>
       file.storageEncoding === "utf8_text" &&
       typeof file.contentText === "string",
-  );
+  )
 
   if (managedTextFiles.length > 0) {
     await tx.insert(tenantSkillFileVersions).values(
@@ -1390,7 +1390,7 @@ async function replaceTenantManagedSkillPackageForTenantTx(
         contentSha256:
           file.contentSha256 ??
           (() => {
-            throw new Error(`Missing checksum for managed file ${file.path}`);
+            throw new Error(`Missing checksum for managed file ${file.path}`)
           })(),
         contentText: file.contentText,
         createdByExternalId: null,
@@ -1398,12 +1398,12 @@ async function replaceTenantManagedSkillPackageForTenantTx(
         tenantSkillFileId:
           fileIdByPath.get(file.path) ??
           (() => {
-            throw new Error(`Inserted managed file missing for ${file.path}`);
+            throw new Error(`Inserted managed file missing for ${file.path}`)
           })(),
         tenantSkillVersionId: createdVersion.id,
         version: createdVersion.version,
       })),
-    );
+    )
   }
 
   const parsedEntry = parseManagedSkillMarkdown(
@@ -1412,9 +1412,9 @@ async function replaceTenantManagedSkillPackageForTenantTx(
       (() => {
         throw new Error(
           `System managed skill ${input.detail.skillKey} is missing SKILL.md in its canonical package.`,
-        );
+        )
       })(),
-  );
+  )
 
   await tx
     .update(tenantSkills)
@@ -1430,7 +1430,7 @@ async function replaceTenantManagedSkillPackageForTenantTx(
       updatedByExternalId: null,
       updatedByType: "system",
     })
-    .where(eq(tenantSkills.id, input.detail.skillId));
+    .where(eq(tenantSkills.id, input.detail.skillId))
 }
 
 function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {
@@ -1440,16 +1440,16 @@ function normalizeManagedSkillStatus(value: string): ManagedSkillStatus {
     case "missing_prerequisite":
     case "projection_failed":
     case "ready":
-      return value;
+      return value
     default:
-      return "invalid";
+      return "invalid"
   }
 }
 
 function getManagedSkillEntryContent(detail: TenantManagedSkillDetail) {
   const entryFile = detail.files.find(
     (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
-  );
+  )
 
   if (
     !entryFile ||
@@ -1458,19 +1458,19 @@ function getManagedSkillEntryContent(detail: TenantManagedSkillDetail) {
   ) {
     throw new Error(
       `Managed skill ${detail.skillKey} is missing a readable SKILL.md entry file.`,
-    );
+    )
   }
 
-  return entryFile.contentText;
+  return entryFile.contentText
 }
 
 async function createTenantManagedSkillVersionSnapshotTx(
   tx: DbExecutor | DbTransaction,
   input: {
-    createdByExternalId?: string | null;
-    createdByType: "runtime" | "user";
-    detail: TenantManagedSkillDetail;
-    summary: string;
+    createdByExternalId?: string | null
+    createdByType: "runtime" | "user"
+    detail: TenantManagedSkillDetail
+    summary: string
   },
 ) {
   const [createdVersion] = await tx
@@ -1485,7 +1485,7 @@ async function createTenantManagedSkillVersionSnapshotTx(
     .returning({
       id: tenantSkillVersions.id,
       version: tenantSkillVersions.version,
-    });
+    })
 
   const managedFileRows = await tx
     .select({
@@ -1494,13 +1494,13 @@ async function createTenantManagedSkillVersionSnapshotTx(
     })
     .from(tenantSkillFiles)
     .where(eq(tenantSkillFiles.tenantSkillId, input.detail.skillId))
-    .orderBy(tenantSkillFiles.relativePath);
+    .orderBy(tenantSkillFiles.relativePath)
   const detailFileByPath = new Map(
     input.detail.files.map((file) => [file.path, file]),
-  );
+  )
 
   for (const managedFileRow of managedFileRows) {
-    const detailFile = detailFileByPath.get(managedFileRow.relativePath);
+    const detailFile = detailFileByPath.get(managedFileRow.relativePath)
 
     if (
       !detailFile ||
@@ -1509,7 +1509,7 @@ async function createTenantManagedSkillVersionSnapshotTx(
     ) {
       throw new Error(
         `Managed skill file ${input.detail.skillKey}/${managedFileRow.relativePath} cannot be versioned as non-text in the current slice.`,
-      );
+      )
     }
 
     await tx.insert(tenantSkillFileVersions).values({
@@ -1518,7 +1518,7 @@ async function createTenantManagedSkillVersionSnapshotTx(
         (() => {
           throw new Error(
             `Missing checksum for managed file ${managedFileRow.relativePath}`,
-          );
+          )
         })(),
       contentText: detailFile.contentText,
       createdByExternalId: input.createdByExternalId ?? null,
@@ -1526,37 +1526,37 @@ async function createTenantManagedSkillVersionSnapshotTx(
       tenantSkillFileId: managedFileRow.fileId,
       tenantSkillVersionId: createdVersion.id,
       version: createdVersion.version,
-    });
+    })
   }
 
-  return createdVersion.version;
+  return createdVersion.version
 }
 
 function buildNextManagedSkillContent(input: {
-  currentContent: string;
-  patch: TenantManagedSkillPatch;
+  currentContent: string
+  patch: TenantManagedSkillPatch
 }) {
   const hasStructuredPatch =
     typeof input.patch.description === "string" ||
     typeof input.patch.skillBody === "string" ||
     Array.isArray(input.patch.integrationKeys) ||
-    Array.isArray(input.patch.skillKeys);
+    Array.isArray(input.patch.skillKeys)
 
   if (typeof input.patch.contentText === "string" && hasStructuredPatch) {
     throw new Error(
       "contentText cannot be combined with structured managed skill patch fields.",
-    );
+    )
   }
 
   if (typeof input.patch.contentText === "string") {
-    return input.patch.contentText;
+    return input.patch.contentText
   }
 
   if (!hasStructuredPatch) {
-    return input.currentContent;
+    return input.currentContent
   }
 
-  const current = parseManagedSkillMarkdown(input.currentContent);
+  const current = parseManagedSkillMarkdown(input.currentContent)
 
   return buildManagedSkillMarkdown({
     description: input.patch.description ?? current.description,
@@ -1564,5 +1564,5 @@ function buildNextManagedSkillContent(input: {
     name: current.name,
     skillBody: input.patch.skillBody ?? current.skillBody,
     skillKeys: input.patch.skillKeys ?? current.skillKeys,
-  });
+  })
 }

@@ -1,21 +1,10 @@
+import type { PlatformOrganizationListItem } from "@otto/feature-platform"
 import { DotsThreeIcon } from "@phosphor-icons/react"
-import type { ColumnDef } from "@tanstack/react-table"
 import { useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import type { ColumnDef } from "@tanstack/react-table"
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import type { PlatformOrganizationListItem } from "@otto/feature-platform"
-
-import {
-  addCurrentUserAsPlatformOrganizationAdmin,
-  applyPlatformOrganization,
-  deletePlatformTenantServer,
-  deployPlatformRuntime,
-  platformBootstrapQueryOptions,
-  platformOrganizationsQueryOptions,
-  provisionPlatformServer,
-  refreshPlatformRuntimeImage,
-} from "@/features/platform/api/platform"
 import { DataTable } from "@/components/data-table"
 import { Button } from "@/components/ui/button"
 import {
@@ -34,6 +23,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip"
+import {
+  addCurrentUserAsPlatformOrganizationAdmin,
+  applyPlatformOrganization,
+  deletePlatformTenantServer,
+  deployPlatformRuntime,
+  platformBootstrapQueryOptions,
+  platformOrganizationsQueryOptions,
+  provisionPlatformServer,
+  refreshPlatformRuntimeImage,
+} from "@/features/platform/api/platform"
 import { cn } from "@/lib/utils"
 
 function getStatusTone(status: string | null) {
@@ -260,14 +259,14 @@ export function OrganizationActionsCell({
           action === "add-current-user-admin"
             ? "Added you as an admin member."
             : action === "apply"
-            ? "Queued runtime apply."
-            : action === "delete-tenant-server"
-              ? "Queued tenant server deletion."
-            : action === "deploy-runtime"
-              ? "Queued runtime deploy."
-              : action === "provision-server-legacy"
-                ? "Queued server provisioning from the base image."
-                : "Queued runtime image refresh.",
+              ? "Queued runtime apply."
+              : action === "delete-tenant-server"
+                ? "Queued tenant server deletion."
+                : action === "deploy-runtime"
+                  ? "Queued runtime deploy."
+                  : action === "provision-server-legacy"
+                    ? "Queued server provisioning from the base image."
+                    : "Queued runtime image refresh.",
         )
         await queryClient.invalidateQueries({
           queryKey: platformOrganizationsQueryOptions().queryKey,
@@ -459,7 +458,8 @@ const columns: ColumnDef<PlatformOrganizationListItem>[] = [
     },
   },
   {
-    accessorFn: (row) => formatIsoTimestamp(getLatestSyncSummary(row).timestamp),
+    accessorFn: (row) =>
+      formatIsoTimestamp(getLatestSyncSummary(row).timestamp),
     id: "latestSync",
     header: "Latest sync",
     cell: ({ row }) => {

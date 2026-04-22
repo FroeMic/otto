@@ -1,10 +1,10 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDeleteCommandResult,
   executeLinearGraphql,
   resolveLinearIssueId,
-} from "../../client";
+} from "../../client"
 
 const DELETE_ISSUE_MUTATION = `
   mutation OttoLinearIssueDelete($id: String!) {
@@ -16,42 +16,42 @@ const DELETE_ISSUE_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearIssueDelete: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const identifierOrId =
-    typeof args.identifierOrId === "string" ? args.identifierOrId.trim() : "";
+    typeof args.identifierOrId === "string" ? args.identifierOrId.trim() : ""
 
   if (!identifierOrId) {
-    throw new Error("linear issue.delete requires identifierOrId.");
+    throw new Error("linear issue.delete requires identifierOrId.")
   }
 
   const id = await resolveLinearIssueId({
     accessToken: context.auth.accessToken,
     identifierOrId,
-  });
+  })
   const data = await executeLinearGraphql<{
     issueDelete?: {
       entity?: {
-        id?: string | null;
-      } | null;
-      lastSyncId?: number | null;
-      success?: boolean | null;
-    } | null;
+        id?: string | null
+      } | null
+      lastSyncId?: number | null
+      success?: boolean | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: DELETE_ISSUE_MUTATION,
     variables: {
       id,
     },
-  });
+  })
 
   return {
     ...buildLinearDeleteCommandResult({
@@ -62,5 +62,5 @@ export const executeLinearIssueDelete: IntegrationCommandExecute = async ({
       success: data.issueDelete?.success,
     }),
     lookup: identifierOrId,
-  };
-};
+  }
+}

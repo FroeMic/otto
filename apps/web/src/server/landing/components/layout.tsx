@@ -1,5 +1,5 @@
-import type { PropsWithChildren, ReactNode } from "react"
 import { CaretUpDown } from "@phosphor-icons/react/ssr"
+import type { PropsWithChildren, ReactNode } from "react"
 
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"

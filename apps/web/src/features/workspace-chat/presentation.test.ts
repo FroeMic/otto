@@ -3,8 +3,8 @@ import assert from "node:assert/strict"
 import { describe, it } from "vitest"
 
 import {
-  getWorkspaceConversationTurnKind,
   getWorkspaceConversationTurnGroupKey,
+  getWorkspaceConversationTurnKind,
   getWorkspaceConversationTurnName,
 } from "./presentation"
 

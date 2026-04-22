@@ -1,4 +1,4 @@
-const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql";
+const LINEAR_GRAPHQL_URL = "https://api.linear.app/graphql"
 
 const USER_FIELDS = `
   id
@@ -15,20 +15,20 @@ const USER_FIELDS = `
   statusEmoji
   statusLabel
   statusUntilAt
-`;
+`
 
 const ISSUE_REFERENCE_FIELDS = `
   id
   identifier
   title
-`;
+`
 
 const TEAM_REFERENCE_FIELDS = `
   id
   key
   name
   displayName
-`;
+`
 
 const WORKFLOW_STATE_FIELDS = `
   id
@@ -38,7 +38,7 @@ const WORKFLOW_STATE_FIELDS = `
   team {
     ${TEAM_REFERENCE_FIELDS}
   }
-`;
+`
 
 const ISSUE_FIELDS = `
   id
@@ -67,7 +67,7 @@ const ISSUE_FIELDS = `
   assignee {
     ${USER_FIELDS}
   }
-`;
+`
 
 const COMMENT_FIELDS = `
   id
@@ -85,7 +85,7 @@ const COMMENT_FIELDS = `
   user {
     ${USER_FIELDS}
   }
-`;
+`
 
 const ATTACHMENT_FIELDS = `
   id
@@ -108,7 +108,7 @@ const ATTACHMENT_FIELDS = `
   }
   source
   updatedAt
-`;
+`
 
 const DOCUMENT_FIELDS = `
   id
@@ -148,7 +148,7 @@ const DOCUMENT_FIELDS = `
     name
     number
   }
-`;
+`
 
 const ISSUE_RELATION_FIELDS = `
   id
@@ -161,7 +161,7 @@ const ISSUE_RELATION_FIELDS = `
   relatedIssue {
     ${ISSUE_REFERENCE_FIELDS}
   }
-`;
+`
 
 const ISSUE_LABEL_FIELDS = `
   id
@@ -183,7 +183,7 @@ const ISSUE_LABEL_FIELDS = `
   team {
     ${TEAM_REFERENCE_FIELDS}
   }
-`;
+`
 
 const PROJECT_STATUS_FIELDS = `
   id
@@ -191,7 +191,7 @@ const PROJECT_STATUS_FIELDS = `
   type
   color
   description
-`;
+`
 
 const PROJECT_LABEL_FIELDS = `
   id
@@ -210,7 +210,7 @@ const PROJECT_LABEL_FIELDS = `
   creator {
     ${USER_FIELDS}
   }
-`;
+`
 
 const PROJECT_FIELDS = `
   id
@@ -240,7 +240,7 @@ const PROJECT_FIELDS = `
       name
     }
   }
-`;
+`
 
 const PROJECT_UPDATE_FIELDS = `
   id
@@ -258,7 +258,7 @@ const PROJECT_UPDATE_FIELDS = `
   user {
     ${USER_FIELDS}
   }
-`;
+`
 
 const PROJECT_MILESTONE_FIELDS = `
   id
@@ -273,7 +273,7 @@ const PROJECT_MILESTONE_FIELDS = `
     id
     name
   }
-`;
+`
 
 const CYCLE_FIELDS = `
   id
@@ -293,7 +293,7 @@ const CYCLE_FIELDS = `
     key
     name
   }
-`;
+`
 
 const TEAM_FIELDS = `
   id
@@ -317,7 +317,7 @@ const TEAM_FIELDS = `
   parent {
     ${TEAM_REFERENCE_FIELDS}
   }
-`;
+`
 
 const INITIATIVE_FIELDS = `
   id
@@ -343,7 +343,7 @@ const INITIATIVE_FIELDS = `
   creator {
     ${USER_FIELDS}
   }
-`;
+`
 
 const INITIATIVE_UPDATE_FIELDS = `
   id
@@ -361,7 +361,7 @@ const INITIATIVE_UPDATE_FIELDS = `
   user {
     ${USER_FIELDS}
   }
-`;
+`
 
 const CUSTOMER_STATUS_FIELDS = `
   id
@@ -372,7 +372,7 @@ const CUSTOMER_STATUS_FIELDS = `
   position
   updatedAt
   createdAt
-`;
+`
 
 const CUSTOMER_TIER_FIELDS = `
   id
@@ -383,7 +383,7 @@ const CUSTOMER_TIER_FIELDS = `
   position
   updatedAt
   createdAt
-`;
+`
 
 const CUSTOMER_FIELDS = `
   id
@@ -408,7 +408,7 @@ const CUSTOMER_FIELDS = `
   tier {
     ${CUSTOMER_TIER_FIELDS}
   }
-`;
+`
 
 const CUSTOMER_NEED_FIELDS = `
   id
@@ -434,7 +434,7 @@ const CUSTOMER_NEED_FIELDS = `
   creator {
     ${USER_FIELDS}
   }
-`;
+`
 
 const GET_TEAM_BY_ID_QUERY = `
   query OttoLinearTeamById($id: String!) {
@@ -442,7 +442,7 @@ const GET_TEAM_BY_ID_QUERY = `
       ${TEAM_FIELDS}
     }
   }
-`;
+`
 
 const SEARCH_TEAM_BY_KEY_QUERY = `
   query OttoLinearTeamByKey($lookup: String!) {
@@ -456,7 +456,7 @@ const SEARCH_TEAM_BY_KEY_QUERY = `
       }
     }
   }
-`;
+`
 
 const GET_ISSUE_BY_ID_QUERY = `
   query OttoLinearIssueById($id: String!) {
@@ -464,7 +464,7 @@ const GET_ISSUE_BY_ID_QUERY = `
       ${ISSUE_FIELDS}
     }
   }
-`;
+`
 
 const SEARCH_ISSUE_BY_LOOKUP_QUERY = `
   query OttoLinearIssueByLookup($term: String!) {
@@ -474,471 +474,469 @@ const SEARCH_ISSUE_BY_LOOKUP_QUERY = `
       }
     }
   }
-`;
+`
 
 export class LinearGraphqlError extends Error {
-  code?: string;
-  operationName?: string;
-  rawResponseSnippet?: string;
-  status?: number;
-  userPresentableMessage?: string;
-  variableSummary?: string;
+  code?: string
+  operationName?: string
+  rawResponseSnippet?: string
+  status?: number
+  userPresentableMessage?: string
+  variableSummary?: string
 
   constructor(
     message: string,
     options?: {
-      code?: string;
-      operationName?: string;
-      rawResponseSnippet?: string;
-      status?: number;
-      userPresentableMessage?: string;
-      variableSummary?: string;
+      code?: string
+      operationName?: string
+      rawResponseSnippet?: string
+      status?: number
+      userPresentableMessage?: string
+      variableSummary?: string
     },
   ) {
-    super(message);
-    this.name = "LinearGraphqlError";
-    this.code = options?.code;
-    this.operationName = options?.operationName;
-    this.rawResponseSnippet = options?.rawResponseSnippet;
-    this.status = options?.status;
-    this.userPresentableMessage = options?.userPresentableMessage;
-    this.variableSummary = options?.variableSummary;
+    super(message)
+    this.name = "LinearGraphqlError"
+    this.code = options?.code
+    this.operationName = options?.operationName
+    this.rawResponseSnippet = options?.rawResponseSnippet
+    this.status = options?.status
+    this.userPresentableMessage = options?.userPresentableMessage
+    this.variableSummary = options?.variableSummary
   }
 }
 
 function clipForLog(value: string, max = 1000) {
-  const trimmed = value.trim();
+  const trimmed = value.trim()
 
   if (trimmed.length <= max) {
-    return trimmed;
+    return trimmed
   }
 
-  return `${trimmed.slice(0, max)}…`;
+  return `${trimmed.slice(0, max)}…`
 }
 
 function summarizeVariables(variables: Record<string, unknown>) {
   try {
-    return clipForLog(JSON.stringify(variables), 500);
+    return clipForLog(JSON.stringify(variables), 500)
   } catch {
-    return "[unserializable variables]";
+    return "[unserializable variables]"
   }
 }
 
 function extractOperationName(query: string) {
-  const match = query.match(
-    /\b(query|mutation|subscription)\s+([A-Za-z0-9_]+)/,
-  );
+  const match = query.match(/\b(query|mutation|subscription)\s+([A-Za-z0-9_]+)/)
 
-  return match?.[2] ?? "anonymous";
+  return match?.[2] ?? "anonymous"
 }
 
 export type LinearUserNode = {
-  active?: boolean | null;
-  admin?: boolean | null;
-  displayName?: string | null;
-  email?: string | null;
-  guest?: boolean | null;
-  id?: string | null;
-  isAssignable?: boolean | null;
-  isMentionable?: boolean | null;
-  lastSeen?: string | null;
-  name?: string | null;
-  owner?: boolean | null;
-  statusEmoji?: string | null;
-  statusLabel?: string | null;
-  statusUntilAt?: string | null;
-};
+  active?: boolean | null
+  admin?: boolean | null
+  displayName?: string | null
+  email?: string | null
+  guest?: boolean | null
+  id?: string | null
+  isAssignable?: boolean | null
+  isMentionable?: boolean | null
+  lastSeen?: string | null
+  name?: string | null
+  owner?: boolean | null
+  statusEmoji?: string | null
+  statusLabel?: string | null
+  statusUntilAt?: string | null
+}
 
 export type LinearTeamReferenceNode = {
-  displayName?: string | null;
-  id?: string | null;
-  key?: string | null;
-  name?: string | null;
-};
+  displayName?: string | null
+  id?: string | null
+  key?: string | null
+  name?: string | null
+}
 
 export type LinearWorkflowStateNode = {
-  id?: string | null;
-  name?: string | null;
-  position?: number | null;
-  team?: LinearTeamReferenceNode | null;
-  type?: string | null;
-};
+  id?: string | null
+  name?: string | null
+  position?: number | null
+  team?: LinearTeamReferenceNode | null
+  type?: string | null
+}
 
 export type LinearTeamNode = {
-  activeCycle?: LinearCycleNode | null;
-  archivedAt?: string | null;
-  color?: string | null;
-  createdAt?: string | null;
-  cyclesEnabled?: boolean | null;
-  description?: string | null;
-  displayName?: string | null;
-  icon?: string | null;
-  id?: string | null;
-  issueCount?: number | null;
-  key?: string | null;
-  name?: string | null;
-  parent?: LinearTeamReferenceNode | null;
-  private?: boolean | null;
-  retiredAt?: string | null;
-  triageEnabled?: boolean | null;
-  updatedAt?: string | null;
-};
+  activeCycle?: LinearCycleNode | null
+  archivedAt?: string | null
+  color?: string | null
+  createdAt?: string | null
+  cyclesEnabled?: boolean | null
+  description?: string | null
+  displayName?: string | null
+  icon?: string | null
+  id?: string | null
+  issueCount?: number | null
+  key?: string | null
+  name?: string | null
+  parent?: LinearTeamReferenceNode | null
+  private?: boolean | null
+  retiredAt?: string | null
+  triageEnabled?: boolean | null
+  updatedAt?: string | null
+}
 
 export type LinearTeamMembershipNode = {
-  createdAt?: string | null;
-  id?: string | null;
-  owner?: boolean | null;
-  sortOrder?: number | null;
-  team?: LinearTeamReferenceNode | null;
-  updatedAt?: string | null;
-  user?: LinearUserNode | null;
-};
+  createdAt?: string | null
+  id?: string | null
+  owner?: boolean | null
+  sortOrder?: number | null
+  team?: LinearTeamReferenceNode | null
+  updatedAt?: string | null
+  user?: LinearUserNode | null
+}
 
 export type LinearOrganizationInviteNode = {
-  acceptedAt?: string | null;
-  archivedAt?: string | null;
-  createdAt?: string | null;
-  email?: string | null;
-  expiresAt?: string | null;
-  external?: boolean | null;
-  id?: string | null;
-  invitee?: LinearUserNode | null;
-  inviter?: LinearUserNode | null;
-  role?: string | null;
-  updatedAt?: string | null;
-};
+  acceptedAt?: string | null
+  archivedAt?: string | null
+  createdAt?: string | null
+  email?: string | null
+  expiresAt?: string | null
+  external?: boolean | null
+  id?: string | null
+  invitee?: LinearUserNode | null
+  inviter?: LinearUserNode | null
+  role?: string | null
+  updatedAt?: string | null
+}
 
 export type LinearIssueReferenceNode = {
-  id?: string | null;
-  identifier?: string | null;
-  title?: string | null;
-};
+  id?: string | null
+  identifier?: string | null
+  title?: string | null
+}
 
 export type LinearIssueNode = {
-  assignee?: LinearUserNode | null;
-  createdAt?: string | null;
-  description?: string | null;
-  id?: string | null;
-  identifier?: string | null;
-  labelIds?: string[] | null;
-  priority?: number | null;
+  assignee?: LinearUserNode | null
+  createdAt?: string | null
+  description?: string | null
+  id?: string | null
+  identifier?: string | null
+  labelIds?: string[] | null
+  priority?: number | null
   project?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
+    id?: string | null
+    name?: string | null
+  } | null
   state?: {
-    id?: string | null;
-    name?: string | null;
-    type?: string | null;
-  } | null;
+    id?: string | null
+    name?: string | null
+    type?: string | null
+  } | null
   team?: {
-    id?: string | null;
-    key?: string | null;
-    name?: string | null;
-  } | null;
-  title?: string | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+    id?: string | null
+    key?: string | null
+    name?: string | null
+  } | null
+  title?: string | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export type LinearCommentNode = {
-  body?: string | null;
-  createdAt?: string | null;
-  id?: string | null;
-  issue?: LinearIssueReferenceNode | null;
-  issueId?: string | null;
-  parentId?: string | null;
-  quotedText?: string | null;
-  resolvedAt?: string | null;
-  updatedAt?: string | null;
-  url?: string | null;
-  user?: LinearUserNode | null;
-};
+  body?: string | null
+  createdAt?: string | null
+  id?: string | null
+  issue?: LinearIssueReferenceNode | null
+  issueId?: string | null
+  parentId?: string | null
+  quotedText?: string | null
+  resolvedAt?: string | null
+  updatedAt?: string | null
+  url?: string | null
+  user?: LinearUserNode | null
+}
 
 export type LinearAttachmentNode = {
-  archivedAt?: string | null;
-  bodyData?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
-  id?: string | null;
-  issue?: LinearIssueReferenceNode | null;
-  metadata?: Record<string, unknown> | null;
-  originalIssue?: LinearIssueReferenceNode | null;
-  source?: Record<string, unknown> | null;
-  sourceType?: string | null;
-  subtitle?: string | null;
-  title?: string | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+  archivedAt?: string | null
+  bodyData?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
+  id?: string | null
+  issue?: LinearIssueReferenceNode | null
+  metadata?: Record<string, unknown> | null
+  originalIssue?: LinearIssueReferenceNode | null
+  source?: Record<string, unknown> | null
+  sourceType?: string | null
+  subtitle?: string | null
+  title?: string | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export type LinearDocumentNode = {
-  color?: string | null;
-  content?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
+  color?: string | null
+  content?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
   cycle?: {
-    id?: string | null;
-    name?: string | null;
-    number?: number | null;
-  } | null;
-  id?: string | null;
-  icon?: string | null;
+    id?: string | null
+    name?: string | null
+    number?: number | null
+  } | null
+  id?: string | null
+  icon?: string | null
   initiative?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  issue?: LinearIssueReferenceNode | null;
+    id?: string | null
+    name?: string | null
+  } | null
+  issue?: LinearIssueReferenceNode | null
   project?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  sortOrder?: number | null;
-  slugId?: string | null;
-  summary?: string | null;
-  team?: LinearTeamReferenceNode | null;
-  title?: string | null;
-  trashed?: boolean | null;
-  updatedAt?: string | null;
-  updatedBy?: LinearUserNode | null;
-  url?: string | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  sortOrder?: number | null
+  slugId?: string | null
+  summary?: string | null
+  team?: LinearTeamReferenceNode | null
+  title?: string | null
+  trashed?: boolean | null
+  updatedAt?: string | null
+  updatedBy?: LinearUserNode | null
+  url?: string | null
+}
 
 export type LinearIssueRelationNode = {
-  createdAt?: string | null;
-  id?: string | null;
-  issue?: LinearIssueReferenceNode | null;
-  relatedIssue?: LinearIssueReferenceNode | null;
-  type?: string | null;
-  updatedAt?: string | null;
-};
+  createdAt?: string | null
+  id?: string | null
+  issue?: LinearIssueReferenceNode | null
+  relatedIssue?: LinearIssueReferenceNode | null
+  type?: string | null
+  updatedAt?: string | null
+}
 
 export type LinearIssueLabelNode = {
-  color?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
-  description?: string | null;
-  id?: string | null;
-  isGroup?: boolean | null;
-  lastAppliedAt?: string | null;
-  name?: string | null;
+  color?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
+  description?: string | null
+  id?: string | null
+  isGroup?: boolean | null
+  lastAppliedAt?: string | null
+  name?: string | null
   parent?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  retiredAt?: string | null;
-  team?: LinearTeamReferenceNode | null;
-  updatedAt?: string | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  retiredAt?: string | null
+  team?: LinearTeamReferenceNode | null
+  updatedAt?: string | null
+}
 
 export type LinearProjectStatusNode = {
-  color?: string | null;
-  description?: string | null;
-  id?: string | null;
-  name?: string | null;
-  type?: string | null;
-};
+  color?: string | null
+  description?: string | null
+  id?: string | null
+  name?: string | null
+  type?: string | null
+}
 
 export type LinearProjectLabelNode = {
-  color?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
-  description?: string | null;
-  id?: string | null;
-  isGroup?: boolean | null;
-  lastAppliedAt?: string | null;
-  name?: string | null;
+  color?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
+  description?: string | null
+  id?: string | null
+  isGroup?: boolean | null
+  lastAppliedAt?: string | null
+  name?: string | null
   parent?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  retiredAt?: string | null;
-  updatedAt?: string | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  retiredAt?: string | null
+  updatedAt?: string | null
+}
 
 export type LinearProjectNode = {
-  color?: string | null;
-  content?: string | null;
-  createdAt?: string | null;
-  description?: string | null;
-  icon?: string | null;
-  id?: string | null;
-  labelIds?: string[] | null;
-  lead?: LinearUserNode | null;
-  name?: string | null;
-  priority?: number | null;
-  slugId?: string | null;
-  startDate?: string | null;
-  status?: LinearProjectStatusNode | null;
-  targetDate?: string | null;
+  color?: string | null
+  content?: string | null
+  createdAt?: string | null
+  description?: string | null
+  icon?: string | null
+  id?: string | null
+  labelIds?: string[] | null
+  lead?: LinearUserNode | null
+  name?: string | null
+  priority?: number | null
+  slugId?: string | null
+  startDate?: string | null
+  status?: LinearProjectStatusNode | null
+  targetDate?: string | null
   teams?: {
     nodes?: Array<{
-      id?: string | null;
-      key?: string | null;
-      name?: string | null;
-    }> | null;
-  } | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+      id?: string | null
+      key?: string | null
+      name?: string | null
+    }> | null
+  } | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export type LinearProjectUpdateNode = {
-  body?: string | null;
-  createdAt?: string | null;
-  health?: string | null;
-  id?: string | null;
-  isDiffHidden?: boolean | null;
+  body?: string | null
+  createdAt?: string | null
+  health?: string | null
+  id?: string | null
+  isDiffHidden?: boolean | null
   project?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  slugId?: string | null;
-  updatedAt?: string | null;
-  url?: string | null;
-  user?: LinearUserNode | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  slugId?: string | null
+  updatedAt?: string | null
+  url?: string | null
+  user?: LinearUserNode | null
+}
 
 export type LinearProjectMilestoneNode = {
-  createdAt?: string | null;
-  description?: string | null;
-  id?: string | null;
-  name?: string | null;
-  progress?: number | null;
+  createdAt?: string | null
+  description?: string | null
+  id?: string | null
+  name?: string | null
+  progress?: number | null
   project?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  status?: string | null;
-  targetDate?: string | null;
-  updatedAt?: string | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  status?: string | null
+  targetDate?: string | null
+  updatedAt?: string | null
+}
 
 export type LinearCycleNode = {
-  completedAt?: string | null;
-  createdAt?: string | null;
-  description?: string | null;
-  endsAt?: string | null;
-  id?: string | null;
-  isActive?: boolean | null;
-  isFuture?: boolean | null;
-  isPast?: boolean | null;
-  name?: string | null;
-  number?: number | null;
-  progress?: number | null;
-  startsAt?: string | null;
+  completedAt?: string | null
+  createdAt?: string | null
+  description?: string | null
+  endsAt?: string | null
+  id?: string | null
+  isActive?: boolean | null
+  isFuture?: boolean | null
+  isPast?: boolean | null
+  name?: string | null
+  number?: number | null
+  progress?: number | null
+  startsAt?: string | null
   team?: {
-    id?: string | null;
-    key?: string | null;
-    name?: string | null;
-  } | null;
-};
+    id?: string | null
+    key?: string | null
+    name?: string | null
+  } | null
+}
 
 export type LinearInitiativeNode = {
-  color?: string | null;
-  completedAt?: string | null;
-  content?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
-  description?: string | null;
-  health?: string | null;
-  healthUpdatedAt?: string | null;
-  icon?: string | null;
-  id?: string | null;
-  name?: string | null;
-  owner?: LinearUserNode | null;
-  slugId?: string | null;
-  startedAt?: string | null;
-  status?: string | null;
-  targetDate?: string | null;
-  trashed?: boolean | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+  color?: string | null
+  completedAt?: string | null
+  content?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
+  description?: string | null
+  health?: string | null
+  healthUpdatedAt?: string | null
+  icon?: string | null
+  id?: string | null
+  name?: string | null
+  owner?: LinearUserNode | null
+  slugId?: string | null
+  startedAt?: string | null
+  status?: string | null
+  targetDate?: string | null
+  trashed?: boolean | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export type LinearInitiativeUpdateNode = {
-  body?: string | null;
-  createdAt?: string | null;
-  health?: string | null;
-  id?: string | null;
+  body?: string | null
+  createdAt?: string | null
+  health?: string | null
+  id?: string | null
   initiative?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  isDiffHidden?: boolean | null;
-  slugId?: string | null;
-  updatedAt?: string | null;
-  url?: string | null;
-  user?: LinearUserNode | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  isDiffHidden?: boolean | null
+  slugId?: string | null
+  updatedAt?: string | null
+  url?: string | null
+  user?: LinearUserNode | null
+}
 
 export type LinearCustomerStatusNode = {
-  color?: string | null;
-  createdAt?: string | null;
-  description?: string | null;
-  displayName?: string | null;
-  id?: string | null;
-  name?: string | null;
-  position?: number | null;
-  updatedAt?: string | null;
-};
+  color?: string | null
+  createdAt?: string | null
+  description?: string | null
+  displayName?: string | null
+  id?: string | null
+  name?: string | null
+  position?: number | null
+  updatedAt?: string | null
+}
 
 export type LinearCustomerTierNode = {
-  color?: string | null;
-  createdAt?: string | null;
-  description?: string | null;
-  displayName?: string | null;
-  id?: string | null;
-  name?: string | null;
-  position?: number | null;
-  updatedAt?: string | null;
-};
+  color?: string | null
+  createdAt?: string | null
+  description?: string | null
+  displayName?: string | null
+  id?: string | null
+  name?: string | null
+  position?: number | null
+  updatedAt?: string | null
+}
 
 export type LinearCustomerNode = {
-  createdAt?: string | null;
-  domains?: string[] | null;
-  externalIds?: string[] | null;
-  id?: string | null;
-  logoUrl?: string | null;
-  mainSourceId?: string | null;
-  name?: string | null;
-  owner?: LinearUserNode | null;
-  revenue?: number | null;
-  size?: number | null;
-  slackChannelId?: string | null;
-  slugId?: string | null;
-  status?: LinearCustomerStatusNode | null;
-  tier?: LinearCustomerTierNode | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+  createdAt?: string | null
+  domains?: string[] | null
+  externalIds?: string[] | null
+  id?: string | null
+  logoUrl?: string | null
+  mainSourceId?: string | null
+  name?: string | null
+  owner?: LinearUserNode | null
+  revenue?: number | null
+  size?: number | null
+  slackChannelId?: string | null
+  slugId?: string | null
+  status?: LinearCustomerStatusNode | null
+  tier?: LinearCustomerTierNode | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export type LinearCustomerNeedNode = {
-  attachment?: LinearAttachmentNode | null;
-  body?: string | null;
-  createdAt?: string | null;
-  creator?: LinearUserNode | null;
+  attachment?: LinearAttachmentNode | null
+  body?: string | null
+  createdAt?: string | null
+  creator?: LinearUserNode | null
   customer?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  id?: string | null;
-  issue?: LinearIssueReferenceNode | null;
-  priority?: number | null;
+    id?: string | null
+    name?: string | null
+  } | null
+  id?: string | null
+  issue?: LinearIssueReferenceNode | null
+  priority?: number | null
   project?: {
-    id?: string | null;
-    name?: string | null;
-  } | null;
-  updatedAt?: string | null;
-  url?: string | null;
-};
+    id?: string | null
+    name?: string | null
+  } | null
+  updatedAt?: string | null
+  url?: string | null
+}
 
 export async function executeLinearGraphql<T>(input: {
-  accessToken: string;
-  query: string;
-  variables?: Record<string, unknown>;
+  accessToken: string
+  query: string
+  variables?: Record<string, unknown>
 }): Promise<T> {
-  const variables = input.variables ?? {};
-  const operationName = extractOperationName(input.query);
+  const variables = input.variables ?? {}
+  const operationName = extractOperationName(input.query)
   const response = await fetch(LINEAR_GRAPHQL_URL, {
     body: JSON.stringify({
       query: input.query,
@@ -949,50 +947,50 @@ export async function executeLinearGraphql<T>(input: {
       "Content-Type": "application/json",
     },
     method: "POST",
-  });
+  })
 
-  const rawResponseText = await response.text();
+  const rawResponseText = await response.text()
   let payload: {
-    data?: T | null;
+    data?: T | null
     errors?: Array<{
       extensions?: {
-        code?: string;
-        userPresentableMessage?: string;
-      } | null;
-      message?: string;
-    }>;
-  };
+        code?: string
+        userPresentableMessage?: string
+      } | null
+      message?: string
+    }>
+  }
 
   try {
-    payload = JSON.parse(rawResponseText) as typeof payload;
+    payload = JSON.parse(rawResponseText) as typeof payload
   } catch {
-    const rawResponseSnippet = clipForLog(rawResponseText);
+    const rawResponseSnippet = clipForLog(rawResponseText)
 
     console.error(
       `[linear] non-json response operation=${operationName} status=${response.status} variables=${summarizeVariables(variables)} response=${rawResponseSnippet}`,
-    );
+    )
 
     throw new LinearGraphqlError("Linear returned a non-JSON response.", {
       operationName,
       rawResponseSnippet,
       status: response.status,
       variableSummary: summarizeVariables(variables),
-    });
+    })
   }
 
-  const firstError = payload.errors?.find((error) => Boolean(error.message));
+  const firstError = payload.errors?.find((error) => Boolean(error.message))
   const userPresentableMessage =
-    firstError?.extensions?.userPresentableMessage?.trim() || undefined;
+    firstError?.extensions?.userPresentableMessage?.trim() || undefined
   const surfacedMessage =
-    userPresentableMessage ?? firstError?.message ?? "Linear request failed.";
+    userPresentableMessage ?? firstError?.message ?? "Linear request failed."
 
   if (!response.ok || firstError || !payload.data) {
-    const rawResponseSnippet = clipForLog(rawResponseText);
-    const variableSummary = summarizeVariables(variables);
+    const rawResponseSnippet = clipForLog(rawResponseText)
+    const variableSummary = summarizeVariables(variables)
 
     console.error(
       `[linear] graphql request failed operation=${operationName} status=${response.status} code=${firstError?.extensions?.code ?? "none"} message=${surfacedMessage} variables=${variableSummary} response=${rawResponseSnippet}`,
-    );
+    )
 
     throw new LinearGraphqlError(surfacedMessage, {
       code: firstError?.extensions?.code,
@@ -1001,26 +999,26 @@ export async function executeLinearGraphql<T>(input: {
       status: response.status,
       userPresentableMessage,
       variableSummary,
-    });
+    })
   }
 
-  return payload.data;
+  return payload.data
 }
 
 export type LinearUploadHeader = {
-  key: string;
-  value: string;
-};
+  key: string
+  value: string
+}
 
 export type LinearUploadPlan = {
-  assetUrl: string | null;
-  contentType: string | null;
-  filename: string | null;
-  headers: LinearUploadHeader[];
-  metadata: Record<string, unknown> | null;
-  size: number | null;
-  uploadUrl: string | null;
-};
+  assetUrl: string | null
+  contentType: string | null
+  filename: string | null
+  headers: LinearUploadHeader[]
+  metadata: Record<string, unknown> | null
+  size: number | null
+  uploadUrl: string | null
+}
 
 const FILE_UPLOAD_MUTATION = `
   mutation OttoLinearFileUpload(
@@ -1053,27 +1051,27 @@ const FILE_UPLOAD_MUTATION = `
       }
     }
   }
-`;
+`
 
 function normalizeLinearUploadPlan(
   uploadFile:
     | {
-        assetUrl?: string | null;
-        contentType?: string | null;
-        filename?: string | null;
+        assetUrl?: string | null
+        contentType?: string | null
+        filename?: string | null
         headers?: Array<{
-          key?: string | null;
-          value?: string | null;
-        }> | null;
-        metaData?: Record<string, unknown> | null;
-        size?: number | null;
-        uploadUrl?: string | null;
+          key?: string | null
+          value?: string | null
+        }> | null
+        metaData?: Record<string, unknown> | null
+        size?: number | null
+        uploadUrl?: string | null
       }
     | null
     | undefined,
 ): LinearUploadPlan | null {
   if (!uploadFile) {
-    return null;
+    return null
   }
 
   return {
@@ -1089,38 +1087,38 @@ function normalizeLinearUploadPlan(
     metadata: uploadFile.metaData ?? null,
     size: typeof uploadFile.size === "number" ? uploadFile.size : null,
     uploadUrl: uploadFile.uploadUrl ?? null,
-  };
+  }
 }
 
 export async function requestLinearUploadUrl(input: {
-  accessToken: string;
-  contentType: string;
-  filename: string;
-  makePublic?: boolean | null;
-  metaData?: Record<string, unknown> | null;
-  size: number;
+  accessToken: string
+  contentType: string
+  filename: string
+  makePublic?: boolean | null
+  metaData?: Record<string, unknown> | null
+  size: number
 }): Promise<{
-  lastSyncId: number | null;
-  success: boolean;
-  uploadFile: LinearUploadPlan | null;
+  lastSyncId: number | null
+  success: boolean
+  uploadFile: LinearUploadPlan | null
 }> {
   const data = await executeLinearGraphql<{
     fileUpload?: {
-      lastSyncId?: number | null;
-      success?: boolean | null;
+      lastSyncId?: number | null
+      success?: boolean | null
       uploadFile?: {
-        assetUrl?: string | null;
-        contentType?: string | null;
-        filename?: string | null;
+        assetUrl?: string | null
+        contentType?: string | null
+        filename?: string | null
         headers?: Array<{
-          key?: string | null;
-          value?: string | null;
-        }> | null;
-        metaData?: Record<string, unknown> | null;
-        size?: number | null;
-        uploadUrl?: string | null;
-      } | null;
-    } | null;
+          key?: string | null
+          value?: string | null
+        }> | null
+        metaData?: Record<string, unknown> | null
+        size?: number | null
+        uploadUrl?: string | null
+      } | null
+    } | null
   }>({
     accessToken: input.accessToken,
     query: FILE_UPLOAD_MUTATION,
@@ -1131,7 +1129,7 @@ export async function requestLinearUploadUrl(input: {
       metaData: input.metaData ?? null,
       size: input.size,
     },
-  });
+  })
 
   return {
     lastSyncId:
@@ -1140,52 +1138,52 @@ export async function requestLinearUploadUrl(input: {
         : null,
     success: data.fileUpload?.success ?? true,
     uploadFile: normalizeLinearUploadPlan(data.fileUpload?.uploadFile),
-  };
+  }
 }
 
 export function decodeLinearFileContentBase64(input: {
-  contentBase64: string;
-  filename: string;
+  contentBase64: string
+  filename: string
 }) {
-  const trimmed = input.contentBase64.trim();
+  const trimmed = input.contentBase64.trim()
   const payload = trimmed.includes(",")
     ? trimmed.slice(trimmed.indexOf(",") + 1)
-    : trimmed;
+    : trimmed
 
   if (!payload) {
     throw new Error(
       `Missing file bytes for ${input.filename}. Provide contentBase64.`,
-    );
+    )
   }
 
   try {
-    return Buffer.from(payload, "base64");
+    return Buffer.from(payload, "base64")
   } catch {
     throw new Error(
       `Invalid base64 file bytes for ${input.filename}. Provide contentBase64.`,
-    );
+    )
   }
 }
 
 export async function uploadLinearFileBytes(input: {
-  bytes: Buffer;
-  contentType: string;
-  uploadFile: LinearUploadPlan;
+  bytes: Buffer
+  contentType: string
+  uploadFile: LinearUploadPlan
 }) {
   if (!input.uploadFile.uploadUrl) {
-    throw new Error("Linear did not return an uploadUrl.");
+    throw new Error("Linear did not return an uploadUrl.")
   }
 
-  const headers = new Headers();
-  headers.set("Content-Type", input.contentType);
+  const headers = new Headers()
+  headers.set("Content-Type", input.contentType)
 
   if (!headers.has("Cache-Control")) {
-    headers.set("Cache-Control", "public, max-age=31536000");
+    headers.set("Cache-Control", "public, max-age=31536000")
   }
 
   for (const header of input.uploadFile.headers) {
     if (header.key) {
-      headers.set(header.key, header.value);
+      headers.set(header.key, header.value)
     }
   }
 
@@ -1195,127 +1193,127 @@ export async function uploadLinearFileBytes(input: {
     }),
     headers,
     method: "PUT",
-  });
+  })
 
   if (response.ok) {
-    return;
+    return
   }
 
-  const rawResponseText = await response.text();
-  const rawResponseSnippet = clipForLog(rawResponseText);
+  const rawResponseText = await response.text()
+  const rawResponseSnippet = clipForLog(rawResponseText)
 
   console.error(
     `[linear] upload put failed status=${response.status} filename=${input.uploadFile.filename ?? "unknown"} contentType=${input.contentType} response=${rawResponseSnippet}`,
-  );
+  )
 
-  throw new Error(`Linear upload PUT failed with status ${response.status}.`);
+  throw new Error(`Linear upload PUT failed with status ${response.status}.`)
 }
 
 export function getLinearIssueFields() {
-  return ISSUE_FIELDS;
+  return ISSUE_FIELDS
 }
 
 export function getLinearUserFields() {
-  return USER_FIELDS;
+  return USER_FIELDS
 }
 
 export function getLinearTeamReferenceFields() {
-  return TEAM_REFERENCE_FIELDS;
+  return TEAM_REFERENCE_FIELDS
 }
 
 export function getLinearCommentFields() {
-  return COMMENT_FIELDS;
+  return COMMENT_FIELDS
 }
 
 export function getLinearAttachmentFields() {
-  return ATTACHMENT_FIELDS;
+  return ATTACHMENT_FIELDS
 }
 
 export function getLinearDocumentFields() {
-  return DOCUMENT_FIELDS;
+  return DOCUMENT_FIELDS
 }
 
 export function getLinearIssueRelationFields() {
-  return ISSUE_RELATION_FIELDS;
+  return ISSUE_RELATION_FIELDS
 }
 
 export function getLinearIssueLabelFields() {
-  return ISSUE_LABEL_FIELDS;
+  return ISSUE_LABEL_FIELDS
 }
 
 export function getLinearProjectFields() {
-  return PROJECT_FIELDS;
+  return PROJECT_FIELDS
 }
 
 export function getLinearProjectStatusFields() {
-  return PROJECT_STATUS_FIELDS;
+  return PROJECT_STATUS_FIELDS
 }
 
 export function getLinearProjectLabelFields() {
-  return PROJECT_LABEL_FIELDS;
+  return PROJECT_LABEL_FIELDS
 }
 
 export function getLinearProjectUpdateFields() {
-  return PROJECT_UPDATE_FIELDS;
+  return PROJECT_UPDATE_FIELDS
 }
 
 export function getLinearProjectMilestoneFields() {
-  return PROJECT_MILESTONE_FIELDS;
+  return PROJECT_MILESTONE_FIELDS
 }
 
 export function getLinearCycleFields() {
-  return CYCLE_FIELDS;
+  return CYCLE_FIELDS
 }
 
 export function getLinearInitiativeFields() {
-  return INITIATIVE_FIELDS;
+  return INITIATIVE_FIELDS
 }
 
 export function getLinearInitiativeUpdateFields() {
-  return INITIATIVE_UPDATE_FIELDS;
+  return INITIATIVE_UPDATE_FIELDS
 }
 
 export function getLinearCustomerFields() {
-  return CUSTOMER_FIELDS;
+  return CUSTOMER_FIELDS
 }
 
 export function getLinearCustomerNeedFields() {
-  return CUSTOMER_NEED_FIELDS;
+  return CUSTOMER_NEED_FIELDS
 }
 
 export function getLinearCustomerStatusFields() {
-  return CUSTOMER_STATUS_FIELDS;
+  return CUSTOMER_STATUS_FIELDS
 }
 
 export function getLinearCustomerTierFields() {
-  return CUSTOMER_TIER_FIELDS;
+  return CUSTOMER_TIER_FIELDS
 }
 
 export function getLinearWorkflowStateFields() {
-  return WORKFLOW_STATE_FIELDS;
+  return WORKFLOW_STATE_FIELDS
 }
 
 export function getLinearTeamFields() {
-  return TEAM_FIELDS;
+  return TEAM_FIELDS
 }
 
 export function mapLinearIssueReference(
   issue: LinearIssueReferenceNode | null,
 ) {
   if (!issue) {
-    return null;
+    return null
   }
 
   return {
     id: issue.id?.trim() || null,
     identifier: issue.identifier?.trim() || null,
     title: issue.title?.trim() || "Untitled issue",
-  };
+  }
 }
 
 export function mapLinearUser(user: LinearUserNode | null) {
   if (!user) {
-    return null;
+    return null
   }
 
   return {
@@ -1337,12 +1335,12 @@ export function mapLinearUser(user: LinearUserNode | null) {
     statusEmoji: user.statusEmoji?.trim() || null,
     statusLabel: user.statusLabel?.trim() || null,
     statusUntilAt: user.statusUntilAt ?? null,
-  };
+  }
 }
 
 export function mapLinearTeamReference(team: LinearTeamReferenceNode | null) {
   if (!team) {
-    return null;
+    return null
   }
 
   return {
@@ -1350,7 +1348,7 @@ export function mapLinearTeamReference(team: LinearTeamReferenceNode | null) {
     id: team.id?.trim() || null,
     key: team.key?.trim() || null,
     name: team.name?.trim() || team.displayName?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearWorkflowState(state: LinearWorkflowStateNode) {
@@ -1361,7 +1359,7 @@ export function mapLinearWorkflowState(state: LinearWorkflowStateNode) {
     team: state.team?.key?.trim() || state.team?.name?.trim() || null,
     teamId: state.team?.id?.trim() || null,
     type: state.type?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearTeam(team: LinearTeamNode) {
@@ -1387,7 +1385,7 @@ export function mapLinearTeam(team: LinearTeamNode) {
     retiredAt: team.retiredAt ?? null,
     triageEnabled: team.triageEnabled ?? false,
     updatedAt: team.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearTeamMembership(membership: LinearTeamMembershipNode) {
@@ -1403,14 +1401,14 @@ export function mapLinearTeamMembership(membership: LinearTeamMembershipNode) {
     team: mapLinearTeamReference(membership.team ?? null),
     updatedAt: membership.updatedAt ?? null,
     user: mapLinearUser(membership.user ?? null),
-  };
+  }
 }
 
 export function mapLinearOrganizationInvite(
   invite: LinearOrganizationInviteNode | null,
 ) {
   if (!invite) {
-    return null;
+    return null
   }
 
   return {
@@ -1425,7 +1423,7 @@ export function mapLinearOrganizationInvite(
     inviter: mapLinearUser(invite.inviter ?? null),
     role: invite.role?.trim() || null,
     updatedAt: invite.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearIssue(issue: LinearIssueNode) {
@@ -1453,7 +1451,7 @@ export function mapLinearIssue(issue: LinearIssueNode) {
     title: issue.title?.trim() || "Untitled issue",
     updatedAt: issue.updatedAt ?? null,
     url: issue.url ?? null,
-  };
+  }
 }
 
 export function mapLinearComment(comment: LinearCommentNode) {
@@ -1472,7 +1470,7 @@ export function mapLinearComment(comment: LinearCommentNode) {
       comment.user?.name?.trim() || comment.user?.displayName?.trim() || null,
     userEmail: comment.user?.email?.trim() || null,
     userId: comment.user?.id?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearAttachment(attachment: LinearAttachmentNode) {
@@ -1498,14 +1496,14 @@ export function mapLinearAttachment(attachment: LinearAttachmentNode) {
     title: attachment.title?.trim() || "Untitled attachment",
     updatedAt: attachment.updatedAt ?? null,
     url: attachment.url ?? null,
-  };
+  }
 }
 
 export function buildLinearAttachmentCommandResult(input: {
-  attachment: LinearAttachmentNode | null | undefined;
-  commandKey: string;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  attachment: LinearAttachmentNode | null | undefined
+  commandKey: string
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     attachment: input.attachment ? mapLinearAttachment(input.attachment) : null,
@@ -1514,13 +1512,13 @@ export function buildLinearAttachmentCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearAttachmentCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearAttachmentNode[];
-  limit: number;
+  commandKey: string
+  items: LinearAttachmentNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1529,14 +1527,14 @@ export function buildLinearAttachmentCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCommentCommandResult(input: {
-  commandKey: string;
-  comment: LinearCommentNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  comment: LinearCommentNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1545,13 +1543,13 @@ export function buildLinearCommentCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearCommentCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCommentNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCommentNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1560,14 +1558,14 @@ export function buildLinearCommentCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearDocumentCommandResult(input: {
-  commandKey: string;
-  document: LinearDocumentNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  document: LinearDocumentNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1576,13 +1574,13 @@ export function buildLinearDocumentCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearDocumentCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearDocumentNode[];
-  limit: number;
+  commandKey: string
+  items: LinearDocumentNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1591,14 +1589,14 @@ export function buildLinearDocumentCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearIssueLabelCommandResult(input: {
-  commandKey: string;
-  issueLabel: LinearIssueLabelNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  issueLabel: LinearIssueLabelNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1607,13 +1605,13 @@ export function buildLinearIssueLabelCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearIssueLabelCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearIssueLabelNode[];
-  limit: number;
+  commandKey: string
+  items: LinearIssueLabelNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1622,14 +1620,14 @@ export function buildLinearIssueLabelCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearProjectLabelCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  projectLabel: LinearProjectLabelNode | null | undefined;
-  success?: boolean | null;
+  commandKey: string
+  lastSyncId?: number | null
+  projectLabel: LinearProjectLabelNode | null | undefined
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1640,13 +1638,13 @@ export function buildLinearProjectLabelCommandResult(input: {
       : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearProjectLabelCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearProjectLabelNode[];
-  limit: number;
+  commandKey: string
+  items: LinearProjectLabelNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1655,15 +1653,15 @@ export function buildLinearProjectLabelCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearDeleteCommandResult(input: {
-  commandKey: string;
-  entityId: string | null | undefined;
-  entityKey: string;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  entityId: string | null | undefined
+  entityKey: string
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1672,14 +1670,14 @@ export function buildLinearDeleteCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearTeamMembershipCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  success?: boolean | null;
-  teamMembership: LinearTeamMembershipNode | null | undefined;
+  commandKey: string
+  lastSyncId?: number | null
+  success?: boolean | null
+  teamMembership: LinearTeamMembershipNode | null | undefined
 }) {
   return {
     commandKey: input.commandKey,
@@ -1690,14 +1688,14 @@ export function buildLinearTeamMembershipCommandResult(input: {
     teamMembership: input.teamMembership
       ? mapLinearTeamMembership(input.teamMembership)
       : null,
-  };
+  }
 }
 
 export function buildLinearOrganizationInviteCommandResult(input: {
-  commandKey: string;
-  invite: LinearOrganizationInviteNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  invite: LinearOrganizationInviteNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -1706,14 +1704,14 @@ export function buildLinearOrganizationInviteCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearUserCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  success?: boolean | null;
-  user: LinearUserNode | null | undefined;
+  commandKey: string
+  lastSyncId?: number | null
+  success?: boolean | null
+  user: LinearUserNode | null | undefined
 }) {
   return {
     commandKey: input.commandKey,
@@ -1722,13 +1720,13 @@ export function buildLinearUserCommandResult(input: {
     source: "linear",
     success: input.success ?? true,
     user: mapLinearUser(input.user ?? null),
-  };
+  }
 }
 
 export function buildLinearUserCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearUserNode[];
-  limit: number;
+  commandKey: string
+  items: LinearUserNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -1737,14 +1735,14 @@ export function buildLinearUserCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearUserIssueCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearIssueNode[];
-  limit: number;
-  user: LinearUserNode;
+  commandKey: string
+  items: LinearIssueNode[]
+  limit: number
+  user: LinearUserNode
 }) {
   return {
     commandKey: input.commandKey,
@@ -1754,14 +1752,14 @@ export function buildLinearUserIssueCollectionCommandResult(input: {
     source: "linear",
     totalMatched: input.items.length,
     user: mapLinearUser(input.user),
-  };
+  }
 }
 
 export function buildLinearUserTeamMembershipCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearTeamMembershipNode[];
-  limit: number;
-  user: LinearUserNode;
+  commandKey: string
+  items: LinearTeamMembershipNode[]
+  limit: number
+  user: LinearUserNode
 }) {
   return {
     commandKey: input.commandKey,
@@ -1771,7 +1769,7 @@ export function buildLinearUserTeamMembershipCollectionCommandResult(input: {
     source: "linear",
     totalMatched: input.items.length,
     user: mapLinearUser(input.user),
-  };
+  }
 }
 
 export function mapLinearDocument(document: LinearDocumentNode) {
@@ -1817,7 +1815,7 @@ export function mapLinearDocument(document: LinearDocumentNode) {
     updatedByEmail: document.updatedBy?.email?.trim() || null,
     updatedById: document.updatedBy?.id?.trim() || null,
     url: document.url ?? null,
-  };
+  }
 }
 
 export function mapLinearIssueRelation(relation: LinearIssueRelationNode) {
@@ -1828,7 +1826,7 @@ export function mapLinearIssueRelation(relation: LinearIssueRelationNode) {
     relatedIssue: mapLinearIssueReference(relation.relatedIssue ?? null),
     type: relation.type?.trim() || null,
     updatedAt: relation.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearIssueLabel(label: LinearIssueLabelNode) {
@@ -1849,12 +1847,12 @@ export function mapLinearIssueLabel(label: LinearIssueLabelNode) {
     retiredAt: label.retiredAt ?? null,
     team: mapLinearTeamReference(label.team ?? null),
     updatedAt: label.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearProjectStatus(status: LinearProjectStatusNode | null) {
   if (!status) {
-    return null;
+    return null
   }
 
   return {
@@ -1863,7 +1861,7 @@ export function mapLinearProjectStatus(status: LinearProjectStatusNode | null) {
     id: status.id?.trim() || null,
     name: status.name?.trim() || null,
     type: status.type?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearProjectLabel(label: LinearProjectLabelNode) {
@@ -1883,7 +1881,7 @@ export function mapLinearProjectLabel(label: LinearProjectLabelNode) {
     parentName: label.parent?.name?.trim() || null,
     retiredAt: label.retiredAt ?? null,
     updatedAt: label.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearProject(project: LinearProjectNode) {
@@ -1916,7 +1914,7 @@ export function mapLinearProject(project: LinearProjectNode) {
       .filter(Boolean),
     updatedAt: project.updatedAt ?? null,
     url: project.url ?? null,
-  };
+  }
 }
 
 export function mapLinearProjectUpdate(update: LinearProjectUpdateNode) {
@@ -1934,7 +1932,7 @@ export function mapLinearProjectUpdate(update: LinearProjectUpdateNode) {
     user: update.user?.name?.trim() || update.user?.displayName?.trim() || null,
     userEmail: update.user?.email?.trim() || null,
     userId: update.user?.id?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearProjectMilestone(
@@ -1955,15 +1953,15 @@ export function mapLinearProjectMilestone(
     status: milestone.status?.trim() || null,
     targetDate: milestone.targetDate ?? null,
     updatedAt: milestone.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearCycle(cycle: LinearCycleNode) {
-  const cycleName = cycle.name?.trim();
+  const cycleName = cycle.name?.trim()
   const cycleNumber =
     typeof cycle.number === "number" && Number.isFinite(cycle.number)
       ? cycle.number
-      : null;
+      : null
 
   return {
     completedAt: cycle.completedAt ?? null,
@@ -1985,7 +1983,7 @@ export function mapLinearCycle(cycle: LinearCycleNode) {
     startsAt: cycle.startsAt ?? null,
     team: cycle.team?.key?.trim() || cycle.team?.name?.trim() || null,
     teamId: cycle.team?.id?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearInitiative(initiative: LinearInitiativeNode) {
@@ -2019,7 +2017,7 @@ export function mapLinearInitiative(initiative: LinearInitiativeNode) {
     trashed: initiative.trashed ?? false,
     updatedAt: initiative.updatedAt ?? null,
     url: initiative.url ?? null,
-  };
+  }
 }
 
 export function mapLinearInitiativeUpdate(
@@ -2042,14 +2040,14 @@ export function mapLinearInitiativeUpdate(
       null,
     userEmail: initiativeUpdate.user?.email?.trim() || null,
     userId: initiativeUpdate.user?.id?.trim() || null,
-  };
+  }
 }
 
 export function mapLinearCustomerStatus(
   status: LinearCustomerStatusNode | null,
 ) {
   if (!status) {
-    return null;
+    return null
   }
 
   return {
@@ -2064,12 +2062,12 @@ export function mapLinearCustomerStatus(
         ? status.position
         : 0,
     updatedAt: status.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearCustomerTier(tier: LinearCustomerTierNode | null) {
   if (!tier) {
-    return null;
+    return null
   }
 
   return {
@@ -2084,7 +2082,7 @@ export function mapLinearCustomerTier(tier: LinearCustomerTierNode | null) {
         ? tier.position
         : 0,
     updatedAt: tier.updatedAt ?? null,
-  };
+  }
 }
 
 export function mapLinearCustomer(customer: LinearCustomerNode) {
@@ -2116,7 +2114,7 @@ export function mapLinearCustomer(customer: LinearCustomerNode) {
     tier: mapLinearCustomerTier(customer.tier ?? null),
     updatedAt: customer.updatedAt ?? null,
     url: customer.url ?? null,
-  };
+  }
 }
 
 export function mapLinearCustomerNeed(need: LinearCustomerNeedNode) {
@@ -2140,48 +2138,48 @@ export function mapLinearCustomerNeed(need: LinearCustomerNeedNode) {
     projectName: need.project?.name?.trim() || null,
     updatedAt: need.updatedAt ?? null,
     url: need.url?.trim() || null,
-  };
+  }
 }
 
 export function normalizeLimit(input: {
-  defaultLimit?: number;
-  max: number;
-  value: unknown;
+  defaultLimit?: number
+  max: number
+  value: unknown
 }) {
-  const fallback = input.defaultLimit ?? 10;
+  const fallback = input.defaultLimit ?? 10
 
   return typeof input.value === "number" &&
     Number.isInteger(input.value) &&
     input.value >= 1 &&
     input.value <= input.max
     ? input.value
-    : fallback;
+    : fallback
 }
 
 export function normalizeStringArray(value: unknown) {
   if (!Array.isArray(value)) {
-    return [];
+    return []
   }
 
   return value
     .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter(Boolean);
+    .filter(Boolean)
 }
 
 export function normalizeOptionalStringArray(value: unknown) {
-  return Array.isArray(value) ? normalizeStringArray(value) : null;
+  return Array.isArray(value) ? normalizeStringArray(value) : null
 }
 
 export function normalizeOptionalString(value: unknown) {
-  return typeof value === "string" ? value.trim() || null : null;
+  return typeof value === "string" ? value.trim() || null : null
 }
 
 export function normalizeOptionalBoolean(value: unknown) {
-  return typeof value === "boolean" ? value : null;
+  return typeof value === "boolean" ? value : null
 }
 
 export function normalizeOptionalInteger(value: unknown) {
-  return typeof value === "number" && Number.isInteger(value) ? value : null;
+  return typeof value === "number" && Number.isInteger(value) ? value : null
 }
 
 export function pruneGraphqlInput<T extends Record<string, unknown>>(input: T) {
@@ -2189,159 +2187,159 @@ export function pruneGraphqlInput<T extends Record<string, unknown>>(input: T) {
     Object.entries(input).filter(
       ([, value]) => value !== null && value !== undefined,
     ),
-  ) as Partial<T>;
+  ) as Partial<T>
 }
 
 export function isUuidLike(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
-  );
+  )
 }
 
 export async function findLinearTeamByIdOrKey(input: {
-  accessToken: string;
-  teamIdOrKey: string;
+  accessToken: string
+  teamIdOrKey: string
 }): Promise<LinearTeamNode | null> {
-  const lookup = input.teamIdOrKey.trim();
+  const lookup = input.teamIdOrKey.trim()
 
   if (!lookup) {
-    return null;
+    return null
   }
 
   if (isUuidLike(lookup)) {
     try {
       const byId = await executeLinearGraphql<{
-        team?: LinearTeamNode | null;
+        team?: LinearTeamNode | null
       }>({
         accessToken: input.accessToken,
         query: GET_TEAM_BY_ID_QUERY,
         variables: {
           id: lookup,
         },
-      });
+      })
 
       if (byId.team?.id) {
-        return byId.team;
+        return byId.team
       }
     } catch (error) {
       if (!(error instanceof LinearGraphqlError)) {
-        throw error;
+        throw error
       }
     }
   }
 
   const byLookup = await executeLinearGraphql<{
     teams?: {
-      nodes?: LinearTeamNode[] | null;
-    } | null;
+      nodes?: LinearTeamNode[] | null
+    } | null
   }>({
     accessToken: input.accessToken,
     query: SEARCH_TEAM_BY_KEY_QUERY,
     variables: {
       lookup,
     },
-  });
+  })
 
-  const normalizedLookup = lookup.toLowerCase();
+  const normalizedLookup = lookup.toLowerCase()
 
   return (
     (byLookup.teams?.nodes ?? []).find((team) => {
-      const key = team.key?.trim().toLowerCase();
+      const key = team.key?.trim().toLowerCase()
 
-      return key === normalizedLookup;
+      return key === normalizedLookup
     }) ??
     (byLookup.teams?.nodes ?? [])[0] ??
     null
-  );
+  )
 }
 
 export async function resolveLinearTeamId(input: {
-  accessToken: string;
-  teamIdOrKey: string;
+  accessToken: string
+  teamIdOrKey: string
 }) {
-  const team = await findLinearTeamByIdOrKey(input);
+  const team = await findLinearTeamByIdOrKey(input)
 
   if (!team?.id) {
-    throw new Error(`Linear could not find team ${input.teamIdOrKey}.`);
+    throw new Error(`Linear could not find team ${input.teamIdOrKey}.`)
   }
 
-  return team.id;
+  return team.id
 }
 
 export async function findLinearIssueByIdentifierOrId(input: {
-  accessToken: string;
-  identifierOrId: string;
+  accessToken: string
+  identifierOrId: string
 }): Promise<LinearIssueNode | null> {
-  const lookup = input.identifierOrId.trim();
+  const lookup = input.identifierOrId.trim()
 
   if (!lookup) {
-    return null;
+    return null
   }
 
   if (isUuidLike(lookup)) {
     try {
       const byId = await executeLinearGraphql<{
-        issue?: LinearIssueNode | null;
+        issue?: LinearIssueNode | null
       }>({
         accessToken: input.accessToken,
         query: GET_ISSUE_BY_ID_QUERY,
         variables: {
           id: lookup,
         },
-      });
+      })
 
       if (byId.issue?.id) {
-        return byId.issue;
+        return byId.issue
       }
     } catch (error) {
       if (!(error instanceof LinearGraphqlError)) {
-        throw error;
+        throw error
       }
     }
   }
 
   const byLookup = await executeLinearGraphql<{
     searchIssues?: {
-      nodes?: LinearIssueNode[] | null;
-    } | null;
+      nodes?: LinearIssueNode[] | null
+    } | null
   }>({
     accessToken: input.accessToken,
     query: SEARCH_ISSUE_BY_LOOKUP_QUERY,
     variables: {
       term: lookup,
     },
-  });
+  })
 
-  const normalizedLookup = lookup.toLowerCase();
+  const normalizedLookup = lookup.toLowerCase()
 
   return (
     (byLookup.searchIssues?.nodes ?? []).find((issue) => {
-      const id = issue.id?.trim().toLowerCase();
-      const identifier = issue.identifier?.trim().toLowerCase();
+      const id = issue.id?.trim().toLowerCase()
+      const identifier = issue.identifier?.trim().toLowerCase()
 
-      return id === normalizedLookup || identifier === normalizedLookup;
+      return id === normalizedLookup || identifier === normalizedLookup
     }) ??
     (byLookup.searchIssues?.nodes ?? [])[0] ??
     null
-  );
+  )
 }
 
 export async function resolveLinearIssueId(input: {
-  accessToken: string;
-  identifierOrId: string;
+  accessToken: string
+  identifierOrId: string
 }) {
-  const issue = await findLinearIssueByIdentifierOrId(input);
+  const issue = await findLinearIssueByIdentifierOrId(input)
 
   if (!issue?.id) {
-    throw new Error(`Linear could not find issue ${input.identifierOrId}.`);
+    throw new Error(`Linear could not find issue ${input.identifierOrId}.`)
   }
 
-  return issue.id;
+  return issue.id
 }
 
 export async function resolveLinearIssueIds(input: {
-  accessToken: string;
-  identifiersOrIds: string[];
+  accessToken: string
+  identifiersOrIds: string[]
 }) {
   const resolved = await Promise.all(
     input.identifiersOrIds.map((identifierOrId) =>
@@ -2350,16 +2348,16 @@ export async function resolveLinearIssueIds(input: {
         identifierOrId,
       }),
     ),
-  );
+  )
 
-  return Array.from(new Set(resolved));
+  return Array.from(new Set(resolved))
 }
 
 export function buildLinearIssueCommandResult(input: {
-  commandKey: string;
-  issue: LinearIssueNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  issue: LinearIssueNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2368,14 +2366,14 @@ export function buildLinearIssueCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearIssueBatchCommandResult(input: {
-  commandKey: string;
-  issues: LinearIssueNode[];
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  issues: LinearIssueNode[]
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2385,14 +2383,14 @@ export function buildLinearIssueBatchCommandResult(input: {
     source: "linear",
     success: input.success ?? true,
     totalChanged: input.issues.length,
-  };
+  }
 }
 
 export function buildLinearIssueCollectionCommandResult<T>(input: {
-  commandKey: string;
-  issue: LinearIssueNode;
-  items: T[];
-  limit: number;
+  commandKey: string
+  issue: LinearIssueNode
+  items: T[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2402,14 +2400,14 @@ export function buildLinearIssueCollectionCommandResult<T>(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearProjectCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  project: LinearProjectNode | null | undefined;
-  success?: boolean | null;
+  commandKey: string
+  lastSyncId?: number | null
+  project: LinearProjectNode | null | undefined
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2418,13 +2416,13 @@ export function buildLinearProjectCommandResult(input: {
     project: input.project ? mapLinearProject(input.project) : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearProjectCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearProjectNode[];
-  limit: number;
+  commandKey: string
+  items: LinearProjectNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2433,14 +2431,14 @@ export function buildLinearProjectCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearProjectChildCollectionCommandResult<T>(input: {
-  commandKey: string;
-  items: T[];
-  limit: number;
-  project: LinearProjectNode;
+  commandKey: string
+  items: T[]
+  limit: number
+  project: LinearProjectNode
 }) {
   return {
     commandKey: input.commandKey,
@@ -2450,14 +2448,14 @@ export function buildLinearProjectChildCollectionCommandResult<T>(input: {
     project: mapLinearProject(input.project),
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearProjectMilestoneCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  milestone: LinearProjectMilestoneNode | null | undefined;
-  success?: boolean | null;
+  commandKey: string
+  lastSyncId?: number | null
+  milestone: LinearProjectMilestoneNode | null | undefined
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2468,13 +2466,13 @@ export function buildLinearProjectMilestoneCommandResult(input: {
       : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearProjectMilestoneCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearProjectMilestoneNode[];
-  limit: number;
+  commandKey: string
+  items: LinearProjectMilestoneNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2483,14 +2481,14 @@ export function buildLinearProjectMilestoneCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearProjectStatusCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  status: LinearProjectStatusNode | null | undefined;
-  success?: boolean | null;
+  commandKey: string
+  lastSyncId?: number | null
+  status: LinearProjectStatusNode | null | undefined
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2499,13 +2497,13 @@ export function buildLinearProjectStatusCommandResult(input: {
     source: "linear",
     status: mapLinearProjectStatus(input.status ?? null),
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearProjectStatusCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearProjectStatusNode[];
-  limit: number;
+  commandKey: string
+  items: LinearProjectStatusNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2514,14 +2512,14 @@ export function buildLinearProjectStatusCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearInitiativeCommandResult(input: {
-  commandKey: string;
-  initiative: LinearInitiativeNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  initiative: LinearInitiativeNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2530,13 +2528,13 @@ export function buildLinearInitiativeCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearInitiativeCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearInitiativeNode[];
-  limit: number;
+  commandKey: string
+  items: LinearInitiativeNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2545,14 +2543,14 @@ export function buildLinearInitiativeCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearInitiativeUpdateCollectionCommandResult(input: {
-  commandKey: string;
-  initiative: LinearInitiativeNode;
-  items: LinearInitiativeUpdateNode[];
-  limit: number;
+  commandKey: string
+  initiative: LinearInitiativeNode
+  items: LinearInitiativeUpdateNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2562,14 +2560,14 @@ export function buildLinearInitiativeUpdateCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearInitiativeUpdateCommandResult(input: {
-  commandKey: string;
-  initiativeUpdate: LinearInitiativeUpdateNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  initiativeUpdate: LinearInitiativeUpdateNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2580,14 +2578,14 @@ export function buildLinearInitiativeUpdateCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearCustomerCommandResult(input: {
-  commandKey: string;
-  customer: LinearCustomerNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  customer: LinearCustomerNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2596,13 +2594,13 @@ export function buildLinearCustomerCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearCustomerCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCustomerNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCustomerNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2611,15 +2609,15 @@ export function buildLinearCustomerCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCustomerNeedCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  need: LinearCustomerNeedNode | null | undefined;
-  success?: boolean | null;
-  updatedRelatedNeeds?: LinearCustomerNeedNode[] | null;
+  commandKey: string
+  lastSyncId?: number | null
+  need: LinearCustomerNeedNode | null | undefined
+  success?: boolean | null
+  updatedRelatedNeeds?: LinearCustomerNeedNode[] | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2630,13 +2628,13 @@ export function buildLinearCustomerNeedCommandResult(input: {
     success: input.success ?? true,
     updatedRelatedNeeds:
       input.updatedRelatedNeeds?.map(mapLinearCustomerNeed) ?? [],
-  };
+  }
 }
 
 export function buildLinearCustomerNeedCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCustomerNeedNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCustomerNeedNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2645,14 +2643,14 @@ export function buildLinearCustomerNeedCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCustomerNeedChildCollectionCommandResult(input: {
-  commandKey: string;
-  customer: LinearCustomerNode;
-  items: LinearCustomerNeedNode[];
-  limit: number;
+  commandKey: string
+  customer: LinearCustomerNode
+  items: LinearCustomerNeedNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2662,14 +2660,14 @@ export function buildLinearCustomerNeedChildCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCustomerStatusCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  status: LinearCustomerStatusNode | null | undefined;
-  success?: boolean | null;
+  commandKey: string
+  lastSyncId?: number | null
+  status: LinearCustomerStatusNode | null | undefined
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2678,13 +2676,13 @@ export function buildLinearCustomerStatusCommandResult(input: {
     source: "linear",
     status: mapLinearCustomerStatus(input.status ?? null),
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearCustomerStatusCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCustomerStatusNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCustomerStatusNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2693,14 +2691,14 @@ export function buildLinearCustomerStatusCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCustomerTierCommandResult(input: {
-  commandKey: string;
-  lastSyncId?: number | null;
-  success?: boolean | null;
-  tier: LinearCustomerTierNode | null | undefined;
+  commandKey: string
+  lastSyncId?: number | null
+  success?: boolean | null
+  tier: LinearCustomerTierNode | null | undefined
 }) {
   return {
     commandKey: input.commandKey,
@@ -2709,13 +2707,13 @@ export function buildLinearCustomerTierCommandResult(input: {
     source: "linear",
     success: input.success ?? true,
     tier: mapLinearCustomerTier(input.tier ?? null),
-  };
+  }
 }
 
 export function buildLinearCustomerTierCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCustomerTierNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCustomerTierNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2724,14 +2722,14 @@ export function buildLinearCustomerTierCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearTeamCommandResult(input: {
-  commandKey: string;
-  team: LinearTeamNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  team: LinearTeamNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2740,13 +2738,13 @@ export function buildLinearTeamCommandResult(input: {
     source: "linear",
     success: input.success ?? true,
     team: input.team ? mapLinearTeam(input.team) : null,
-  };
+  }
 }
 
 export function buildLinearTeamCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearTeamNode[];
-  limit: number;
+  commandKey: string
+  items: LinearTeamNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2755,14 +2753,14 @@ export function buildLinearTeamCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearTeamChildCollectionCommandResult<T>(input: {
-  commandKey: string;
-  team: LinearTeamNode;
-  items: T[];
-  limit: number;
+  commandKey: string
+  team: LinearTeamNode
+  items: T[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2772,13 +2770,13 @@ export function buildLinearTeamChildCollectionCommandResult<T>(input: {
     source: "linear",
     team: mapLinearTeam(input.team),
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCycleCollectionCommandResult(input: {
-  commandKey: string;
-  items: LinearCycleNode[];
-  limit: number;
+  commandKey: string
+  items: LinearCycleNode[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2787,14 +2785,14 @@ export function buildLinearCycleCollectionCommandResult(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }
 
 export function buildLinearCycleCommandResult(input: {
-  commandKey: string;
-  cycle: LinearCycleNode | null | undefined;
-  lastSyncId?: number | null;
-  success?: boolean | null;
+  commandKey: string
+  cycle: LinearCycleNode | null | undefined
+  lastSyncId?: number | null
+  success?: boolean | null
 }) {
   return {
     commandKey: input.commandKey,
@@ -2803,14 +2801,14 @@ export function buildLinearCycleCommandResult(input: {
     lastSyncId: typeof input.lastSyncId === "number" ? input.lastSyncId : null,
     source: "linear",
     success: input.success ?? true,
-  };
+  }
 }
 
 export function buildLinearCycleChildCollectionCommandResult<T>(input: {
-  commandKey: string;
-  cycle: LinearCycleNode;
-  items: T[];
-  limit: number;
+  commandKey: string
+  cycle: LinearCycleNode
+  items: T[]
+  limit: number
 }) {
   return {
     commandKey: input.commandKey,
@@ -2820,5 +2818,5 @@ export function buildLinearCycleChildCollectionCommandResult<T>(input: {
     limit: input.limit,
     source: "linear",
     totalMatched: input.items.length,
-  };
+  }
 }

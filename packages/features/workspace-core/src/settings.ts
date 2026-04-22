@@ -4,8 +4,8 @@ import * as z from "zod"
 
 import type { WorkspaceShellUser } from "./bootstrap"
 import {
-  workspaceSettingsSuccessSchema,
   type WorkspaceSettingsUpdate,
+  workspaceSettingsSuccessSchema,
   workspaceSettingsUpdateSchema,
 } from "./schemas"
 

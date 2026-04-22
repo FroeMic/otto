@@ -1,19 +1,9 @@
+import type { PlatformUsage } from "@otto/feature-platform"
 import { CalendarBlankIcon } from "@phosphor-icons/react"
 import { useQuery } from "@tanstack/react-query"
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { useMemo, useState } from "react"
 import type { DateRange } from "react-day-picker"
-
-import type { PlatformUsage } from "@otto/feature-platform"
-
-import { platformUsageQueryOptions } from "@/features/platform/api/platform"
-import {
-  getUsagePresetDefinitions,
-  getUsagePresetRanges,
-  type UsageDatePresetDefinition,
-  type UsageDateRange,
-  type UsageRangePresetKey,
-} from "@/features/usage/date-ranges"
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import { Calendar } from "@/components/ui/calendar"
 import {
   Card,
@@ -44,6 +34,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { platformUsageQueryOptions } from "@/features/platform/api/platform"
+import {
+  getUsagePresetDefinitions,
+  getUsagePresetRanges,
+  type UsageDatePresetDefinition,
+  type UsageDateRange,
+  type UsageRangePresetKey,
+} from "@/features/usage/date-ranges"
 import { cn } from "@/lib/utils"
 
 export interface PlatformUsageContentProps {
@@ -265,16 +263,19 @@ export function PlatformUsageContent({
   previousCycleStartIso,
   timezone,
 }: PlatformUsageContentProps) {
-  const [activePreset, setActivePreset] = useState<
-    Exclude<UsageRangePresetKey, "custom"> | null
-  >(currentCycleStartIso ? "current_cycle" : "this_month")
+  const [activePreset, setActivePreset] = useState<Exclude<
+    UsageRangePresetKey,
+    "custom"
+  > | null>(currentCycleStartIso ? "current_cycle" : "this_month")
   const [customRange, setCustomRange] = useState<DateRange | undefined>()
   const [spendModality, setSpendModality] = useState<SpendModality>("all")
 
   const currentCycleStart = currentCycleStartIso
     ? new Date(currentCycleStartIso)
     : null
-  const currentCycleEnd = currentCycleEndIso ? new Date(currentCycleEndIso) : null
+  const currentCycleEnd = currentCycleEndIso
+    ? new Date(currentCycleEndIso)
+    : null
   const previousCycleStart = previousCycleStartIso
     ? new Date(previousCycleStartIso)
     : null
@@ -363,7 +364,12 @@ export function PlatformUsageContent({
 
   const spendChartConfig = getSpendChartConfig(spendModality)
   const spendChartData = data?.timeSeries
-    ? getSpendChartData(data.timeSeries, spendModality, timeFormatter, dateRange)
+    ? getSpendChartData(
+        data.timeSeries,
+        spendModality,
+        timeFormatter,
+        dateRange,
+      )
     : []
   const spendDataKeys = Object.keys(spendChartConfig)
 
@@ -431,7 +437,8 @@ export function PlatformUsageContent({
           value={
             data
               ? formatCompact(
-                  data.summary.totalInputTokens + data.summary.totalOutputTokens,
+                  data.summary.totalInputTokens +
+                    data.summary.totalOutputTokens,
                   locale,
                 )
               : undefined
@@ -440,8 +447,12 @@ export function PlatformUsageContent({
         <StatCard
           label="Requests"
           loading={isLoading}
-          subtitle={data ? `${data.summary.activeModels} models active` : undefined}
-          value={data ? formatCompact(data.summary.totalRequests, locale) : undefined}
+          subtitle={
+            data ? `${data.summary.activeModels} models active` : undefined
+          }
+          value={
+            data ? formatCompact(data.summary.totalRequests, locale) : undefined
+          }
         />
       </div>
 
@@ -451,7 +462,9 @@ export function PlatformUsageContent({
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col gap-1.5">
                 <CardTitle>Token usage over time</CardTitle>
-                <CardDescription>Token breakdown by time period</CardDescription>
+                <CardDescription>
+                  Token breakdown by time period
+                </CardDescription>
               </div>
               <div className="inline-flex items-center gap-1 rounded-full bg-muted p-[3px] text-xs">
                 {SPEND_MODALITIES.map((modality) => (
@@ -494,7 +507,9 @@ export function PlatformUsageContent({
                   />
                   <YAxis
                     axisLine={false}
-                    tickFormatter={(value: number) => formatCompact(value, locale)}
+                    tickFormatter={(value: number) =>
+                      formatCompact(value, locale)
+                    }
                     tickLine={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
@@ -547,7 +562,9 @@ export function PlatformUsageContent({
                   />
                   <YAxis
                     axisLine={false}
-                    tickFormatter={(value: number) => formatCompact(value, locale)}
+                    tickFormatter={(value: number) =>
+                      formatCompact(value, locale)
+                    }
                     tickLine={false}
                   />
                   <ChartTooltip content={<ChartTooltipContent />} />
@@ -606,8 +623,12 @@ export function PlatformUsageContent({
                       <TableCell>
                         {formatUsageTypeLabel(row.usageType)}
                       </TableCell>
-                      <TableCell>{formatCount(row.requestCount, locale)}</TableCell>
-                      <TableCell>{formatCount(row.totalTokens, locale)}</TableCell>
+                      <TableCell>
+                        {formatCount(row.requestCount, locale)}
+                      </TableCell>
+                      <TableCell>
+                        {formatCount(row.totalTokens, locale)}
+                      </TableCell>
                       <TableCell>
                         {formatDollarsFromMicros(row.providerCostMicros)}
                       </TableCell>
@@ -631,7 +652,11 @@ function StatCard({ label, loading, subtitle, value }: StatCardProps) {
       <CardHeader>
         <CardDescription>{label}</CardDescription>
         <CardTitle>
-          {loading && !value ? <Skeleton className="h-7 w-20" /> : (value ?? "—")}
+          {loading && !value ? (
+            <Skeleton className="h-7 w-20" />
+          ) : (
+            (value ?? "—")
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="text-xs text-muted-foreground">

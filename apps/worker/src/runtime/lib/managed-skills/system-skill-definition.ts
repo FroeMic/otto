@@ -1,7 +1,7 @@
-import type { ManagedSkillPackageFileInput } from "./package";
+import type { ManagedSkillPackageFileInput } from "./package"
 
 export type SystemManagedSkillDefinition = {
-  files: ManagedSkillPackageFileInput[];
-  skillKey: string;
-  summary: string;
-};
+  files: ManagedSkillPackageFileInput[]
+  skillKey: string
+  summary: string
+}

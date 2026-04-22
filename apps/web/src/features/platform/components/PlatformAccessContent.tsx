@@ -123,7 +123,9 @@ export function PlatformAccessContent({
                   action={
                     <FixedCopyButton
                       copied={copiedField === "host-ssh"}
-                      onClick={() => copyToClipboard(hostSshCommand, "host-ssh")}
+                      onClick={() =>
+                        copyToClipboard(hostSshCommand, "host-ssh")
+                      }
                     />
                   }
                   label="SSH"

@@ -1,5 +1,4 @@
 import { CaretRightIcon } from "@phosphor-icons/react"
-import { Badge } from "@/components/ui/badge"
 import { Link } from "@tanstack/react-router"
 import {
   SettingsCard,
@@ -8,8 +7,13 @@ import {
   SettingsRowLabel,
   SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { Badge } from "@/components/ui/badge"
 
-import { formatSkillOriginLabel, formatSkillStatusLabel, skillStatusBadgeVariant } from "../skill-presentation"
+import {
+  formatSkillOriginLabel,
+  formatSkillStatusLabel,
+  skillStatusBadgeVariant,
+} from "../skill-presentation"
 import type { WorkspaceInstalledSkillListEntry } from "../types"
 
 export interface SkillsListProps {
@@ -42,7 +46,9 @@ export function SkillsList({ orgSlug, skills }: SkillsListProps) {
                   {formatSkillOriginLabel(skill.origin)}
                 </Badge>
               </div>
-              <SettingsRowDescription>{skill.description}</SettingsRowDescription>
+              <SettingsRowDescription>
+                {skill.description}
+              </SettingsRowDescription>
             </SettingsRowLabel>
             <CaretRightIcon className="size-4 shrink-0 text-muted-foreground" />
           </SettingsRow>

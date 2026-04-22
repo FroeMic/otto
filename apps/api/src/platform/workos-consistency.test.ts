@@ -111,12 +111,16 @@ describe("platform WorkOS consistency", () => {
     vi.clearAllMocks()
     configureWorkOsEnv()
     mocks.createOrganization.mockResolvedValue(mocks.createdOrganization)
-    mocks.createOrganizationMembership.mockResolvedValue(mocks.createdMembership)
+    mocks.createOrganizationMembership.mockResolvedValue(
+      mocks.createdMembership,
+    )
     mocks.deleteOrganization.mockResolvedValue(undefined)
     mocks.listOrganizationMemberships.mockResolvedValue({
       autoPagination: async () => [],
     })
-    mocks.updateOrganizationMembership.mockResolvedValue(mocks.createdMembership)
+    mocks.updateOrganizationMembership.mockResolvedValue(
+      mocks.createdMembership,
+    )
   })
 
   it("creates platform workspaces with a real WorkOS organization id", async () => {
@@ -186,7 +190,10 @@ describe("platform WorkOS consistency", () => {
     )
 
     assert.equal(mocks.deleteOrganization.mock.calls.length, 1)
-    assert.equal(mocks.deleteOrganization.mock.calls[0]?.[0], "org_workos_platform_1")
+    assert.equal(
+      mocks.deleteOrganization.mock.calls[0]?.[0],
+      "org_workos_platform_1",
+    )
   })
 
   it("adds the current user through WorkOS and stores the WorkOS membership id", async () => {

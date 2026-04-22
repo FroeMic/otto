@@ -1,10 +1,10 @@
-import type { IntegrationDefinition } from "../../framework";
-import { slackIngressDefinition } from "./ingress";
-import { slackOAuthProvider } from "./oauth/provider";
+import type { IntegrationDefinition } from "../../framework"
+import { slackIngressDefinition } from "./ingress"
+import { slackOAuthProvider } from "./oauth/provider"
 import {
   slackAgentCapabilities,
   slackSettingsExamples,
-} from "./settings-metadata";
+} from "./settings-metadata"
 
 export const slackIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: slackAgentCapabilities,
@@ -42,4 +42,4 @@ export const slackIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/slack/status`,
   showInWorkspaceCatalog: true,
-};
+}

@@ -9,7 +9,7 @@ export const SYSTEM_RESERVED_WORKSPACE_SLUGS = [
   "platform",
   "status",
   "webhooks",
-] as const;
+] as const
 
 export const PUBLIC_RESERVED_WORKSPACE_SLUGS = [
   "about",
@@ -46,27 +46,27 @@ export const PUBLIC_RESERVED_WORKSPACE_SLUGS = [
   "startups",
   "switch",
   "terms",
-] as const;
+] as const
 
 export const RESERVED_WORKSPACE_SLUGS = [
   ...SYSTEM_RESERVED_WORKSPACE_SLUGS,
   ...PUBLIC_RESERVED_WORKSPACE_SLUGS,
-] as const;
+] as const
 
-const RESERVED_WORKSPACE_SLUG_SET = new Set<string>(RESERVED_WORKSPACE_SLUGS);
+const RESERVED_WORKSPACE_SLUG_SET = new Set<string>(RESERVED_WORKSPACE_SLUGS)
 
 export function normalizeWorkspaceSlug(value: string) {
   return value
     .toLowerCase()
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
 }
 
 export function isReservedWorkspaceSlug(value: string) {
-  const normalizedValue = normalizeWorkspaceSlug(value);
+  const normalizedValue = normalizeWorkspaceSlug(value)
 
   return normalizedValue.length > 0
     ? RESERVED_WORKSPACE_SLUG_SET.has(normalizedValue)
-    : false;
+    : false
 }

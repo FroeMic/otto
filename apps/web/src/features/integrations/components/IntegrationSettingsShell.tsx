@@ -26,7 +26,11 @@ export function IntegrationSettingsShell({
   status,
 }: IntegrationSettingsShellProps) {
   return (
-    <Tabs className="flex flex-col gap-6" onValueChange={onSectionChange} value={currentSection}>
+    <Tabs
+      className="flex flex-col gap-6"
+      onValueChange={onSectionChange}
+      value={currentSection}
+    >
       <TabsList className="h-auto justify-start overflow-x-auto p-1">
         <TabsTrigger value="status">Status</TabsTrigger>
         <TabsTrigger disabled={capabilitiesLocked} value="capabilities">
@@ -41,7 +45,9 @@ export function IntegrationSettingsShell({
 
       <TabsContent value="status">{status}</TabsContent>
       <TabsContent value="capabilities">
-        {capabilitiesLocked ? (capabilitiesLockedReason ?? capabilities) : capabilities}
+        {capabilitiesLocked
+          ? (capabilitiesLockedReason ?? capabilities)
+          : capabilities}
       </TabsContent>
       {configuration ? (
         <TabsContent value="configuration">{configuration}</TabsContent>

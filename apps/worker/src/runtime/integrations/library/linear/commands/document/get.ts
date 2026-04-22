@@ -1,11 +1,11 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDocumentCommandResult,
   executeLinearGraphql,
   getLinearDocumentFields,
   type LinearDocumentNode,
-} from "../../client";
+} from "../../client"
 
 const GET_DOCUMENT_QUERY = `
   query OttoLinearDocumentGet($id: String!) {
@@ -13,32 +13,32 @@ const GET_DOCUMENT_QUERY = `
       ${getLinearDocumentFields()}
     }
   }
-`;
+`
 
 export const executeLinearDocumentGet: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const documentId =
-    typeof args.documentId === "string" ? args.documentId.trim() : "";
+    typeof args.documentId === "string" ? args.documentId.trim() : ""
 
   if (!documentId) {
-    throw new Error("linear document.get requires documentId.");
+    throw new Error("linear document.get requires documentId.")
   }
 
   const data = await executeLinearGraphql<{
-    document?: LinearDocumentNode | null;
+    document?: LinearDocumentNode | null
   }>({
     accessToken: context.auth.accessToken,
     query: GET_DOCUMENT_QUERY,
     variables: {
       id: documentId,
     },
-  });
+  })
 
   return {
     ...buildLinearDocumentCommandResult({
@@ -46,5 +46,5 @@ export const executeLinearDocumentGet: IntegrationCommandExecute = async ({
       document: data.document,
     }),
     lookup: documentId,
-  };
-};
+  }
+}

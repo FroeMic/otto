@@ -6,9 +6,9 @@ const authenticateTenantRuntimeRequest = vi.fn()
 const executeRuntimeIntegrationInGateway = vi.fn()
 
 vi.mock("@otto/feature-integrations-runtime", async () => {
-  const actual = await vi.importActual<typeof import("@otto/feature-integrations-runtime")>(
-    "@otto/feature-integrations-runtime",
-  )
+  const actual = await vi.importActual<
+    typeof import("@otto/feature-integrations-runtime")
+  >("@otto/feature-integrations-runtime")
 
   return {
     ...actual,
@@ -130,7 +130,7 @@ describe("gateway app", () => {
           name: "@",
           ttl: 1800,
           type: "TXT",
-          values: ["\"v=spf1 include:_mailcust.gandi.net ?all\""],
+          values: ['"v=spf1 include:_mailcust.gandi.net ?all"'],
         },
       ],
       totalCount: 1,
@@ -165,7 +165,7 @@ describe("gateway app", () => {
           name: "@",
           ttl: 1800,
           type: "TXT",
-          values: ["\"v=spf1 include:_mailcust.gandi.net ?all\""],
+          values: ['"v=spf1 include:_mailcust.gandi.net ?all"'],
         },
       ],
       totalCount: 1,

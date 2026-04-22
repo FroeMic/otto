@@ -1,22 +1,22 @@
-import { eq } from "drizzle-orm";
+import { eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
+import { getDb } from "../../db/client"
 import {
   getProviderAccountByTenantAndKey,
   PROVIDER_CREDENTIAL_TYPES,
   persistProvisionedProviderCredential,
-} from "../../db/provider-accounts";
-import { tenantServers, tenants } from "../../db/schema";
-import { OpenAiProvisioner } from "../providers/openai/provisioning";
+} from "../../db/provider-accounts"
+import { tenantServers, tenants } from "../../db/schema"
+import { OpenAiProvisioner } from "../providers/openai/provisioning"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   type ClaimedJob,
   JOB_TYPES,
   type ProvisionTenantOpenAiKeyPayload,
-} from "./types";
+} from "./types"
 
-const openAiProvisioner = new OpenAiProvisioner();
+const openAiProvisioner = new OpenAiProvisioner()
 
 const OPENAI_PROVISION_EVENTS = {
   applyingCredential: "applying_openai_key",
@@ -27,7 +27,7 @@ const OPENAI_PROVISION_EVENTS = {
   skippedPreviousServiceAccountDeletion:
     "skipped_previous_openai_service_account_deletion",
   succeeded: "provision_openai_key_succeeded",
-} as const;
+} as const
 
 export async function processProvisionTenantOpenAiKeyJob(
   job: ClaimedJob,
@@ -35,27 +35,27 @@ export async function processProvisionTenantOpenAiKeyJob(
   if (job.jobType !== JOB_TYPES.provisionTenantOpenAiKey) {
     throw new Error(
       `Unsupported job type for OpenAI key provisioning handler: ${job.jobType}`,
-    );
+    )
   }
 
-  const payload = parseProvisionTenantOpenAiKeyPayload(job.payload);
+  const payload = parseProvisionTenantOpenAiKeyPayload(job.payload)
 
   try {
-    const tenant = await getTenantProvisioningTarget(payload.tenantId);
+    const tenant = await getTenantProvisioningTarget(payload.tenantId)
 
     if (!tenant) {
-      throw new Error("OpenAI key provisioning tenant not found");
+      throw new Error("OpenAI key provisioning tenant not found")
     }
 
     const existingProviderAccount = await getProviderAccountByTenantAndKey(
       tenant.id,
       "openai",
-    );
-    const action = existingProviderAccount ? "rotate" : "provision";
+    )
+    const action = existingProviderAccount ? "rotate" : "provision"
     const previousServiceAccountId =
-      existingProviderAccount?.externalServiceAccountId ?? null;
+      existingProviderAccount?.externalServiceAccountId ?? null
     const runtimeReady =
-      tenant.status === "ready" && tenant.serverStatus === "ready";
+      tenant.status === "ready" && tenant.serverStatus === "ready"
 
     await appendJobEvent(
       job.id,
@@ -67,7 +67,7 @@ export async function processProvisionTenantOpenAiKeyJob(
         existingProjectId: existingProviderAccount?.externalProjectId ?? null,
         tenantId: tenant.id,
       },
-    );
+    )
 
     const provisionedCredential =
       await openAiProvisioner.createTenantCredential({
@@ -75,7 +75,7 @@ export async function processProvisionTenantOpenAiKeyJob(
         tenantId: tenant.id,
         tenantName: tenant.name,
         verify: true,
-      });
+      })
 
     await appendJobEvent(
       job.id,
@@ -87,7 +87,7 @@ export async function processProvisionTenantOpenAiKeyJob(
         serviceAccountId: provisionedCredential.serviceAccountId,
         tenantId: tenant.id,
       },
-    );
+    )
 
     const { providerAccount, providerCredential: storedCredential } =
       await persistProvisionedProviderCredential({
@@ -102,9 +102,9 @@ export async function processProvisionTenantOpenAiKeyJob(
         revokedAt: null,
         status: "active",
         tenantId: tenant.id,
-      });
+      })
 
-    const desiredStateVersion: number | null = null;
+    const desiredStateVersion: number | null = null
 
     if (runtimeReady) {
       await appendJobEvent(
@@ -115,10 +115,10 @@ export async function processProvisionTenantOpenAiKeyJob(
           apiKeyId: provisionedCredential.apiKeyId,
           tenantId: tenant.id,
         },
-      );
+      )
     }
 
-    let previousServiceAccountDeleted = false;
+    let previousServiceAccountDeleted = false
 
     if (
       action === "rotate" &&
@@ -134,7 +134,7 @@ export async function processProvisionTenantOpenAiKeyJob(
             previousServiceAccountId,
             tenantId: tenant.id,
           },
-        );
+        )
       } else {
         await appendJobEvent(
           job.id,
@@ -144,13 +144,13 @@ export async function processProvisionTenantOpenAiKeyJob(
             previousServiceAccountId,
             tenantId: tenant.id,
           },
-        );
+        )
 
         await openAiProvisioner.deleteTenantCredential({
           projectId: provisionedCredential.projectId,
           serviceAccountId: previousServiceAccountId,
-        });
-        previousServiceAccountDeleted = true;
+        })
+        previousServiceAccountDeleted = true
       }
     }
 
@@ -159,7 +159,7 @@ export async function processProvisionTenantOpenAiKeyJob(
       previousServiceAccountDeleted,
       previousServiceAccountId,
       runtimeReady,
-    });
+    })
 
     const result = {
       action,
@@ -172,7 +172,7 @@ export async function processProvisionTenantOpenAiKeyJob(
       providerAccountId: providerAccount.id,
       serviceAccountId: provisionedCredential.serviceAccountId,
       tenantId: tenant.id,
-    };
+    }
 
     await appendJobEvent(
       job.id,
@@ -188,10 +188,10 @@ export async function processProvisionTenantOpenAiKeyJob(
         serviceAccountId: provisionedCredential.serviceAccountId,
         tenantId: tenant.id,
       },
-    );
-    await markJobSucceeded(job.id, result);
+    )
+    await markJobSucceeded(job.id, result)
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await appendJobEvent(
       job.id,
@@ -200,14 +200,14 @@ export async function processProvisionTenantOpenAiKeyJob(
       {
         error: message,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 async function getTenantProvisioningTarget(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [tenant] = await db
     .select({
       id: tenants.id,
@@ -218,52 +218,52 @@ async function getTenantProvisioningTarget(tenantId: string) {
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(eq(tenants.id, tenantId))
-    .limit(1);
+    .limit(1)
 
-  return tenant ?? null;
+  return tenant ?? null
 }
 
 function parseProvisionTenantOpenAiKeyPayload(
   payload: Record<string, unknown>,
 ): ProvisionTenantOpenAiKeyPayload {
-  const tenantId = payload.tenantId;
+  const tenantId = payload.tenantId
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Provision OpenAI key job payload is missing tenantId");
+    throw new Error("Provision OpenAI key job payload is missing tenantId")
   }
 
   return {
     tenantId,
-  };
+  }
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown error";
+  return "Unknown error"
 }
 
 function buildProvisioningResultNote(input: {
-  action: "provision" | "rotate";
-  runtimeReady: boolean;
-  previousServiceAccountId: string | null;
-  previousServiceAccountDeleted: boolean;
+  action: "provision" | "rotate"
+  runtimeReady: boolean
+  previousServiceAccountId: string | null
+  previousServiceAccountDeleted: boolean
 }) {
   if (!input.runtimeReady) {
     return input.action === "rotate" && input.previousServiceAccountId
       ? "The new tenant-specific key is stored in Otto. Delete the previous OpenAI service account after the tenant runtime is ready if you still need that cleanup."
-      : "The new tenant-specific key is stored in Otto and will be used on the next proxied request.";
+      : "The new tenant-specific key is stored in Otto and will be used on the next proxied request."
   }
 
   if (input.action === "rotate" && input.previousServiceAccountDeleted) {
-    return "The new tenant-specific key is stored in Otto and the previous OpenAI service account was deleted.";
+    return "The new tenant-specific key is stored in Otto and the previous OpenAI service account was deleted."
   }
 
   if (input.action === "rotate" && input.previousServiceAccountId) {
-    return "The new tenant-specific key is stored in Otto, but the previous OpenAI service account still requires manual cleanup.";
+    return "The new tenant-specific key is stored in Otto, but the previous OpenAI service account still requires manual cleanup."
   }
 
-  return "The new tenant-specific key is stored in Otto.";
+  return "The new tenant-specific key is stored in Otto."
 }

@@ -8,12 +8,16 @@ export interface DependencySelectOption {
   value: string
 }
 
-export interface IntegrationDependencySelectOption extends DependencySelectOption {
+export interface IntegrationDependencySelectOption
+  extends DependencySelectOption {
   iconSrc: string | null
   installed: boolean
 }
 
-export function toggleDependencySelection(selectedValues: string[], value: string) {
+export function toggleDependencySelection(
+  selectedValues: string[],
+  value: string,
+) {
   const selectedSet = new Set(selectedValues)
 
   if (selectedSet.has(value)) {
@@ -78,7 +82,9 @@ export function buildSkillDependencyOptions(input: {
   knownSkillKeys: string[]
   skills: WorkspaceInstalledSkillListEntry[]
 }): DependencySelectOption[] {
-  const skillByKey = new Map(input.skills.map((skill) => [skill.skillKey, skill]))
+  const skillByKey = new Map(
+    input.skills.map((skill) => [skill.skillKey, skill]),
+  )
   const keys = new Set<string>([
     ...input.knownSkillKeys,
     ...input.skills.map((skill) => skill.skillKey),

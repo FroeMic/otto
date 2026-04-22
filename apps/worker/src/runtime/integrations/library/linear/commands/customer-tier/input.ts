@@ -1,4 +1,4 @@
-import { normalizeOptionalString } from "../../client";
+import { normalizeOptionalString } from "../../client"
 
 export function buildLinearCustomerTierCreateInput(
   argumentsObject: Record<string, unknown>,
@@ -16,7 +16,7 @@ export function buildLinearCustomerTierCreateInput(
       Number.isFinite(argumentsObject.position)
         ? argumentsObject.position
         : null,
-  };
+  }
 }
 
 export function buildLinearCustomerTierUpdateInput(
@@ -32,5 +32,5 @@ export function buildLinearCustomerTierUpdateInput(
       Number.isFinite(argumentsObject.position)
         ? argumentsObject.position
         : null,
-  };
+  }
 }

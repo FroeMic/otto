@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearDeleteCommandResult,
@@ -8,11 +8,11 @@ import {
   getLinearIssueLabelFields,
   type LinearIssueLabelNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 import {
   buildLinearIssueLabelCreateInput,
   buildLinearIssueLabelUpdateInput,
-} from "./input";
+} from "./input"
 
 const LIST_ISSUE_LABELS_QUERY = `
   query OttoLinearIssueLabelList($limit: Int!) {
@@ -22,7 +22,7 @@ const LIST_ISSUE_LABELS_QUERY = `
       }
     }
   }
-`;
+`
 
 const GET_ISSUE_LABEL_QUERY = `
   query OttoLinearIssueLabelGet($id: String!) {
@@ -30,7 +30,7 @@ const GET_ISSUE_LABEL_QUERY = `
       ${getLinearIssueLabelFields()}
     }
   }
-`;
+`
 
 const CREATE_ISSUE_LABEL_MUTATION = `
   mutation OttoLinearIssueLabelCreate(
@@ -45,7 +45,7 @@ const CREATE_ISSUE_LABEL_MUTATION = `
       success
     }
   }
-`;
+`
 
 const UPDATE_ISSUE_LABEL_MUTATION = `
   mutation OttoLinearIssueLabelUpdate(
@@ -65,7 +65,7 @@ const UPDATE_ISSUE_LABEL_MUTATION = `
       success
     }
   }
-`;
+`
 
 const DELETE_ISSUE_LABEL_MUTATION = `
   mutation OttoLinearIssueLabelDelete($id: String!) {
@@ -75,7 +75,7 @@ const DELETE_ISSUE_LABEL_MUTATION = `
       success
     }
   }
-`;
+`
 
 const RESTORE_ISSUE_LABEL_MUTATION = `
   mutation OttoLinearIssueLabelRestore($id: String!) {
@@ -87,7 +87,7 @@ const RESTORE_ISSUE_LABEL_MUTATION = `
       success
     }
   }
-`;
+`
 
 const RETIRE_ISSUE_LABEL_MUTATION = `
   mutation OttoLinearIssueLabelRetire($id: String!) {
@@ -99,59 +99,59 @@ const RETIRE_ISSUE_LABEL_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearLabelListIssueLabels: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       issueLabels?: {
-        nodes?: LinearIssueLabelNode[] | null;
-      } | null;
+        nodes?: LinearIssueLabelNode[] | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_ISSUE_LABELS_QUERY,
       variables: {
         limit,
       },
-    });
+    })
 
     return buildLinearIssueLabelCollectionCommandResult({
       commandKey: "label.list_issue_labels",
       items: data.issueLabels?.nodes ?? [],
       limit,
-    });
-  };
+    })
+  }
 
 export const executeLinearLabelGetIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : "";
+    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : ""
 
     if (!labelId) {
-      throw new Error("linear label.get_issue_label requires labelId.");
+      throw new Error("linear label.get_issue_label requires labelId.")
     }
 
     const data = await executeLinearGraphql<{
-      issueLabel?: LinearIssueLabelNode | null;
+      issueLabel?: LinearIssueLabelNode | null
     }>({
       accessToken: context.auth.accessToken,
       query: GET_ISSUE_LABEL_QUERY,
       variables: {
         id: labelId,
       },
-    });
+    })
 
     return {
       ...buildLinearIssueLabelCommandResult({
@@ -159,26 +159,26 @@ export const executeLinearLabelGetIssueLabel: IntegrationCommandExecute =
         issueLabel: data.issueLabel,
       }),
       lookup: labelId,
-    };
-  };
+    }
+  }
 
 export const executeLinearLabelCreateIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const input = buildLinearIssueLabelCreateInput(args);
+    const input = buildLinearIssueLabelCreateInput(args)
     const replaceTeamLabels =
       typeof args.replaceTeamLabels === "boolean"
         ? args.replaceTeamLabels
-        : null;
+        : null
     const data = await executeLinearGraphql<{
       issueLabelCreate?: {
-        issueLabel?: LinearIssueLabelNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        issueLabel?: LinearIssueLabelNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: CREATE_ISSUE_LABEL_MUTATION,
@@ -186,39 +186,39 @@ export const executeLinearLabelCreateIssueLabel: IntegrationCommandExecute =
         input,
         replaceTeamLabels,
       },
-    });
+    })
 
     return buildLinearIssueLabelCommandResult({
       commandKey: "label.create_issue_label",
       issueLabel: data.issueLabelCreate?.issueLabel,
       lastSyncId: data.issueLabelCreate?.lastSyncId,
       success: data.issueLabelCreate?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearLabelUpdateIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : "";
+    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : ""
 
     if (!labelId) {
-      throw new Error("linear label.update_issue_label requires labelId.");
+      throw new Error("linear label.update_issue_label requires labelId.")
     }
 
-    const input = buildLinearIssueLabelUpdateInput(args);
+    const input = buildLinearIssueLabelUpdateInput(args)
     const replaceTeamLabels =
       typeof args.replaceTeamLabels === "boolean"
         ? args.replaceTeamLabels
-        : null;
+        : null
     const data = await executeLinearGraphql<{
       issueLabelUpdate?: {
-        issueLabel?: LinearIssueLabelNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        issueLabel?: LinearIssueLabelNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: UPDATE_ISSUE_LABEL_MUTATION,
@@ -227,41 +227,41 @@ export const executeLinearLabelUpdateIssueLabel: IntegrationCommandExecute =
         input,
         replaceTeamLabels,
       },
-    });
+    })
 
     return buildLinearIssueLabelCommandResult({
       commandKey: "label.update_issue_label",
       issueLabel: data.issueLabelUpdate?.issueLabel,
       lastSyncId: data.issueLabelUpdate?.lastSyncId,
       success: data.issueLabelUpdate?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearLabelDeleteIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : "";
+    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : ""
 
     if (!labelId) {
-      throw new Error("linear label.delete_issue_label requires labelId.");
+      throw new Error("linear label.delete_issue_label requires labelId.")
     }
 
     const data = await executeLinearGraphql<{
       issueLabelDelete?: {
-        entityId?: string | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entityId?: string | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: DELETE_ISSUE_LABEL_MUTATION,
       variables: {
         id: labelId,
       },
-    });
+    })
 
     return buildLinearDeleteCommandResult({
       commandKey: "label.delete_issue_label",
@@ -269,73 +269,73 @@ export const executeLinearLabelDeleteIssueLabel: IntegrationCommandExecute =
       entityKey: "IssueLabelId",
       lastSyncId: data.issueLabelDelete?.lastSyncId,
       success: data.issueLabelDelete?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearLabelRestoreIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : "";
+    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : ""
 
     if (!labelId) {
-      throw new Error("linear label.restore_issue_label requires labelId.");
+      throw new Error("linear label.restore_issue_label requires labelId.")
     }
 
     const data = await executeLinearGraphql<{
       issueLabelRestore?: {
-        issueLabel?: LinearIssueLabelNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        issueLabel?: LinearIssueLabelNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: RESTORE_ISSUE_LABEL_MUTATION,
       variables: {
         id: labelId,
       },
-    });
+    })
 
     return buildLinearIssueLabelCommandResult({
       commandKey: "label.restore_issue_label",
       issueLabel: data.issueLabelRestore?.issueLabel,
       lastSyncId: data.issueLabelRestore?.lastSyncId,
       success: data.issueLabelRestore?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearLabelRetireIssueLabel: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : "";
+    const labelId = typeof args.labelId === "string" ? args.labelId.trim() : ""
 
     if (!labelId) {
-      throw new Error("linear label.retire_issue_label requires labelId.");
+      throw new Error("linear label.retire_issue_label requires labelId.")
     }
 
     const data = await executeLinearGraphql<{
       issueLabelRetire?: {
-        issueLabel?: LinearIssueLabelNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        issueLabel?: LinearIssueLabelNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: RETIRE_ISSUE_LABEL_MUTATION,
       variables: {
         id: labelId,
       },
-    });
+    })
 
     return buildLinearIssueLabelCommandResult({
       commandKey: "label.retire_issue_label",
       issueLabel: data.issueLabelRetire?.issueLabel,
       lastSyncId: data.issueLabelRetire?.lastSyncId,
       success: data.issueLabelRetire?.success,
-    });
-  };
+    })
+  }

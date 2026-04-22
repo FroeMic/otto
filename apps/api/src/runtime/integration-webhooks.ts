@@ -229,7 +229,8 @@ async function forwardSlackIngressForTeam(input: {
       .limit(2)
 
     const connectedMatches = matches.filter(
-      (match) => match.connectedAt && !match.disconnectedAt && match.slackTeamId,
+      (match) =>
+        match.connectedAt && !match.disconnectedAt && match.slackTeamId,
     )
 
     if (connectedMatches.length === 0) {
@@ -470,7 +471,7 @@ function resolveSlackIngressErrorStatus(message: string) {
 }
 
 function shellQuote(value: string) {
-  return `'${value.replace(/'/g, `'\"'\"'`)}'`
+  return `'${value.replace(/'/g, `'"'"'`)}'`
 }
 
 function parseSlackIngressRequest(input: {

@@ -1,6 +1,6 @@
-import { Streamdown } from "streamdown"
 import type { AnchorHTMLAttributes, ReactNode } from "react"
 import { useMemo } from "react"
+import { Streamdown } from "streamdown"
 
 export interface ConversationMarkdownProps {
   baseUrl?: string
@@ -33,9 +33,7 @@ export function ConversationMarkdown({
           <a
             {...anchorProps}
             href={linkTarget.href}
-            rel={
-              linkTarget.isInternalWorkspaceLink ? undefined : "noreferrer"
-            }
+            rel={linkTarget.isInternalWorkspaceLink ? undefined : "noreferrer"}
             target={linkTarget.isInternalWorkspaceLink ? undefined : "_blank"}
           >
             {linkChildren}

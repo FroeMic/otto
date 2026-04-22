@@ -1,7 +1,7 @@
 import type {
+  WorkspaceInstalledSkillListEntry,
   WorkspaceSkillDetail,
   WorkspaceSkillDetailResponse,
-  WorkspaceInstalledSkillListEntry,
   WorkspaceSkillLibraryDetail,
   WorkspaceSkillLibraryDetailResponse,
   WorkspaceSkillLibraryEntry,

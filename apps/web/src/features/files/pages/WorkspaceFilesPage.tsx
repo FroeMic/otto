@@ -63,4 +63,3 @@ export function WorkspaceFilesPage({ orgSlug }: WorkspaceFilesPageProps) {
     </SettingsPage>
   )
 }
-

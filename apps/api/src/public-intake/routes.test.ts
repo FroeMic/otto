@@ -18,17 +18,20 @@ describe("public intake routes", () => {
       transcribePublicIntakeAudio: async () => "",
     })
 
-    const response = await app.request("https://api.getyourotto.com/api/public/intake", {
-      body: new URLSearchParams({
-        prompt: "Help me run onboarding and support.",
-        returnTo: "/",
-      }),
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
+    const response = await app.request(
+      "https://api.getyourotto.com/api/public/intake",
+      {
+        body: new URLSearchParams({
+          prompt: "Help me run onboarding and support.",
+          returnTo: "/",
+        }),
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method: "POST",
+        redirect: "manual",
       },
-      method: "POST",
-      redirect: "manual",
-    })
+    )
 
     assert.equal(response.status, 302)
     assert.equal(

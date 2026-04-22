@@ -1,3 +1,8 @@
+import { getDb } from "@otto/feature-integrations-runtime/db/client"
+import {
+  tenantServers,
+  tenants,
+} from "@otto/feature-integrations-runtime/db/schema"
 import { downloadRuntimePath } from "@otto/feature-runtime-core/runtime-files/download"
 import { getRuntimeDirectorySnapshot } from "@otto/feature-runtime-core/runtime-files/snapshot"
 import type {
@@ -5,11 +10,12 @@ import type {
   RuntimeDownloadKind,
   RuntimeDownloadResult,
 } from "@otto/feature-runtime-core/runtime-files/types"
-import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { tenantServers, tenants } from "@otto/feature-integrations-runtime/db/schema"
 import { desc, eq } from "drizzle-orm"
 
-import { execTenantRuntimeCommand, getTenantRuntimeConnection } from "../tenant-runtime/ssh"
+import {
+  execTenantRuntimeCommand,
+  getTenantRuntimeConnection,
+} from "../tenant-runtime/ssh"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
 
 const WORKSPACE_ROOT = "/opt/openclaw/home/workspace"

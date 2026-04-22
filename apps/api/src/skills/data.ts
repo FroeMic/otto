@@ -1,16 +1,20 @@
+import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
-  type WorkspaceSkillDetailResponse,
-  type WorkspaceSkillDeleteResponse,
-  type WorkspaceSkillLibraryDetailResponse,
-  type WorkspaceSkillLibraryEntry,
-  type WorkspaceSkillMutationResponse,
-  type WorkspaceSkillsListResponse,
-  SYSTEM_MANAGED_SKILL_DEFINITIONS,
-} from "@otto/feature-runtime-core"
+  tenantServers,
+  tenants,
+} from "@otto/feature-integrations-runtime/db/schema"
+import { listIntegrationDefinitions } from "@otto/feature-integrations-runtime/integrations/framework"
 import {
   buildManagedSkillMarkdown,
   MANAGED_SKILL_ENTRY_FILE_PATH,
   parseManagedSkillMarkdown,
+  SYSTEM_MANAGED_SKILL_DEFINITIONS,
+  type WorkspaceSkillDeleteResponse,
+  type WorkspaceSkillDetailResponse,
+  type WorkspaceSkillLibraryDetailResponse,
+  type WorkspaceSkillLibraryEntry,
+  type WorkspaceSkillMutationResponse,
+  type WorkspaceSkillsListResponse,
 } from "@otto/feature-runtime-core"
 import { downloadRuntimePath } from "@otto/feature-runtime-core/runtime-files/download"
 import { getRuntimeDirectorySnapshot } from "@otto/feature-runtime-core/runtime-files/snapshot"
@@ -19,12 +23,8 @@ import type {
   RuntimeDownloadKind,
   RuntimeDownloadResult,
 } from "@otto/feature-runtime-core/runtime-files/types"
-import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { tenants, tenantServers } from "@otto/feature-integrations-runtime/db/schema"
-import { listIntegrationDefinitions } from "@otto/feature-integrations-runtime/integrations/framework"
 import { desc, eq } from "drizzle-orm"
-
-import { execTenantRuntimeCommand, getTenantRuntimeConnection } from "../tenant-runtime/ssh"
+import { getRuntimeIntegrationForTenant } from "../runtime/integrations"
 import {
   createTenantManagedSkillForTenant,
   createTenantSystemManagedSkillForTenant,
@@ -34,8 +34,12 @@ import {
   resetTenantManagedSkillPackageForTenant,
   updateTenantManagedSkillTextFileForTenant,
 } from "../runtime/managed-skills-data"
-import { getRuntimeIntegrationForTenant } from "../runtime/integrations"
+import {
+  execTenantRuntimeCommand,
+  getTenantRuntimeConnection,
+} from "../tenant-runtime/ssh"
 import { getOrganizationWorkspaceBySlug } from "../workspace/data"
+
 const MANAGED_SKILLS_ROOT = "/opt/openclaw/home/workspace/skills"
 
 type RuntimeWorkspaceRecord = {
@@ -48,7 +52,10 @@ export class WorkspaceSkillInstallPrerequisiteError extends Error {
   readonly missingIntegrations: string[]
   readonly missingSkills: string[]
 
-  constructor(input: { missingIntegrations: string[]; missingSkills: string[] }) {
+  constructor(input: {
+    missingIntegrations: string[]
+    missingSkills: string[]
+  }) {
     const parts = []
 
     if (input.missingIntegrations.length > 0) {
@@ -101,13 +108,17 @@ function listKnownManagedSkillDependencyIntegrationKeys() {
     .sort((left, right) => left.localeCompare(right))
 }
 
-function mapManagedSkillDetail(detail: NonNullable<
-  Awaited<ReturnType<typeof getLatestTenantManagedSkillDetailForTenant>>
->) {
+function mapManagedSkillDetail(
+  detail: NonNullable<
+    Awaited<ReturnType<typeof getLatestTenantManagedSkillDetailForTenant>>
+  >,
+) {
   const skillEntryFile =
-    detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ?? null
+    detail.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
+    null
   const parsedSkillDocument =
-    skillEntryFile?.storageEncoding === "utf8_text" && skillEntryFile.contentText
+    skillEntryFile?.storageEncoding === "utf8_text" &&
+    skillEntryFile.contentText
       ? parseManagedSkillMarkdown(skillEntryFile.contentText)
       : null
 
@@ -132,7 +143,8 @@ function mapManagedSkillDetail(detail: NonNullable<
     origin: mapWorkspaceSkillOrigin(detail.sourceType),
     removable:
       detail.sourceType !== "system" ||
-      getSystemSkillDefinition(detail.skillKey)?.installMode === "manual_install",
+      getSystemSkillDefinition(detail.skillKey)?.installMode ===
+        "manual_install",
     skillKey: detail.skillKey,
     status: normalizeStatus(detail.status),
     summary: detail.summary,
@@ -194,8 +206,9 @@ function isWorkspaceVisibleSystemSkill(skillKey: string) {
   }
 
   const entryFile =
-    definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-    null
+    definition.files.find(
+      (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+    ) ?? null
 
   if (!entryFile?.contentText) {
     return false
@@ -224,14 +237,17 @@ function listWorkspaceSkillLibraryEntries(input: {
     }
 
     const entryFile =
-      definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-      null
+      definition.files.find(
+        (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+      ) ?? null
 
     if (!entryFile?.contentText) {
       return []
     }
 
-    if (!isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)) {
+    if (
+      !isWorkspaceVisibleSystemSkillDefinitionContent(entryFile.contentText)
+    ) {
       return []
     }
 
@@ -262,8 +278,9 @@ function buildWorkspaceSkillLibraryDetail(input: {
   installable: boolean
 }) {
   const entryFile =
-    input.definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-    null
+    input.definition.files.find(
+      (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+    ) ?? null
 
   if (!entryFile?.contentText) {
     return null
@@ -325,8 +342,9 @@ async function assertWorkspaceLibrarySkillInstallPrerequisites(input: {
   tenantId: string
 }) {
   const entryFile =
-    input.definition.files.find((file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH) ??
-    null
+    input.definition.files.find(
+      (file) => file.path === MANAGED_SKILL_ENTRY_FILE_PATH,
+    ) ?? null
 
   if (!entryFile?.contentText) {
     return
@@ -406,7 +424,8 @@ export async function listWorkspaceSkills(input: {
       origin: mapWorkspaceSkillOrigin(skill.sourceType),
       removable:
         skill.sourceType !== "system" ||
-        getSystemSkillDefinition(skill.skillKey)?.installMode === "manual_install",
+        getSystemSkillDefinition(skill.skillKey)?.installMode ===
+          "manual_install",
       resettable: skill.sourceType === "system",
       skillKey: skill.skillKey,
       status: normalizeStatus(skill.status),

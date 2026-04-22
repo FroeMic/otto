@@ -1,17 +1,13 @@
 "use client"
 
-import {
-  CheckIcon,
-  XIcon,
-} from "@phosphor-icons/react"
-import { useEffect, useRef, useState } from "react"
+import { CheckIcon, XIcon } from "@phosphor-icons/react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-import { formatVoiceNoteDuration } from "../voice-note"
 import { useVoiceNoteRecorder } from "../hooks/useVoiceNoteRecorder"
+import { formatVoiceNoteDuration } from "../voice-note"
 
 export interface ConversationVoiceNoteRecorderProps {
   disabled?: boolean
@@ -22,6 +18,11 @@ export interface ConversationVoiceNoteRecorderProps {
   onCancel: () => void
 }
 
+const VOICE_LEVEL_BAR_KEYS = Array.from(
+  { length: 40 },
+  (_, index) => `voice-level-${index}`,
+)
+
 export function ConversationVoiceNoteRecorder({
   disabled = false,
   onAttachVoiceNote,
@@ -30,7 +31,41 @@ export function ConversationVoiceNoteRecorder({
   const recorder = useVoiceNoteRecorder()
   const [isUploading, setIsUploading] = useState(false)
   const hasAutoStartedRef = useRef(false)
+  const recorderRef = useRef(recorder)
   const shouldAttachOnStopRef = useRef(false)
+  recorderRef.current = recorder
+
+  const attachDraft = useCallback(async () => {
+    const currentRecorder = recorderRef.current
+
+    if (!currentRecorder.draft) {
+      return
+    }
+
+    setIsUploading(true)
+
+    try {
+      await onAttachVoiceNote({
+        durationMs: currentRecorder.draft.durationMs,
+        file: new File(
+          [currentRecorder.draft.blob],
+          currentRecorder.draft.fileName,
+          {
+            type: currentRecorder.draft.mimeType,
+          },
+        ),
+      })
+
+      currentRecorder.clearDraft()
+      onCancel()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Failed to attach voice note.",
+      )
+    } finally {
+      setIsUploading(false)
+    }
+  }, [onAttachVoiceNote, onCancel])
 
   useEffect(() => {
     if (
@@ -61,7 +96,7 @@ export function ConversationVoiceNoteRecorder({
 
     shouldAttachOnStopRef.current = false
     void attachDraft()
-  }, [recorder.status, recorder.draft])
+  }, [recorder.status, attachDraft])
 
   if (!recorder.isSupported) {
     return null
@@ -72,32 +107,6 @@ export function ConversationVoiceNoteRecorder({
       recorder.status === "paused" ||
       recorder.status === "recorded") &&
     !isUploading
-
-  async function attachDraft() {
-    if (!recorder.draft) {
-      return
-    }
-
-    setIsUploading(true)
-
-    try {
-      await onAttachVoiceNote({
-        durationMs: recorder.draft.durationMs,
-        file: new File([recorder.draft.blob], recorder.draft.fileName, {
-          type: recorder.draft.mimeType,
-        }),
-      })
-
-      recorder.clearDraft()
-      onCancel()
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to attach voice note.",
-      )
-    } finally {
-      setIsUploading(false)
-    }
-  }
 
   function handleSend() {
     if (!canAttach || disabled) {
@@ -147,7 +156,7 @@ export function ConversationVoiceNoteRecorder({
               "block w-1 shrink-0 self-end rounded-full bg-foreground/80 transition-[height,opacity] duration-75",
               recorder.status === "recording" ? "opacity-100" : "opacity-35",
             )}
-            key={index}
+            key={VOICE_LEVEL_BAR_KEYS[index]}
             style={{
               height: `${Math.max(8, Math.round(level * 20))}px`,
             }}

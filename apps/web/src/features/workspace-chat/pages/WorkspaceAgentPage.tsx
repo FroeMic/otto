@@ -34,9 +34,7 @@ export interface WorkspaceAgentPageProps {
   orgSlug: string
 }
 
-export function WorkspaceAgentPage({
-  orgSlug,
-}: WorkspaceAgentPageProps) {
+export function WorkspaceAgentPage({ orgSlug }: WorkspaceAgentPageProps) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: onboarding } = useSuspenseQuery(
@@ -48,7 +46,7 @@ export function WorkspaceAgentPage({
       ? new Date(onboarding.starterPromptConsumedAt)
       : null,
   })
-    ? onboarding.starterPrompt ?? ""
+    ? (onboarding.starterPrompt ?? "")
     : ""
   const startConversationMutation = useMutation({
     mutationFn: async (input: {

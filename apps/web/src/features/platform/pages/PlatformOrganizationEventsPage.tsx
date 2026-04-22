@@ -1,15 +1,14 @@
 import { useSuspenseQuery } from "@tanstack/react-query"
-
-import { buildPlatformActivityData } from "@/features/platform/activity"
-import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
-import { PlatformActivityContent } from "@/features/platform/components/PlatformActivityContent"
-import { resolvePlatformDateTimePreferences } from "@/features/platform/date-time"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@/components/ui/empty"
+import { buildPlatformActivityData } from "@/features/platform/activity"
+import { platformOrganizationDetailQueryOptions } from "@/features/platform/api/platform"
+import { PlatformActivityContent } from "@/features/platform/components/PlatformActivityContent"
+import { resolvePlatformDateTimePreferences } from "@/features/platform/date-time"
 
 export interface PlatformOrganizationEventsPageProps {
   orgSlug: string
@@ -18,7 +17,9 @@ export interface PlatformOrganizationEventsPageProps {
 export function PlatformOrganizationEventsPage({
   orgSlug,
 }: PlatformOrganizationEventsPageProps) {
-  const { data } = useSuspenseQuery(platformOrganizationDetailQueryOptions(orgSlug))
+  const { data } = useSuspenseQuery(
+    platformOrganizationDetailQueryOptions(orgSlug),
+  )
   const organization = data.organization
   const dateTimePreferences = resolvePlatformDateTimePreferences({
     locale: organization.locale,

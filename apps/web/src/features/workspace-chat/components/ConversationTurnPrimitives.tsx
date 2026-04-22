@@ -1,5 +1,5 @@
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { OttoAvatar } from "@/components/OttoAvatar"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 
 import type { WorkspaceConversationTurnKind } from "../presentation"
@@ -88,9 +88,7 @@ export function ConversationTurnAvatar({
   const initial = name.charAt(0).toUpperCase() || "?"
 
   if (kind === "assistant") {
-    return (
-      <OttoAvatar className="size-7 rounded-md border border-border" />
-    )
+    return <OttoAvatar className="size-7 rounded-md border border-border" />
   }
 
   return (

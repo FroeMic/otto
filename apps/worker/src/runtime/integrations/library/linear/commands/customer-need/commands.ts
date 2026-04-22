@@ -1,4 +1,4 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearCustomerNeedCollectionCommandResult,
@@ -8,12 +8,12 @@ import {
   getLinearCustomerNeedFields,
   type LinearCustomerNeedNode,
   normalizeLimit,
-} from "../../client";
+} from "../../client"
 import {
   buildLinearCustomerNeedCreateFromAttachmentInput,
   buildLinearCustomerNeedCreateInput,
   buildLinearCustomerNeedUpdateInput,
-} from "./input";
+} from "./input"
 
 const LIST_CUSTOMER_NEEDS_QUERY = `
   query OttoLinearCustomerNeedList($includeArchived: Boolean, $limit: Int!) {
@@ -23,7 +23,7 @@ const LIST_CUSTOMER_NEEDS_QUERY = `
       }
     }
   }
-`;
+`
 
 const GET_CUSTOMER_NEED_QUERY = `
   query OttoLinearCustomerNeedGet($id: String!) {
@@ -31,7 +31,7 @@ const GET_CUSTOMER_NEED_QUERY = `
       ${getLinearCustomerNeedFields()}
     }
   }
-`;
+`
 
 const CREATE_CUSTOMER_NEED_MUTATION = `
   mutation OttoLinearCustomerNeedCreate($input: CustomerNeedCreateInput!) {
@@ -43,7 +43,7 @@ const CREATE_CUSTOMER_NEED_MUTATION = `
       success
     }
   }
-`;
+`
 
 const CREATE_CUSTOMER_NEED_FROM_ATTACHMENT_MUTATION = `
   mutation OttoLinearCustomerNeedCreateFromAttachment($input: CustomerNeedCreateFromAttachmentInput!) {
@@ -55,7 +55,7 @@ const CREATE_CUSTOMER_NEED_FROM_ATTACHMENT_MUTATION = `
       success
     }
   }
-`;
+`
 
 const UPDATE_CUSTOMER_NEED_MUTATION = `
   mutation OttoLinearCustomerNeedUpdate($clearAttachment: Boolean, $id: String!, $input: CustomerNeedUpdateInput!) {
@@ -70,7 +70,7 @@ const UPDATE_CUSTOMER_NEED_MUTATION = `
       }
     }
   }
-`;
+`
 
 const ARCHIVE_CUSTOMER_NEED_MUTATION = `
   mutation OttoLinearCustomerNeedArchive($id: String!) {
@@ -82,7 +82,7 @@ const ARCHIVE_CUSTOMER_NEED_MUTATION = `
       success
     }
   }
-`;
+`
 
 const UNARCHIVE_CUSTOMER_NEED_MUTATION = `
   mutation OttoLinearCustomerNeedUnarchive($id: String!) {
@@ -94,7 +94,7 @@ const UNARCHIVE_CUSTOMER_NEED_MUTATION = `
       success
     }
   }
-`;
+`
 
 const DELETE_CUSTOMER_NEED_MUTATION = `
   mutation OttoLinearCustomerNeedDelete($id: String!, $keepAttachment: Boolean) {
@@ -104,32 +104,32 @@ const DELETE_CUSTOMER_NEED_MUTATION = `
       success
     }
   }
-`;
+`
 
 export const executeLinearCustomerNeedList: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
   const limit = normalizeLimit({
     defaultLimit: 25,
     max: 100,
     value: args.limit,
-  });
+  })
   const includeArchived =
-    typeof args.includeArchived === "boolean" ? args.includeArchived : false;
+    typeof args.includeArchived === "boolean" ? args.includeArchived : false
   const data = await executeLinearGraphql<{
     customerNeeds?: {
-      nodes?: LinearCustomerNeedNode[] | null;
-    } | null;
+      nodes?: LinearCustomerNeedNode[] | null
+    } | null
   }>({
     accessToken: context.auth.accessToken,
     query: LIST_CUSTOMER_NEEDS_QUERY,
     variables: { includeArchived, limit },
-  });
+  })
 
   return {
     ...buildLinearCustomerNeedCollectionCommandResult({
@@ -138,30 +138,30 @@ export const executeLinearCustomerNeedList: IntegrationCommandExecute = async ({
       limit,
     }),
     includeArchived,
-  };
-};
+  }
+}
 
 export const executeLinearCustomerNeedGet: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const needId = typeof args.needId === "string" ? args.needId.trim() : "";
+  const needId = typeof args.needId === "string" ? args.needId.trim() : ""
 
   if (!needId) {
-    throw new Error("linear customer_need.get requires needId.");
+    throw new Error("linear customer_need.get requires needId.")
   }
 
   const data = await executeLinearGraphql<{
-    customerNeed?: LinearCustomerNeedNode | null;
+    customerNeed?: LinearCustomerNeedNode | null
   }>({
     accessToken: context.auth.accessToken,
     query: GET_CUSTOMER_NEED_QUERY,
     variables: { id: needId },
-  });
+  })
 
   return {
     ...buildLinearCustomerNeedCommandResult({
@@ -169,90 +169,90 @@ export const executeLinearCustomerNeedGet: IntegrationCommandExecute = async ({
       need: data.customerNeed,
     }),
     lookup: needId,
-  };
-};
+  }
+}
 
 export const executeLinearCustomerNeedCreate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const input = buildLinearCustomerNeedCreateInput(args);
+    const input = buildLinearCustomerNeedCreateInput(args)
     const data = await executeLinearGraphql<{
       customerNeedCreate?: {
-        lastSyncId?: number | null;
-        need?: LinearCustomerNeedNode | null;
-        success?: boolean | null;
-      } | null;
+        lastSyncId?: number | null
+        need?: LinearCustomerNeedNode | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: CREATE_CUSTOMER_NEED_MUTATION,
       variables: { input },
-    });
+    })
 
     return buildLinearCustomerNeedCommandResult({
       commandKey: "customer_need.create",
       lastSyncId: data.customerNeedCreate?.lastSyncId,
       need: data.customerNeedCreate?.need,
       success: data.customerNeedCreate?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearCustomerNeedCreateFromAttachment: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const input = buildLinearCustomerNeedCreateFromAttachmentInput(args);
+    const input = buildLinearCustomerNeedCreateFromAttachmentInput(args)
     const data = await executeLinearGraphql<{
       customerNeedCreateFromAttachment?: {
-        lastSyncId?: number | null;
-        need?: LinearCustomerNeedNode | null;
-        success?: boolean | null;
-      } | null;
+        lastSyncId?: number | null
+        need?: LinearCustomerNeedNode | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: CREATE_CUSTOMER_NEED_FROM_ATTACHMENT_MUTATION,
       variables: { input },
-    });
+    })
 
     return buildLinearCustomerNeedCommandResult({
       commandKey: "customer_need.create_from_attachment",
       lastSyncId: data.customerNeedCreateFromAttachment?.lastSyncId,
       need: data.customerNeedCreateFromAttachment?.need,
       success: data.customerNeedCreateFromAttachment?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearCustomerNeedUpdate: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const needId = typeof args.needId === "string" ? args.needId.trim() : "";
+    const needId = typeof args.needId === "string" ? args.needId.trim() : ""
 
     if (!needId) {
-      throw new Error("linear customer_need.update requires needId.");
+      throw new Error("linear customer_need.update requires needId.")
     }
 
     const clearAttachment =
-      typeof args.clearAttachment === "boolean" ? args.clearAttachment : null;
-    const input = buildLinearCustomerNeedUpdateInput(args);
+      typeof args.clearAttachment === "boolean" ? args.clearAttachment : null
+    const input = buildLinearCustomerNeedUpdateInput(args)
     const data = await executeLinearGraphql<{
       customerNeedUpdate?: {
-        lastSyncId?: number | null;
-        need?: LinearCustomerNeedNode | null;
-        success?: boolean | null;
-        updatedRelatedNeeds?: LinearCustomerNeedNode[] | null;
-      } | null;
+        lastSyncId?: number | null
+        need?: LinearCustomerNeedNode | null
+        success?: boolean | null
+        updatedRelatedNeeds?: LinearCustomerNeedNode[] | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: UPDATE_CUSTOMER_NEED_MUTATION,
       variables: { clearAttachment, id: needId, input },
-    });
+    })
 
     return buildLinearCustomerNeedCommandResult({
       commandKey: "customer_need.update",
@@ -260,98 +260,98 @@ export const executeLinearCustomerNeedUpdate: IntegrationCommandExecute =
       need: data.customerNeedUpdate?.need,
       success: data.customerNeedUpdate?.success,
       updatedRelatedNeeds: data.customerNeedUpdate?.updatedRelatedNeeds,
-    });
-  };
+    })
+  }
 
 export const executeLinearCustomerNeedArchive: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const needId = typeof args.needId === "string" ? args.needId.trim() : "";
+    const needId = typeof args.needId === "string" ? args.needId.trim() : ""
 
     if (!needId) {
-      throw new Error("linear customer_need.archive requires needId.");
+      throw new Error("linear customer_need.archive requires needId.")
     }
 
     const data = await executeLinearGraphql<{
       customerNeedArchive?: {
-        entity?: LinearCustomerNeedNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entity?: LinearCustomerNeedNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: ARCHIVE_CUSTOMER_NEED_MUTATION,
       variables: { id: needId },
-    });
+    })
 
     return buildLinearCustomerNeedCommandResult({
       commandKey: "customer_need.archive",
       lastSyncId: data.customerNeedArchive?.lastSyncId,
       need: data.customerNeedArchive?.entity,
       success: data.customerNeedArchive?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearCustomerNeedUnarchive: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const needId = typeof args.needId === "string" ? args.needId.trim() : "";
+    const needId = typeof args.needId === "string" ? args.needId.trim() : ""
 
     if (!needId) {
-      throw new Error("linear customer_need.unarchive requires needId.");
+      throw new Error("linear customer_need.unarchive requires needId.")
     }
 
     const data = await executeLinearGraphql<{
       customerNeedUnarchive?: {
-        entity?: LinearCustomerNeedNode | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entity?: LinearCustomerNeedNode | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: UNARCHIVE_CUSTOMER_NEED_MUTATION,
       variables: { id: needId },
-    });
+    })
 
     return buildLinearCustomerNeedCommandResult({
       commandKey: "customer_need.unarchive",
       lastSyncId: data.customerNeedUnarchive?.lastSyncId,
       need: data.customerNeedUnarchive?.entity,
       success: data.customerNeedUnarchive?.success,
-    });
-  };
+    })
+  }
 
 export const executeLinearCustomerNeedDelete: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
-    const needId = typeof args.needId === "string" ? args.needId.trim() : "";
+    const needId = typeof args.needId === "string" ? args.needId.trim() : ""
 
     if (!needId) {
-      throw new Error("linear customer_need.delete requires needId.");
+      throw new Error("linear customer_need.delete requires needId.")
     }
 
     const keepAttachment =
-      typeof args.keepAttachment === "boolean" ? args.keepAttachment : null;
+      typeof args.keepAttachment === "boolean" ? args.keepAttachment : null
     const data = await executeLinearGraphql<{
       customerNeedDelete?: {
-        entityId?: string | null;
-        lastSyncId?: number | null;
-        success?: boolean | null;
-      } | null;
+        entityId?: string | null
+        lastSyncId?: number | null
+        success?: boolean | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: DELETE_CUSTOMER_NEED_MUTATION,
       variables: { id: needId, keepAttachment },
-    });
+    })
 
     return buildLinearDeleteCommandResult({
       commandKey: "customer_need.delete",
@@ -359,5 +359,5 @@ export const executeLinearCustomerNeedDelete: IntegrationCommandExecute =
       entityKey: "CustomerNeedId",
       lastSyncId: data.customerNeedDelete?.lastSyncId,
       success: data.customerNeedDelete?.success,
-    });
-  };
+    })
+  }

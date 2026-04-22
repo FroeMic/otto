@@ -1,14 +1,13 @@
-import { and, eq } from "drizzle-orm";
-
-import { getDb } from "./client";
-import { tenantIntegrationCapabilityStates } from "./schema";
-import type { IntegrationCapabilityPolicy } from "../integrations/framework";
+import { and, eq } from "drizzle-orm"
+import type { IntegrationCapabilityPolicy } from "../integrations/framework"
+import { getDb } from "./client"
+import { tenantIntegrationCapabilityStates } from "./schema"
 
 export async function getTenantIntegrationCapabilityPolicy(input: {
-  capabilityKey: string;
-  tenantIntegrationId: string;
+  capabilityKey: string
+  tenantIntegrationId: string
 }): Promise<IntegrationCapabilityPolicy | null> {
-  const db = getDb();
+  const db = getDb()
   const [row] = await db
     .select({
       policyJson: tenantIntegrationCapabilityStates.policyJson,
@@ -26,15 +25,15 @@ export async function getTenantIntegrationCapabilityPolicy(input: {
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return row?.policyJson ?? null;
+  return row?.policyJson ?? null
 }
 
 export async function listTenantIntegrationCapabilityPolicies(input: {
-  tenantIntegrationId: string;
+  tenantIntegrationId: string
 }): Promise<Map<string, IntegrationCapabilityPolicy>> {
-  const db = getDb();
+  const db = getDb()
   const rows = await db
     .select({
       capabilityKey: tenantIntegrationCapabilityStates.capabilityKey,
@@ -46,22 +45,22 @@ export async function listTenantIntegrationCapabilityPolicies(input: {
         tenantIntegrationCapabilityStates.tenantIntegrationId,
         input.tenantIntegrationId,
       ),
-    );
+    )
 
   return new Map(
     rows.map((row) => [
       row.capabilityKey,
       row.policyJson as IntegrationCapabilityPolicy,
     ]),
-  );
+  )
 }
 
 export async function upsertTenantIntegrationCapabilityPolicy(input: {
-  capabilityKey: string;
-  policy: IntegrationCapabilityPolicy;
-  tenantIntegrationId: string;
+  capabilityKey: string
+  policy: IntegrationCapabilityPolicy
+  tenantIntegrationId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   if (input.policy.policy === "allow") {
     await db
@@ -77,9 +76,9 @@ export async function upsertTenantIntegrationCapabilityPolicy(input: {
             input.capabilityKey,
           ),
         ),
-      );
+      )
 
-    return;
+    return
   }
 
   await db
@@ -98,5 +97,5 @@ export async function upsertTenantIntegrationCapabilityPolicy(input: {
         policyJson: input.policy,
         updatedAt: new Date(),
       },
-    });
+    })
 }

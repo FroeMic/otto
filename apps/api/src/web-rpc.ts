@@ -8,9 +8,9 @@ import { createWorkspaceOnboardingRouter } from "./onboarding/routes"
 import { createPlatformRouter } from "./platform/routes"
 import { createScheduledTasksRouter } from "./scheduled-tasks/routes"
 import { createSessionsRouter } from "./sessions/routes"
-import { createWorkspaceRouter } from "./workspace/routes"
 import { createSkillsRouter } from "./skills/routes"
 import { createUserRouter } from "./user/routes"
+import { createWorkspaceRouter } from "./workspace/routes"
 import { createWorkspaceMembersRouter } from "./workspace-members/routes"
 
 export const webRpcApp = new Hono()

@@ -1,9 +1,6 @@
 import { CaretUpDownIcon, SignOutIcon } from "@phosphor-icons/react"
 import { useSuspenseQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-
-import { platformBootstrapQueryOptions } from "@/features/platform/api/platform"
-import { usePlatformSourceWorkspaceSlug } from "@/features/platform/source-workspace"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import {
   DropdownMenu,
@@ -20,10 +17,10 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { platformBootstrapQueryOptions } from "@/features/platform/api/platform"
+import { usePlatformSourceWorkspaceSlug } from "@/features/platform/source-workspace"
 
-export interface PlatformUserMenuProps {}
-
-export function PlatformUserMenu(_props: PlatformUserMenuProps) {
+export function PlatformUserMenu() {
   const { isMobile } = useSidebar()
   const { data } = useSuspenseQuery(platformBootstrapQueryOptions())
   const sourceWorkspaceSlug = usePlatformSourceWorkspaceSlug(
@@ -73,7 +70,9 @@ export function PlatformUserMenu(_props: PlatformUserMenuProps) {
                     <AvatarFallback>{fallback || "OT"}</AvatarFallback>
                   </Avatar>
                   <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">{data.user.name}</span>
+                    <span className="truncate font-medium">
+                      {data.user.name}
+                    </span>
                     <span className="truncate text-xs">{data.user.email}</span>
                   </div>
                 </div>

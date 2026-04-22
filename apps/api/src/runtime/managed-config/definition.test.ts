@@ -13,7 +13,10 @@ describe("managed config definitions", () => {
     assert.ok(agentDefinition)
     assert.match(agentDefinition.systemContent, /## Projects/)
     assert.match(agentDefinition.systemContent, /projects\/<project-key>\//)
-    assert.match(agentDefinition.systemContent, /projects\/<project-key>\/<project-key>\.md/)
+    assert.match(
+      agentDefinition.systemContent,
+      /projects\/<project-key>\/<project-key>\.md/,
+    )
     assert.match(agentDefinition.systemContent, /Business Profile/)
     assert.match(agentDefinition.systemContent, /context\/roadmap\.md/)
     assert.match(agentDefinition.systemContent, /context\//)
@@ -30,9 +33,15 @@ describe("managed config definitions", () => {
 
     assert.ok(agentDefinition)
     assert.match(agentDefinition.systemContent, /## Conversational Pacing/)
-    assert.match(agentDefinition.systemContent, /Ask at most one focused question/)
+    assert.match(
+      agentDefinition.systemContent,
+      /Ask at most one focused question/,
+    )
     assert.match(agentDefinition.systemContent, /recommend one next move/)
-    assert.match(agentDefinition.systemContent, /Do not answer early discovery with a long strategy memo/)
+    assert.match(
+      agentDefinition.systemContent,
+      /Do not answer early discovery with a long strategy memo/,
+    )
   })
 
   it("captures Michael's durable communication preference in MEMORY.md", () => {
@@ -41,7 +50,10 @@ describe("managed config definitions", () => {
     )
 
     assert.ok(memoryDefinition)
-    assert.match(memoryDefinition.systemContent, /Michael prefers the agent to lead/)
+    assert.match(
+      memoryDefinition.systemContent,
+      /Michael prefers the agent to lead/,
+    )
     assert.match(memoryDefinition.systemContent, /shorter replies/)
     assert.match(memoryDefinition.systemContent, /fewer bundled questions/)
   })

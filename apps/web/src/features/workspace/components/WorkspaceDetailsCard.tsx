@@ -1,9 +1,14 @@
 import { PencilSimpleIcon } from "@phosphor-icons/react/ssr"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { toast } from "sonner"
-
+import {
+  SettingsCard,
+  SettingsRow,
+  SettingsRowLabel,
+  SettingsRowTitle,
+} from "@/client/app/app-shell/SettingsLayout"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -14,12 +19,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import {
-  SettingsCard,
-  SettingsRow,
-  SettingsRowLabel,
-  SettingsRowTitle,
-} from "@/client/app/app-shell/SettingsLayout"
 import { updateWorkspaceSettings } from "@/features/workspace/api/workspace"
 
 export interface WorkspaceDetailsCardProps {
@@ -51,10 +50,7 @@ export function WorkspaceDetailsCard({
   )
 }
 
-function WorkspaceNameRow({
-  initialName,
-  orgSlug,
-}: WorkspaceNameRowProps) {
+function WorkspaceNameRow({ initialName, orgSlug }: WorkspaceNameRowProps) {
   const queryClient = useQueryClient()
   const [name, setName] = useState(initialName)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -131,15 +127,13 @@ function WorkspaceNameRow({
   )
 }
 
-function WorkspaceSlugRow({
-  initialSlug,
-  orgSlug,
-}: WorkspaceSlugRowProps) {
+function WorkspaceSlugRow({ initialSlug, orgSlug }: WorkspaceSlugRowProps) {
   const navigate = useNavigate({ from: "/$orgSlug/settings/workspace" })
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [slug, setSlug] = useState(initialSlug)
+  const workspaceSlugFieldId = useId()
   const mutation = useMutation({
     mutationFn: async (nextSlug: string) => {
       return updateWorkspaceSettings(orgSlug, {
@@ -224,7 +218,10 @@ function WorkspaceSlugRow({
               </DialogDescription>
             </DialogHeader>
             <div className="flex flex-col gap-2">
-              <label className="text-sm font-medium" htmlFor="workspace-slug">
+              <label
+                className="text-sm font-medium"
+                htmlFor={workspaceSlugFieldId}
+              >
                 Enter the new workspace URL
               </label>
               <div className="flex items-center">
@@ -233,12 +230,14 @@ function WorkspaceSlugRow({
                 </span>
                 <Input
                   autoFocus
-                  id="workspace-slug"
+                  id={workspaceSlugFieldId}
                   value={slug}
                   onChange={(event) => setSlug(event.target.value)}
                 />
               </div>
-              {error ? <p className="text-sm text-destructive">{error}</p> : null}
+              {error ? (
+                <p className="text-sm text-destructive">{error}</p>
+              ) : null}
             </div>
             <DialogFooter>
               <Button

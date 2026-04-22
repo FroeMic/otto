@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto"
-
-import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   creditLedgerEntries,
@@ -17,35 +15,25 @@ import {
   tenantDesiredStates,
   tenantIntegrations,
   tenantRuntimeSecrets,
-  tenants,
   tenantServers,
+  tenants,
   userPlatformRoles,
   users,
 } from "@otto/feature-integrations-runtime/db/schema"
+import { decryptControlPlaneSecret } from "@otto/feature-integrations-runtime/lib/crypto"
 import {
   isReservedWorkspaceSlug,
   normalizeWorkspaceSlug,
 } from "@otto/feature-workspace-slugs"
 import { WorkOS } from "@workos-inc/node"
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  inArray,
-  lte,
-  ne,
-  sql,
-} from "drizzle-orm"
-
-import { enqueueJob } from "../jobs/queue"
+import { and, asc, desc, eq, gte, inArray, lte, ne, sql } from "drizzle-orm"
 import { CREDIT_LEDGER_ENTRY_TYPES } from "../billing/credit-pricing"
 import {
   buildInitialWorkspaceCreditGrantInput,
   getWorkspaceBillingOverview,
 } from "../billing/data"
 import { getApiEnv, hasWorkOsConfig } from "../env"
+import { enqueueJob } from "../jobs/queue"
 import { syncDefaultTenantManagedSkillsForTenant } from "../runtime/managed-skills-data"
 import type { WorkspaceSummary } from "../workspace/data"
 import {
@@ -605,7 +593,7 @@ async function getTenantCreditBalanceSummary(tenantId: string) {
   }
 }
 
-export async function getPlatformOrganizations(input: {
+export async function getPlatformOrganizations(_input: {
   userExternalId: string
 }) {
   const db = getDb()
@@ -627,9 +615,12 @@ export async function getPlatformOrganizations(input: {
   }
 
   const configuredRuntimeImage = getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null
-  const configuredRuntimeImageVersion =
-    extractRuntimeImageVersion(configuredRuntimeImage)
-  const organizationIds = organizationRows.map((organization) => organization.id)
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  )
+  const organizationIds = organizationRows.map(
+    (organization) => organization.id,
+  )
   const tenantRows = await db
     .select({
       createdAt: tenants.createdAt,
@@ -787,7 +778,9 @@ export async function getPlatformOrganizations(input: {
     }
   }
 
-  const latestJobIds = Array.from(latestJobByTenantId.values()).map((row) => row.id)
+  const latestJobIds = Array.from(latestJobByTenantId.values()).map(
+    (row) => row.id,
+  )
   const latestJobEventRows =
     latestJobIds.length === 0
       ? []
@@ -818,7 +811,8 @@ export async function getPlatformOrganizations(input: {
       locale: organization.locale,
       name: organization.name,
       observedRuntimeImage,
-      observedRuntimeImageVersion: extractRuntimeImageVersion(observedRuntimeImage),
+      observedRuntimeImageVersion:
+        extractRuntimeImageVersion(observedRuntimeImage),
       slackIntegration: buildSlackIntegrationSummary(
         tenant ? slackByTenantId.get(tenant.id) : null,
       ),
@@ -1049,8 +1043,9 @@ export async function getPlatformOrganizationDetail(input: {
   }
 
   const configuredRuntimeImage = getApiEnv().RUNTIME_OPENCLAW_IMAGE ?? null
-  const configuredRuntimeImageVersion =
-    extractRuntimeImageVersion(configuredRuntimeImage)
+  const configuredRuntimeImageVersion = extractRuntimeImageVersion(
+    configuredRuntimeImage,
+  )
 
   const [tenant] = await db
     .select({
@@ -1223,14 +1218,16 @@ export async function getPlatformOrganizationDetail(input: {
       : null,
   )
 
-  const observedRuntimeImage = observedRuntimeImagesByTenant.get(tenant.id) ?? null
+  const observedRuntimeImage =
+    observedRuntimeImagesByTenant.get(tenant.id) ?? null
 
   return {
     billing: tenant
       ? {
           currentBalanceCreditsMilli:
             billingOverview.balance.currentBalanceCreditsMilli,
-          currentPeriodEnd: billingOverview.subscription?.currentPeriodEnd ?? null,
+          currentPeriodEnd:
+            billingOverview.subscription?.currentPeriodEnd ?? null,
           currentPeriodStart:
             billingOverview.subscription?.currentPeriodStart ?? null,
           totalDebitedCreditsMilli:
@@ -1246,7 +1243,8 @@ export async function getPlatformOrganizationDetail(input: {
     locale: organization.locale,
     name: organization.name,
     observedRuntimeImage,
-    observedRuntimeImageVersion: extractRuntimeImageVersion(observedRuntimeImage),
+    observedRuntimeImageVersion:
+      extractRuntimeImageVersion(observedRuntimeImage),
     slackIntegration,
     slug: organization.slug,
     tenant: {
@@ -1389,7 +1387,10 @@ export async function getPlatformUsage(input: {
         .leftJoin(providerUsageSettlements, settlementJoin)
         .where(rangeFilter)
         .groupBy(providerUsageBuckets.usageType)
-        .orderBy(desc(totalTokensExpression), asc(providerUsageBuckets.usageType)),
+        .orderBy(
+          desc(totalTokensExpression),
+          asc(providerUsageBuckets.usageType),
+        ),
       db
         .select({
           creditsBurnedMilli: creditsBurnedMilliExpression,
@@ -1956,7 +1957,7 @@ export async function hasPlatformAdminRole(userExternalId: string) {
 }
 
 export async function getDashboardOrganizations(
-  userExternalId: string,
+  _userExternalId: string,
 ): Promise<WorkspaceSummary[]> {
   const db = getDb()
   const rows = await db

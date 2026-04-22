@@ -14,7 +14,8 @@ export function summarizeSkillFileProvenance(input: {
   )
 
   const instructionsFile =
-    input.managedFiles.find((file) => file.fileClass === "managed_entry") ?? null
+    input.managedFiles.find((file) => file.fileClass === "managed_entry") ??
+    null
 
   const templateFiles = input.managedFiles
     .filter((file) => file.fileClass === "managed_seeded")

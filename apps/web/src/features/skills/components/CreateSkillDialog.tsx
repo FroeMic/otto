@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useMemo, useState } from "react"
+import { useId, useMemo, useState } from "react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -24,7 +24,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 
-import { createWorkspaceSkill, workspaceSkillsQueryOptions } from "../api/skills"
+import {
+  createWorkspaceSkill,
+  workspaceSkillsQueryOptions,
+} from "../api/skills"
 import type { WorkspaceInstalledSkillListEntry } from "../types"
 import { IntegrationDependencySelect } from "./IntegrationDependencySelect"
 import { SkillDependencySelect } from "./SkillDependencySelect"
@@ -65,8 +68,13 @@ export function CreateSkillDialog({
   const [selectedSkillKeys, setSelectedSkillKeys] = useState<string[]>([])
   const [skillBody, setSkillBody] = useState(DEFAULT_SKILL_BODY)
   const [skillKey, setSkillKey] = useState("")
+  const skillBodyFieldId = useId()
+  const skillDescriptionFieldId = useId()
+  const skillKeyFieldId = useId()
+  const skillNameFieldId = useId()
   const knownSkillKeys = useMemo(
-    () => skills.map((skill) => skill.skillKey).sort((a, b) => a.localeCompare(b)),
+    () =>
+      skills.map((skill) => skill.skillKey).sort((a, b) => a.localeCompare(b)),
     [skills],
   )
 
@@ -97,8 +105,7 @@ export function CreateSkillDialog({
     },
     onError: (error) => {
       toast.error("Skill creation failed", {
-        description:
-          error instanceof Error ? error.message : "Unknown error",
+        description: error instanceof Error ? error.message : "Unknown error",
       })
     },
   })
@@ -141,10 +148,10 @@ export function CreateSkillDialog({
               <div className="flex flex-col gap-6">
                 <FieldGroup>
                   <Field>
-                    <FieldLabel htmlFor="skill-key">Skill key</FieldLabel>
+                    <FieldLabel htmlFor={skillKeyFieldId}>Skill key</FieldLabel>
                     <FieldContent>
                       <Input
-                        id="skill-key"
+                        id={skillKeyFieldId}
                         onChange={(event) => {
                           const nextValue = event.target.value
                           setSkillKey(nextValue)
@@ -163,10 +170,10 @@ export function CreateSkillDialog({
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="skill-name">Title</FieldLabel>
+                    <FieldLabel htmlFor={skillNameFieldId}>Title</FieldLabel>
                     <FieldContent>
                       <Input
-                        id="skill-name"
+                        id={skillNameFieldId}
                         onChange={(event) => setName(event.target.value)}
                         placeholder="Linear triage"
                         value={name}
@@ -175,13 +182,13 @@ export function CreateSkillDialog({
                   </Field>
 
                   <Field>
-                    <FieldLabel htmlFor="skill-description">
+                    <FieldLabel htmlFor={skillDescriptionFieldId}>
                       Description
                     </FieldLabel>
                     <FieldContent>
                       <Textarea
                         className="min-h-24"
-                        id="skill-description"
+                        id={skillDescriptionFieldId}
                         onChange={(event) => setDescription(event.target.value)}
                         value={description}
                       />
@@ -222,11 +229,13 @@ export function CreateSkillDialog({
                 </FieldSet>
 
                 <Field>
-                  <FieldLabel htmlFor="skill-body">Instructions</FieldLabel>
+                  <FieldLabel htmlFor={skillBodyFieldId}>
+                    Instructions
+                  </FieldLabel>
                   <FieldContent>
                     <Textarea
                       className="min-h-[22rem] rounded-xl font-mono text-sm leading-6"
-                      id="skill-body"
+                      id={skillBodyFieldId}
                       onChange={(event) => setSkillBody(event.target.value)}
                       value={skillBody}
                     />

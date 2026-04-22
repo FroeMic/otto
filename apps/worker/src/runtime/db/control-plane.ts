@@ -1,22 +1,145 @@
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import { createHash, randomBytes, timingSafeEqual } from "node:crypto"
 import type {
   Invitation,
   Organization,
   OrganizationMembership,
   Role,
   User,
-} from "@workos-inc/node";
-import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
-import { getDb } from "./client";
+} from "@workos-inc/node"
+import { and, asc, desc, eq, inArray, notInArray, sql } from "drizzle-orm"
+import {
+  buildResolvedIntegrationAgentCapability,
+  buildResolvedIntegrationCommandCapability,
+  buildRuntimeIntegrationDetailsResponse,
+  buildRuntimeIntegrationManifestForKeys,
+  buildRuntimeIntegrationSettingsContract,
+  buildRuntimeIntegrationSummaryResponse,
+  findIntegrationCommandMatches,
+  getIntegrationDefinition,
+  type IntegrationRuntimeCommandDefinition,
+  type IntegrationRuntimeCommandGroupDefinition,
+  isAgentCapabilityUserControllable,
+  isCommandUserControllable,
+  isPlatformManagedIntegration,
+  listIntegrationCommands,
+  listRuntimeIntegrationDefinitions,
+  listSupportedRuntimeIntegrationKeys,
+  type ResolvedIntegrationAgentCapability,
+  type ResolvedIntegrationCommandCapability,
+  type RuntimeIntegrationCommandMatch,
+  type RuntimeIntegrationDetailsResponse,
+  type RuntimeIntegrationManifestEntry,
+  type RuntimeIntegrationSettingsContract,
+  type RuntimeIntegrationSummaryResponse,
+  resolveRuntimeIntegrationStatus,
+} from "../integrations/framework"
+import { buildIntegrationSectionPath } from "../integrations/framework/routing"
+import { braveFieldMeanings } from "../integrations/library/brave/settings-metadata"
+import { buildSlackConnectionProfile } from "../integrations/library/slack/oauth-metadata"
+import {
+  applySlackPolicyAction,
+  isSlackPolicyDestructive,
+  type SlackPolicyAction,
+  type SlackPolicyDerivedEffects,
+} from "../integrations/library/slack/policy"
+import {
+  slackActionMeanings,
+  slackAgentCapabilities,
+  slackAgentOperations,
+  slackFieldMeanings,
+} from "../integrations/library/slack/settings-metadata"
+import { getSlackDestructiveChangeError } from "../integrations/library/slack/update-policy"
+import {
+  decryptControlPlaneSecret,
+  encryptControlPlaneSecret,
+} from "../lib/crypto"
+import { getControlPlaneBaseUrl, getEnv } from "../lib/env"
+import { enqueueJob } from "../lib/jobs/queue"
+import { JOB_STATUSES, JOB_TYPES } from "../lib/jobs/types"
+import { buildManagedSkillMarkdown } from "../lib/managed-skills/package"
+import { getStaleDirectoryIds } from "../lib/messaging-directory"
+import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types"
+import {
+  buildManagedBootstrapFileContent,
+  buildManagedBootstrapSystemContent,
+  getManagedBootstrapFileDefinitions,
+  type ManagedBootstrapFilePath,
+  normalizeManagedBootstrapFilePath,
+} from "../lib/openclaw/managed-config"
+import { getTenantRuntimeConnection } from "../lib/runtime/connection"
+import { RuntimeManager } from "../lib/runtime/manager"
+import {
+  fetchSlackMessagingDirectory,
+  joinSlackChannel,
+  leaveSlackChannel,
+} from "../lib/slack"
+import {
+  getDefaultSlackRuntimeConfig,
+  parseSlackRuntimeConfig,
+  SLACK_RUNTIME_CONFIG_DESCRIPTION,
+  SLACK_RUNTIME_CONFIG_LABEL,
+  SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
+  SLACK_RUNTIME_CONFIG_SURFACE_KEY,
+  SLACK_RUNTIME_CONFIG_SURFACE_KIND,
+  type SlackRuntimeConfig,
+  slackRuntimeConfigJsonSchema,
+  slackRuntimeConfigPatchSchema,
+  slackRuntimeConfigUiHints,
+} from "../lib/slack-config"
+import {
+  parseWebSearchRuntimeConfig,
+  resolveRuntimeWebSearchConfig,
+  WEB_SEARCH_CONFIG_SCHEMA_VERSION,
+  webSearchRuntimeConfigJsonSchema,
+  webSearchRuntimeConfigUiHints,
+} from "../lib/web-search-config"
+import {
+  getDefaultWhatsAppRuntimeConfig,
+  parseWhatsAppRuntimeConfig,
+  WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
+  WHATSAPP_RUNTIME_CONFIG_LABEL,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
+  WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
+  WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
+  type WhatsAppRuntimeConfig,
+  whatsappRuntimeConfigJsonSchema,
+  whatsappRuntimeConfigPatchSchema,
+  whatsappRuntimeConfigUiHints,
+} from "../lib/whatsapp-config"
+import { getWorkOS } from "../lib/workos"
+import {
+  isReservedWorkspaceSlug,
+  normalizeWorkspaceSlug,
+} from "../lib/workspace-slugs"
+import {
+  getToolDefinition,
+  getToolSurfaceId,
+  listAvailableToolActions,
+  listToolDefinitions,
+  normalizeInstallState,
+} from "../tools"
+import { evaluateSlackPolicyForTenant } from "../tools/server"
+import type {
+  ToolInstallState,
+  ToolSurfaceAction,
+  ToolSurfaceResponse,
+} from "../tools/types"
+import {
+  deriveWhatsAppPolicyEffects,
+  type WhatsAppPolicyDerivedEffects,
+} from "../tools/whatsapp/policy"
+import { getDb } from "./client"
 import {
   createManualCreditGrant,
   getTenantCreditBalanceSummary,
-} from "./credit-ledger";
+} from "./credit-ledger"
 import {
   getTenantIntegrationCapabilityPolicy,
   listTenantIntegrationCapabilityPolicies,
   upsertTenantIntegrationCapabilityPolicy,
-} from "./integration-capability-policies";
+} from "./integration-capability-policies"
 import {
   createTenantManagedSkillForTenant as createTenantManagedSkillRecordForTenant,
   deleteTenantManagedSkillForTenantTx,
@@ -26,13 +149,13 @@ import {
   type TenantManagedSkillPatch,
   updateTenantManagedSkillForTenantTx,
   updateTenantManagedSkillTextFileForTenantTx,
-} from "./managed-skills";
+} from "./managed-skills"
 import {
   appendIntegrationOauthEventTx,
   markIntegrationOauthSessionConsumedTx,
   upsertOauthConnectionForTenantIntegrationTx,
-} from "./oauth";
-import { getTenantOpenAiProviderSummary } from "./provider-accounts";
+} from "./oauth"
+import { getTenantOpenAiProviderSummary } from "./provider-accounts"
 import {
   integrationIngressDeliveries,
   integrationMessagingConversations,
@@ -60,163 +183,38 @@ import {
   userChannelIdentities,
   userPlatformRoles,
   users,
-} from "./schema";
-import {
-  buildManagedSkillMarkdown,
-} from "../lib/managed-skills/package";
-import {
-  buildResolvedIntegrationAgentCapability,
-  buildResolvedIntegrationCommandCapability,
-  buildRuntimeIntegrationDetailsResponse,
-  buildRuntimeIntegrationManifestForKeys,
-  buildRuntimeIntegrationSettingsContract,
-  buildRuntimeIntegrationSummaryResponse,
-  findIntegrationCommandMatches,
-  getIntegrationDefinition,
-  type IntegrationRuntimeCommandDefinition,
-  type IntegrationRuntimeCommandGroupDefinition,
-  isAgentCapabilityUserControllable,
-  isCommandUserControllable,
-  isPlatformManagedIntegration,
-  listIntegrationCommands,
-  listRuntimeIntegrationDefinitions,
-  listSupportedRuntimeIntegrationKeys,
-  type ResolvedIntegrationAgentCapability,
-  type ResolvedIntegrationCommandCapability,
-  type RuntimeIntegrationCommandMatch,
-  type RuntimeIntegrationDetailsResponse,
-  type RuntimeIntegrationManifestEntry,
-  type RuntimeIntegrationSettingsContract,
-  type RuntimeIntegrationSummaryResponse,
-  resolveRuntimeIntegrationStatus,
-} from "../integrations/framework";
-import { buildIntegrationSectionPath } from "../integrations/framework/routing";
-import { braveFieldMeanings } from "../integrations/library/brave/settings-metadata";
-import { buildSlackConnectionProfile } from "../integrations/library/slack/oauth-metadata";
-import {
-  applySlackPolicyAction,
-  isSlackPolicyDestructive,
-  type SlackPolicyAction,
-  type SlackPolicyDerivedEffects,
-} from "../integrations/library/slack/policy";
-import {
-  slackActionMeanings,
-  slackAgentCapabilities,
-  slackAgentOperations,
-  slackFieldMeanings,
-} from "../integrations/library/slack/settings-metadata";
-import { getSlackDestructiveChangeError } from "../integrations/library/slack/update-policy";
-import {
-  decryptControlPlaneSecret,
-  encryptControlPlaneSecret,
-} from "../lib/crypto";
-import { getControlPlaneBaseUrl, getEnv } from "../lib/env";
-import { enqueueJob } from "../lib/jobs/queue";
-import { JOB_STATUSES, JOB_TYPES } from "../lib/jobs/types";
-import { getStaleDirectoryIds } from "../lib/messaging-directory";
-import type { OAuthTokenExchangeResult } from "../lib/oauth/providers/types";
-import {
-  buildManagedBootstrapFileContent,
-  buildManagedBootstrapSystemContent,
-  getManagedBootstrapFileDefinitions,
-  type ManagedBootstrapFilePath,
-  normalizeManagedBootstrapFilePath,
-} from "../lib/openclaw/managed-config";
-import { getTenantRuntimeConnection } from "../lib/runtime/connection";
-import { RuntimeManager } from "../lib/runtime/manager";
-import {
-  fetchSlackMessagingDirectory,
-  joinSlackChannel,
-  leaveSlackChannel,
-} from "../lib/slack";
-import {
-  getDefaultSlackRuntimeConfig,
-  parseSlackRuntimeConfig,
-  SLACK_RUNTIME_CONFIG_DESCRIPTION,
-  SLACK_RUNTIME_CONFIG_LABEL,
-  SLACK_RUNTIME_CONFIG_SCHEMA_SOURCE,
-  SLACK_RUNTIME_CONFIG_SCHEMA_VERSION,
-  SLACK_RUNTIME_CONFIG_SURFACE_KEY,
-  SLACK_RUNTIME_CONFIG_SURFACE_KIND,
-  type SlackRuntimeConfig,
-  slackRuntimeConfigJsonSchema,
-  slackRuntimeConfigPatchSchema,
-  slackRuntimeConfigUiHints,
-} from "../lib/slack-config";
-import {
-  parseWebSearchRuntimeConfig,
-  resolveRuntimeWebSearchConfig,
-  WEB_SEARCH_CONFIG_SCHEMA_VERSION,
-  webSearchRuntimeConfigJsonSchema,
-  webSearchRuntimeConfigUiHints,
-} from "../lib/web-search-config";
-import {
-  getDefaultWhatsAppRuntimeConfig,
-  parseWhatsAppRuntimeConfig,
-  WHATSAPP_RUNTIME_CONFIG_DESCRIPTION,
-  WHATSAPP_RUNTIME_CONFIG_LABEL,
-  WHATSAPP_RUNTIME_CONFIG_SCHEMA_SOURCE,
-  WHATSAPP_RUNTIME_CONFIG_SCHEMA_VERSION,
-  WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
-  WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
-  type WhatsAppRuntimeConfig,
-  whatsappRuntimeConfigJsonSchema,
-  whatsappRuntimeConfigPatchSchema,
-  whatsappRuntimeConfigUiHints,
-} from "../lib/whatsapp-config";
-import { getWorkOS } from "../lib/workos";
-import {
-  isReservedWorkspaceSlug,
-  normalizeWorkspaceSlug,
-} from "../lib/workspace-slugs";
-import {
-  getToolDefinition,
-  getToolSurfaceId,
-  listAvailableToolActions,
-  listToolDefinitions,
-  normalizeInstallState,
-} from "../tools";
-import { evaluateSlackPolicyForTenant } from "../tools/server";
-import type {
-  ToolInstallState,
-  ToolSurfaceAction,
-  ToolSurfaceResponse,
-} from "../tools/types";
-import {
-  deriveWhatsAppPolicyEffects,
-  type WhatsAppPolicyDerivedEffects,
-} from "../tools/whatsapp/policy";
+} from "./schema"
 
-const SLACK_PROVIDER_KEY = "slack";
-const LINEAR_PROVIDER_KEY = "linear";
-const WHATSAPP_PROVIDER_KEY = "whatsapp";
-const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token";
-const TENANT_TOKEN_SECRET_TYPE = "tenant_token";
-const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN";
-const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active";
-const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed";
-const WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS = 5 * 60_000;
+const SLACK_PROVIDER_KEY = "slack"
+const LINEAR_PROVIDER_KEY = "linear"
+const WHATSAPP_PROVIDER_KEY = "whatsapp"
+const OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE = "openclaw_gateway_token"
+const TENANT_TOKEN_SECRET_TYPE = "tenant_token"
+const PLATFORM_ADMIN_ROLE = "PLATFORM_ADMIN"
+const ACTIVE_WORKSPACE_MEMBERSHIP_STATUS = "active"
+const REMOVED_WORKSPACE_MEMBERSHIP_STATUS = "removed"
+const WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS = 5 * 60_000
 const MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS =
-  listSupportedRuntimeIntegrationKeys();
-const runtimeManager = new RuntimeManager();
+  listSupportedRuntimeIntegrationKeys()
+const runtimeManager = new RuntimeManager()
 
 function normalizeWorkspaceMembershipStatus(status: string) {
-  return status.trim().toLowerCase();
+  return status.trim().toLowerCase()
 }
 
 function isSlackSurface(surfaceKind: string, surfaceKey: string) {
   return (
     surfaceKind === SLACK_RUNTIME_CONFIG_SURFACE_KIND &&
     surfaceKey === SLACK_RUNTIME_CONFIG_SURFACE_KEY
-  );
+  )
 }
 
 function getSlackSurfaceAllowedActions(input: {
-  enabled: boolean;
-  installState: ToolInstallState;
+  enabled: boolean
+  installState: ToolInstallState
 }): ToolSurfaceAction[] {
   if (input.installState === "uninstalled") {
-    return ["install"];
+    return ["install"]
   }
 
   return [
@@ -224,255 +222,255 @@ function getSlackSurfaceAllowedActions(input: {
     input.enabled ? "disable" : "enable",
     "uninstall",
     "reapply",
-  ];
+  ]
 }
 
 function isWhatsAppSurface(surfaceKind: string, surfaceKey: string) {
   return (
     surfaceKind === WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND &&
     surfaceKey === WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY
-  );
+  )
 }
 
 function getSurfaceConfigMutationError(definition: {
-  label: string;
-  surfaceType: "global" | "integration" | "tool";
-  supportsConfig: boolean;
+  label: string
+  surfaceType: "global" | "integration" | "tool"
+  supportsConfig: boolean
 }) {
   if (definition.supportsConfig) {
-    return null;
+    return null
   }
 
   return definition.surfaceType === "global"
     ? `${definition.label} is managed by Otto and cannot be edited from the UI or runtime.`
-    : `${definition.label} does not support direct config edits.`;
+    : `${definition.label} does not support direct config edits.`
 }
 
 function getSurfaceLifecycleMutationError(definition: {
-  label: string;
-  surfaceType: "global" | "integration" | "tool";
-  supportsEnable: boolean;
-  supportsInstall: boolean;
+  label: string
+  surfaceType: "global" | "integration" | "tool"
+  supportsEnable: boolean
+  supportsInstall: boolean
 }) {
   if (definition.supportsEnable || definition.supportsInstall) {
-    return null;
+    return null
   }
 
   return definition.surfaceType === "global"
     ? `${definition.label} is managed by Otto and cannot be enabled, disabled, installed, or uninstalled from the UI or runtime.`
-    : `${definition.label} does not support install or enable lifecycle changes.`;
+    : `${definition.label} does not support install or enable lifecycle changes.`
 }
 
 function getSurfaceReapplyError(definition: {
-  label: string;
-  surfaceType: "global" | "integration" | "tool";
-  supportsReapply: boolean;
+  label: string
+  surfaceType: "global" | "integration" | "tool"
+  supportsReapply: boolean
 }) {
   if (definition.supportsReapply) {
-    return null;
+    return null
   }
 
   return definition.surfaceType === "global"
     ? `${definition.label} is managed by Otto and does not support manual reapply.`
-    : `${definition.label} does not support manual reapply.`;
+    : `${definition.label} does not support manual reapply.`
 }
 
 type SlackIntegrationSummary = {
-  connectedAt: Date | null;
-  lastError: string | null;
-  lastErrorAt: Date | null;
-  status: string;
-  teamId: string | null;
-  teamName: string | null;
-};
+  connectedAt: Date | null
+  lastError: string | null
+  lastErrorAt: Date | null
+  status: string
+  teamId: string | null
+  teamName: string | null
+}
 
-export type SlackIngressRequestType = "events" | "commands" | "interactivity";
+export type SlackIngressRequestType = "events" | "commands" | "interactivity"
 
 type WhatsAppIntegrationSummary = {
-  connectedAt: Date | null;
-  lastError: string | null;
-  lastErrorAt: Date | null;
-  selfE164: string | null;
-  status: string;
-};
+  connectedAt: Date | null
+  lastError: string | null
+  lastErrorAt: Date | null
+  selfE164: string | null
+  status: string
+}
 
 type TenantApplyRunSummary = {
-  desiredStateVersion: number;
-  error: string | null;
-  finishedAt: Date | null;
-  startedAt: Date | null;
-  status: string;
-};
+  desiredStateVersion: number
+  error: string | null
+  finishedAt: Date | null
+  startedAt: Date | null
+  status: string
+}
 
 export type TenantManagedConfigFile = {
-  checksum: string;
-  description: string;
-  label: string;
-  path: ManagedBootstrapFilePath;
-  renderedContent: string;
-  sharedContent: string;
-  systemContent: string;
-};
+  checksum: string
+  description: string
+  label: string
+  path: ManagedBootstrapFilePath
+  renderedContent: string
+  sharedContent: string
+  systemContent: string
+}
 
 export type TenantManagedConfig = {
-  createdAt: Date;
-  createdByExternalId: string | null;
-  createdByType: string;
-  files: TenantManagedConfigFile[];
-  summary: string | null;
-  version: number;
-};
+  createdAt: Date
+  createdByExternalId: string | null
+  createdByType: string
+  files: TenantManagedConfigFile[]
+  summary: string | null
+  version: number
+}
 
 type MessagingDirectoryMemberInput = {
-  avatarUrl: string | null;
-  displayName: string | null;
-  email: string | null;
-  externalMemberId: string;
-  fullName: string | null;
-  isDeleted: boolean;
-  memberType: string;
-  profileJson: unknown;
-  username: string | null;
-};
+  avatarUrl: string | null
+  displayName: string | null
+  email: string | null
+  externalMemberId: string
+  fullName: string | null
+  isDeleted: boolean
+  memberType: string
+  profileJson: unknown
+  username: string | null
+}
 
 type MessagingConversationInput = {
-  conversationType: string;
-  externalConversationId: string;
-  isArchived: boolean;
-  metadataJson: unknown;
-  name: string | null;
-  purpose: string | null;
-  topic: string | null;
-};
+  conversationType: string
+  externalConversationId: string
+  isArchived: boolean
+  metadataJson: unknown
+  name: string | null
+  purpose: string | null
+  topic: string | null
+}
 
 export type TenantSlackRuntimeConfig = {
-  ackReactionEnabled: boolean;
-  allowedChannelIds: string[];
-  allowedUserIds: string[];
-  answerInThreads: boolean;
-  channelAccessMode: "manual_allowlist" | "member_of_channels";
-  enabled: boolean;
-  entryVersion: number;
-  installState: ToolInstallState;
-  requireMentionInChannels: boolean;
-  schemaVersion: string;
-};
+  ackReactionEnabled: boolean
+  allowedChannelIds: string[]
+  allowedUserIds: string[]
+  answerInThreads: boolean
+  channelAccessMode: "manual_allowlist" | "member_of_channels"
+  enabled: boolean
+  entryVersion: number
+  installState: ToolInstallState
+  requireMentionInChannels: boolean
+  schemaVersion: string
+}
 
 export type TenantWhatsAppRuntimeConfig = {
-  ackReactionEnabled: boolean;
-  allowedGroupIds: string[];
-  allowedNumbers: string[];
-  dmPolicy: "pairing" | "allowlist" | "disabled";
-  enabled: boolean;
-  entryVersion: number;
-  groupAllowedNumbers: string[];
-  groupPolicy: "disabled" | "allowlist";
-  installState: ToolInstallState;
-  requireMentionInGroups: boolean;
-  schemaVersion: string;
-};
+  ackReactionEnabled: boolean
+  allowedGroupIds: string[]
+  allowedNumbers: string[]
+  dmPolicy: "pairing" | "allowlist" | "disabled"
+  enabled: boolean
+  entryVersion: number
+  groupAllowedNumbers: string[]
+  groupPolicy: "disabled" | "allowlist"
+  installState: ToolInstallState
+  requireMentionInGroups: boolean
+  schemaVersion: string
+}
 
 export type SlackRuntimeConfigDirectoryOption = {
-  memberCount?: number | null;
-  description: string | null;
-  id: string;
-  isArchived?: boolean;
-  isMember?: boolean;
-  label: string;
-  secondaryLabel: string | null;
-  visibility?: "private" | "public" | null;
-};
+  memberCount?: number | null
+  description: string | null
+  id: string
+  isArchived?: boolean
+  isMember?: boolean
+  label: string
+  secondaryLabel: string | null
+  visibility?: "private" | "public" | null
+}
 
 export type TenantSlackRuntimeConfigSurface = {
   agentOperations?: Array<{
-    description: string;
-    key: string;
-    label: string;
-  }>;
-  availableChannels: SlackRuntimeConfigDirectoryOption[];
-  availableUsers: SlackRuntimeConfigDirectoryOption[];
-  availability?: "available" | "blocked";
-  blockingReason?: string | null;
-  canAgentEdit?: boolean;
-  canUserEdit?: boolean;
-  config: TenantSlackRuntimeConfig;
-  description: string;
-  derivedEffects?: SlackPolicyDerivedEffects;
+    description: string
+    key: string
+    label: string
+  }>
+  availableChannels: SlackRuntimeConfigDirectoryOption[]
+  availableUsers: SlackRuntimeConfigDirectoryOption[]
+  availability?: "available" | "blocked"
+  blockingReason?: string | null
+  canAgentEdit?: boolean
+  canUserEdit?: boolean
+  config: TenantSlackRuntimeConfig
+  description: string
+  derivedEffects?: SlackPolicyDerivedEffects
   fieldMeanings: Array<{
-    description: string;
-    key: string;
-    label: string;
-  }>;
-  key: string;
-  kind: string;
-  label: string;
+    description: string
+    key: string
+    label: string
+  }>
+  key: string
+  kind: string
+  label: string
   actionMeanings: Array<{
-    action: ToolSurfaceAction;
-    description: string;
-    label: string;
-  }>;
-  allowedActions: ToolSurfaceAction[];
-  id: string;
-  schema: typeof slackRuntimeConfigJsonSchema;
-  settingsUrl?: string | null;
-  setupUrl?: string | null;
-  surfaceType: "integration";
-  uiGroup: "integrations";
-  uiHints: typeof slackRuntimeConfigUiHints;
-};
+    action: ToolSurfaceAction
+    description: string
+    label: string
+  }>
+  allowedActions: ToolSurfaceAction[]
+  id: string
+  schema: typeof slackRuntimeConfigJsonSchema
+  settingsUrl?: string | null
+  setupUrl?: string | null
+  surfaceType: "integration"
+  uiGroup: "integrations"
+  uiHints: typeof slackRuntimeConfigUiHints
+}
 
 export type TenantWhatsAppRuntimeConfigSurface = {
   agentOperations?: Array<{
-    description: string;
-    key: string;
-    label: string;
-  }>;
-  availability?: "available" | "blocked";
-  blockingReason?: string | null;
-  canAgentEdit?: boolean;
-  canUserEdit?: boolean;
-  config: TenantWhatsAppRuntimeConfig;
-  description: string;
-  derivedEffects?: WhatsAppPolicyDerivedEffects;
+    description: string
+    key: string
+    label: string
+  }>
+  availability?: "available" | "blocked"
+  blockingReason?: string | null
+  canAgentEdit?: boolean
+  canUserEdit?: boolean
+  config: TenantWhatsAppRuntimeConfig
+  description: string
+  derivedEffects?: WhatsAppPolicyDerivedEffects
   fieldMeanings: Array<{
-    description: string;
-    key: string;
-    label: string;
-  }>;
-  key: string;
-  kind: string;
-  label: string;
+    description: string
+    key: string
+    label: string
+  }>
+  key: string
+  kind: string
+  label: string
   actionMeanings: Array<{
-    action: ToolSurfaceAction;
-    description: string;
-    label: string;
-  }>;
-  allowedActions: ToolSurfaceAction[];
-  id: string;
-  schema: typeof whatsappRuntimeConfigJsonSchema;
-  settingsUrl?: string | null;
-  setupUrl?: string | null;
-  surfaceType: "integration";
-  uiGroup: "integrations";
-  uiHints: typeof whatsappRuntimeConfigUiHints;
-};
+    action: ToolSurfaceAction
+    description: string
+    label: string
+  }>
+  allowedActions: ToolSurfaceAction[]
+  id: string
+  schema: typeof whatsappRuntimeConfigJsonSchema
+  settingsUrl?: string | null
+  setupUrl?: string | null
+  surfaceType: "integration"
+  uiGroup: "integrations"
+  uiHints: typeof whatsappRuntimeConfigUiHints
+}
 
 export type TenantWhatsAppLinkSession = {
-  completedAt: Date | null;
-  createdAt: Date;
-  expiresAt: Date | null;
-  forceRelink: boolean;
-  id: string;
-  lastError: string | null;
-  qrDataUrl: string | null;
-  status: string;
-  updatedAt: Date;
-};
+  completedAt: Date | null
+  createdAt: Date
+  expiresAt: Date | null
+  forceRelink: boolean
+  id: string
+  lastError: string | null
+  qrDataUrl: string | null
+  status: string
+  updatedAt: Date
+}
 
 export type TenantToolConfigSurface = ToolSurfaceResponse<
   Record<string, unknown>,
   Record<string, unknown>
->;
+>
 
 export class ManagedConfigVersionConflictError extends Error {
   constructor(
@@ -481,7 +479,7 @@ export class ManagedConfigVersionConflictError extends Error {
   ) {
     super(
       `Managed config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
-    );
+    )
   }
 }
 
@@ -492,287 +490,287 @@ export class TenantRuntimeConfigVersionConflictError extends Error {
   ) {
     super(
       `Runtime config version mismatch: expected ${expectedVersion}, current ${currentVersion}`,
-    );
+    )
   }
 }
 
 type DbTransaction = Parameters<
   Parameters<ReturnType<typeof getDb>["transaction"]>[0]
->[0];
+>[0]
 
-const DESIRED_STATE_LOCK_TIMEOUT = "5s";
-const DESIRED_STATE_STATEMENT_TIMEOUT = "20s";
-const DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT = "20s";
+const DESIRED_STATE_LOCK_TIMEOUT = "5s"
+const DESIRED_STATE_STATEMENT_TIMEOUT = "20s"
+const DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT = "20s"
 
 export type DashboardOrganization = {
-  id: string;
-  externalId: string;
-  isReady: boolean;
-  locale: string;
-  name: string;
-  role: string;
-  slackIntegration: SlackIntegrationSummary | null;
-  timeFormatPreference: string;
-  timezone: string;
-  whatsappIntegration: WhatsAppIntegrationSummary | null;
-  slug: string;
+  id: string
+  externalId: string
+  isReady: boolean
+  locale: string
+  name: string
+  role: string
+  slackIntegration: SlackIntegrationSummary | null
+  timeFormatPreference: string
+  timezone: string
+  whatsappIntegration: WhatsAppIntegrationSummary | null
+  slug: string
   tenants: Array<{
-    createdAt: Date;
-    id: string;
-    ipv4: string | null;
+    createdAt: Date
+    id: string
+    ipv4: string | null
     latestJob: {
-      attempt: number;
-      error: string | null;
+      attempt: number
+      error: string | null
       events: Array<{
-        createdAt: Date;
-        eventType: string;
-        message: string;
-      }>;
-      finishedAt: Date | null;
-      id: string;
-      startedAt: Date | null;
-      status: string;
-      step: string | null;
-    } | null;
-    name: string;
+        createdAt: Date
+        eventType: string
+        message: string
+      }>
+      finishedAt: Date | null
+      id: string
+      startedAt: Date | null
+      status: string
+      step: string | null
+    } | null
+    name: string
     latestApplyRun: {
-      desiredStateVersion: number;
-      error: string | null;
-      finishedAt: Date | null;
-      startedAt: Date | null;
-      status: string;
-    } | null;
-    status: string;
-    serverStatus: string | null;
-  }>;
-};
+      desiredStateVersion: number
+      error: string | null
+      finishedAt: Date | null
+      startedAt: Date | null
+      status: string
+    } | null
+    status: string
+    serverStatus: string | null
+  }>
+}
 
 export type PlatformOrganization = {
-  configuredRuntimeImage: string;
-  configuredRuntimeImageVersion: string | null;
-  id: string;
-  isReady: boolean;
-  locale: string;
-  name: string;
-  observedRuntimeImage: string | null;
-  observedRuntimeImageVersion: string | null;
-  slackIntegration: SlackIntegrationSummary | null;
-  slug: string;
-  timeFormatPreference: string;
-  timezone: string;
+  configuredRuntimeImage: string
+  configuredRuntimeImageVersion: string | null
+  id: string
+  isReady: boolean
+  locale: string
+  name: string
+  observedRuntimeImage: string | null
+  observedRuntimeImageVersion: string | null
+  slackIntegration: SlackIntegrationSummary | null
+  slug: string
+  timeFormatPreference: string
+  timezone: string
   tenant: {
-    id: string;
-    ipv4: string | null;
+    id: string
+    ipv4: string | null
     latestApplyRun: {
-      desiredStateVersion: number;
-      error: string | null;
-      finishedAt: Date | null;
-      startedAt: Date | null;
-      status: string;
-    } | null;
+      desiredStateVersion: number
+      error: string | null
+      finishedAt: Date | null
+      startedAt: Date | null
+      status: string
+    } | null
     latestJob: {
-      attempt: number;
-      error: string | null;
+      attempt: number
+      error: string | null
       events: Array<{
-        createdAt: Date;
-        eventType: string;
-        message: string;
-      }>;
-      finishedAt: Date | null;
-      id: string;
-      startedAt: Date | null;
-      status: string;
-      step: string | null;
-    } | null;
-    name: string;
-    serverStatus: string | null;
-    status: string;
-  } | null;
-};
+        createdAt: Date
+        eventType: string
+        message: string
+      }>
+      finishedAt: Date | null
+      id: string
+      startedAt: Date | null
+      status: string
+      step: string | null
+    } | null
+    name: string
+    serverStatus: string | null
+    status: string
+  } | null
+}
 
 export type PlatformOrganizationDetail = {
-  configuredRuntimeImage: string;
-  configuredRuntimeImageVersion: string | null;
-  id: string;
-  isReady: boolean;
-  locale: string;
-  name: string;
-  observedRuntimeImage: string | null;
-  observedRuntimeImageVersion: string | null;
-  slackIntegration: SlackIntegrationSummary | null;
-  slug: string;
-  timeFormatPreference: string;
-  timezone: string;
+  configuredRuntimeImage: string
+  configuredRuntimeImageVersion: string | null
+  id: string
+  isReady: boolean
+  locale: string
+  name: string
+  observedRuntimeImage: string | null
+  observedRuntimeImageVersion: string | null
+  slackIntegration: SlackIntegrationSummary | null
+  slug: string
+  timeFormatPreference: string
+  timezone: string
   tenant: {
-    id: string;
-    ipv4: string | null;
+    id: string
+    ipv4: string | null
     latestApplyRun: {
-      desiredStateVersion: number;
-      error: string | null;
-      finishedAt: Date | null;
-      startedAt: Date | null;
-      status: string;
-    } | null;
-    latestDesiredStateVersion: number | null;
+      desiredStateVersion: number
+      error: string | null
+      finishedAt: Date | null
+      startedAt: Date | null
+      status: string
+    } | null
+    latestDesiredStateVersion: number | null
     latestJob: {
-      attempt: number;
-      error: string | null;
+      attempt: number
+      error: string | null
       events: Array<{
-        createdAt: Date;
-        eventType: string;
-        message: string;
-      }>;
-      finishedAt: Date | null;
-      id: string;
-      startedAt: Date | null;
-      status: string;
-      step: string | null;
-    } | null;
-    name: string;
+        createdAt: Date
+        eventType: string
+        message: string
+      }>
+      finishedAt: Date | null
+      id: string
+      startedAt: Date | null
+      status: string
+      step: string | null
+    } | null
+    name: string
     openAiProvider: {
-      activeApiKeyId: string | null;
-      activeCredentialCount: number;
-      activeServiceAccountId: string | null;
-      latestCredentialCreatedAt: Date | null;
-      projectId: string | null;
-      status: string;
-      totalCredentialCount: number;
-    } | null;
+      activeApiKeyId: string | null
+      activeCredentialCount: number
+      activeServiceAccountId: string | null
+      latestCredentialCreatedAt: Date | null
+      projectId: string | null
+      status: string
+      totalCredentialCount: number
+    } | null
     recentApplyRuns: Array<{
-      createdAt: Date;
-      desiredStateVersion: number;
-      error: string | null;
-      finishedAt: Date | null;
-      id: string;
-      restartStderr: string | null;
-      restartStdout: string | null;
-      startedAt: Date | null;
-      status: string;
-      verifyStderr: string | null;
-      verifyStdout: string | null;
-    }>;
+      createdAt: Date
+      desiredStateVersion: number
+      error: string | null
+      finishedAt: Date | null
+      id: string
+      restartStderr: string | null
+      restartStdout: string | null
+      startedAt: Date | null
+      status: string
+      verifyStderr: string | null
+      verifyStdout: string | null
+    }>
     recentJobs: Array<{
-      attempt: number;
-      createdAt: Date;
-      error: string | null;
+      attempt: number
+      createdAt: Date
+      error: string | null
       events: Array<{
-        createdAt: Date;
-        eventType: string;
-        message: string;
-      }>;
-      finishedAt: Date | null;
-      id: string;
-      jobType: string;
+        createdAt: Date
+        eventType: string
+        message: string
+      }>
+      finishedAt: Date | null
+      id: string
+      jobType: string
       result: {
-        host: string | null;
-        image: string | null;
-        note: string | null;
-        restartStderr: string | null;
-        restartStdout: string | null;
-        verifyStderr: string | null;
-        verifyStdout: string | null;
-      } | null;
-      startedAt: Date | null;
-      status: string;
-      step: string | null;
-    }>;
+        host: string | null
+        image: string | null
+        note: string | null
+        restartStderr: string | null
+        restartStdout: string | null
+        verifyStderr: string | null
+        verifyStdout: string | null
+      } | null
+      startedAt: Date | null
+      status: string
+      step: string | null
+    }>
     recentEvents: Array<{
-      createdAt: Date;
-      eventType: string;
-      jobRunId: string;
-      jobStatus: string;
-      jobType: string;
-      message: string;
-      step: string | null;
-    }>;
-    serverStatus: string | null;
-    status: string;
-  } | null;
-};
+      createdAt: Date
+      eventType: string
+      jobRunId: string
+      jobStatus: string
+      jobType: string
+      message: string
+      step: string | null
+    }>
+    serverStatus: string | null
+    status: string
+  } | null
+}
 
 export type PlatformTenantTarget = {
-  ipv4: string | null;
-  organizationId: string;
-  orgSlug: string;
-  serverStatus: string | null;
-  tenantId: string;
-  tenantName: string;
-  tenantStatus: string;
-};
+  ipv4: string | null
+  organizationId: string
+  orgSlug: string
+  serverStatus: string | null
+  tenantId: string
+  tenantName: string
+  tenantStatus: string
+}
 
 export type TenantManagedIntegrationSummary = {
-  connectedAt: Date | null;
-  disconnectedAt: Date | null;
-  lastError: string | null;
-  lastErrorAt: Date | null;
-  providerKey: string;
-  status: string;
-};
+  connectedAt: Date | null
+  disconnectedAt: Date | null
+  lastError: string | null
+  lastErrorAt: Date | null
+  providerKey: string
+  status: string
+}
 
 export type TenantManagedIntegrationConnectContext = {
-  integrationStatus: string | null;
-  organizationId: string;
-  organizationName: string;
-  organizationSlug: string;
-  serverStatus: string | null;
-  tenantId: string;
-  tenantIntegrationId: string | null;
-  tenantStatus: string;
-  userEmail: string;
-  userId: string;
-};
+  integrationStatus: string | null
+  organizationId: string
+  organizationName: string
+  organizationSlug: string
+  serverStatus: string | null
+  tenantId: string
+  tenantIntegrationId: string | null
+  tenantStatus: string
+  userEmail: string
+  userId: string
+}
 
 export type WorkspaceMemberDirectoryEntry = {
-  avatarUrl: string | null;
-  canManageRole: boolean;
-  canReactivate: boolean;
-  canResendInvitation: boolean;
-  canRevokeInvitation: boolean;
-  canSuspend: boolean;
-  email: string;
-  id: string;
-  invitationId: string | null;
-  isCurrentUser: boolean;
-  joinedAt: Date | null;
-  lastSeenAt: Date | null;
-  membershipId: string | null;
-  name: string;
-  role: string | null;
-  roleName: string | null;
-  rowType: "invitation" | "member";
-  searchText: string;
-  status: string;
-  subtitle: string | null;
-};
+  avatarUrl: string | null
+  canManageRole: boolean
+  canReactivate: boolean
+  canResendInvitation: boolean
+  canRevokeInvitation: boolean
+  canSuspend: boolean
+  email: string
+  id: string
+  invitationId: string | null
+  isCurrentUser: boolean
+  joinedAt: Date | null
+  lastSeenAt: Date | null
+  membershipId: string | null
+  name: string
+  role: string | null
+  roleName: string | null
+  rowType: "invitation" | "member"
+  searchText: string
+  status: string
+  subtitle: string | null
+}
 
 export type WorkspaceMemberRoleOption = {
-  description: string | null;
-  id: string;
-  name: string;
-  slug: string;
-};
+  description: string | null
+  id: string
+  name: string
+  slug: string
+}
 
 export type WorkspaceMemberDirectory = {
-  activeMemberCount: number;
-  availableRoles: WorkspaceMemberRoleOption[];
-  canManageMembers: boolean;
-  entries: WorkspaceMemberDirectoryEntry[];
-  invitationCount: number;
-  organizationName: string;
-  organizationSlug: string;
-};
+  activeMemberCount: number
+  availableRoles: WorkspaceMemberRoleOption[]
+  canManageMembers: boolean
+  entries: WorkspaceMemberDirectoryEntry[]
+  invitationCount: number
+  organizationName: string
+  organizationSlug: string
+}
 
 export async function syncUserFromSession(user: User) {
-  const syncedUser = await upsertLocalUser(user);
+  const syncedUser = await upsertLocalUser(user)
 
   await ensureWorkspaceMembershipProjection({
     allowStaleFallback: true,
     localUserId: syncedUser.id,
     reason: "session-sync",
     userExternalId: user.id,
-  });
+  })
 
-  return syncedUser;
+  return syncedUser
 }
 
 export async function reconcileWorkspaceMembershipProjectionForUser(
@@ -780,13 +778,13 @@ export async function reconcileWorkspaceMembershipProjectionForUser(
 ) {
   await reconcileWorkspaceMembershipsFromWorkOS({
     userExternalId,
-  });
+  })
 }
 
 export async function syncOrganizationProjectionFromWorkOS(input: {
-  organization: Pick<Organization, "id" | "name">;
+  organization: Pick<Organization, "id" | "name">
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(organizations)
@@ -794,11 +792,11 @@ export async function syncOrganizationProjectionFromWorkOS(input: {
       name: input.organization.name,
       updatedAt: new Date(),
     })
-    .where(eq(organizations.externalId, input.organization.id));
+    .where(eq(organizations.externalId, input.organization.id))
 }
 
 async function upsertLocalUser(user: Pick<User, "email" | "id">) {
-  const db = getDb();
+  const db = getDb()
 
   const [upsertedUser] = await db
     .insert(users)
@@ -817,13 +815,13 @@ async function upsertLocalUser(user: Pick<User, "email" | "id">) {
       id: users.id,
       externalId: users.externalId,
       email: users.email,
-    });
+    })
 
-  return upsertedUser;
+  return upsertedUser
 }
 
 export async function hasPlatformAdminRole(userExternalId: string) {
-  const db = getDb();
+  const db = getDb()
   const [role] = await db
     .select({
       role: userPlatformRoles.role,
@@ -836,36 +834,36 @@ export async function hasPlatformAdminRole(userExternalId: string) {
         eq(userPlatformRoles.role, PLATFORM_ADMIN_ROLE),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return Boolean(role);
+  return Boolean(role)
 }
 
 async function requirePlatformAdmin(userExternalId: string) {
-  const isPlatformAdmin = await hasPlatformAdminRole(userExternalId);
+  const isPlatformAdmin = await hasPlatformAdminRole(userExternalId)
 
   if (!isPlatformAdmin) {
-    throw new Error("Platform admin access required");
+    throw new Error("Platform admin access required")
   }
 }
 
 export async function getDashboardOrganizations(
   userExternalId: string,
 ): Promise<DashboardOrganization[]> {
-  const db = getDb();
+  const db = getDb()
   await ensureWorkspaceMembershipProjection({
     allowStaleFallback: true,
     reason: "dashboard-organizations",
     userExternalId,
-  });
+  })
 
-  const organizationRows = await getDashboardOrganizationRows(userExternalId);
+  const organizationRows = await getDashboardOrganizationRows(userExternalId)
 
   if (organizationRows.length === 0) {
-    return [];
+    return []
   }
 
-  const organizationIds = organizationRows.map((row) => row.organizationId);
+  const organizationIds = organizationRows.map((row) => row.organizationId)
 
   const tenantRows = await db
     .select({
@@ -880,9 +878,9 @@ export async function getDashboardOrganizations(
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(inArray(tenants.organizationId, organizationIds))
-    .orderBy(desc(tenants.createdAt));
+    .orderBy(desc(tenants.createdAt))
 
-  const tenantIds = tenantRows.map((tenant) => tenant.id);
+  const tenantIds = tenantRows.map((tenant) => tenant.id)
   const slackIntegrationRows =
     tenantIds.length === 0
       ? []
@@ -904,14 +902,17 @@ export async function getDashboardOrganizations(
           .from(tenantIntegrations)
           .leftJoin(
             integrationOauthConnections,
-            eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+            eq(
+              integrationOauthConnections.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
           )
           .where(
             and(
               inArray(tenantIntegrations.tenantId, tenantIds),
               eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
             ),
-          );
+          )
   const whatsappIntegrationRows =
     tenantIds.length === 0
       ? []
@@ -937,20 +938,20 @@ export async function getDashboardOrganizations(
               inArray(tenantIntegrations.tenantId, tenantIds),
               eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
             ),
-          );
+          )
 
   const slackIntegrationsByTenant = new Map<
     string,
     SlackIntegrationSummary & { tenantId: string }
-  >();
+  >()
   const whatsappIntegrationsByTenant = new Map<
     string,
     (typeof whatsappIntegrationRows)[number]
-  >();
+  >()
 
   for (const integration of slackIntegrationRows) {
     if (slackIntegrationsByTenant.has(integration.tenantId)) {
-      continue;
+      continue
     }
 
     const slackProfile = buildSlackConnectionProfile({
@@ -959,21 +960,21 @@ export async function getDashboardOrganizations(
       grantedScopesCsv: integration.grantedScopesCsv,
       providerMetadataJson: integration.providerMetadataJson,
       tenantIntegrationId: integration.tenantIntegrationId,
-    });
+    })
 
     slackIntegrationsByTenant.set(integration.tenantId, {
       ...integration,
       teamId: slackProfile?.teamId ?? null,
       teamName: slackProfile?.teamName ?? null,
-    });
+    })
   }
 
   for (const integration of whatsappIntegrationRows) {
     if (whatsappIntegrationsByTenant.has(integration.tenantId)) {
-      continue;
+      continue
     }
 
-    whatsappIntegrationsByTenant.set(integration.tenantId, integration);
+    whatsappIntegrationsByTenant.set(integration.tenantId, integration)
   }
 
   const latestJobRows =
@@ -993,21 +994,21 @@ export async function getDashboardOrganizations(
           })
           .from(jobRuns)
           .where(inArray(jobRuns.tenantId, tenantIds))
-          .orderBy(desc(jobRuns.createdAt));
+          .orderBy(desc(jobRuns.createdAt))
 
-  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>()
 
   for (const job of latestJobRows) {
     if (!job.tenantId || latestJobsByTenant.has(job.tenantId)) {
-      continue;
+      continue
     }
 
-    latestJobsByTenant.set(job.tenantId, job);
+    latestJobsByTenant.set(job.tenantId, job)
   }
 
   const latestJobIds = Array.from(latestJobsByTenant.values()).map(
     (job) => job.id,
-  );
+  )
 
   const jobEventRows =
     latestJobIds.length === 0
@@ -1021,25 +1022,25 @@ export async function getDashboardOrganizations(
           })
           .from(jobEvents)
           .where(inArray(jobEvents.jobRunId, latestJobIds))
-          .orderBy(desc(jobEvents.createdAt));
+          .orderBy(desc(jobEvents.createdAt))
 
   const jobEventsByJobRunId = new Map<
     string,
     Array<{
-      createdAt: Date;
-      eventType: string;
-      message: string;
+      createdAt: Date
+      eventType: string
+      message: string
     }>
-  >();
+  >()
 
   for (const event of jobEventRows) {
-    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? []
     existingEvents.push({
       createdAt: event.createdAt,
       eventType: event.eventType,
       message: event.message,
-    });
-    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+    })
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents)
   }
 
   const latestApplyRunRows =
@@ -1056,19 +1057,19 @@ export async function getDashboardOrganizations(
           })
           .from(tenantApplyRuns)
           .where(inArray(tenantApplyRuns.tenantId, tenantIds))
-          .orderBy(desc(tenantApplyRuns.createdAt));
+          .orderBy(desc(tenantApplyRuns.createdAt))
 
   const latestApplyRunsByTenant = new Map<
     string,
     (typeof latestApplyRunRows)[number]
-  >();
+  >()
 
   for (const applyRun of latestApplyRunRows) {
     if (latestApplyRunsByTenant.has(applyRun.tenantId)) {
-      continue;
+      continue
     }
 
-    latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+    latestApplyRunsByTenant.set(applyRun.tenantId, applyRun)
   }
 
   const organizationsForUser = organizationRows.map((organization) => {
@@ -1088,8 +1089,8 @@ export async function getDashboardOrganizations(
         name: tenant.name,
         status: tenant.status,
         serverStatus: tenant.serverStatus,
-      }));
-    const primaryTenant = organizationTenants[0] ?? null;
+      }))
+    const primaryTenant = organizationTenants[0] ?? null
 
     return {
       id: organization.organizationId,
@@ -1112,30 +1113,30 @@ export async function getDashboardOrganizations(
       ),
       slug: organization.organizationSlug,
       tenants: organizationTenants,
-    };
-  });
+    }
+  })
 
-  return organizationsForUser;
+  return organizationsForUser
 }
 
 export async function listPlatformOrganizationSlugs(input: {
-  userExternalId: string;
+  userExternalId: string
 }): Promise<Array<{ name: string; slug: string }>> {
-  await requirePlatformAdmin(input.userExternalId);
+  await requirePlatformAdmin(input.userExternalId)
 
-  const db = getDb();
+  const db = getDb()
   return db
     .select({ name: organizations.name, slug: organizations.slug })
     .from(organizations)
-    .orderBy(asc(organizations.name), asc(organizations.slug));
+    .orderBy(asc(organizations.name), asc(organizations.slug))
 }
 
 export async function listPlatformOrganizations(input: {
-  userExternalId: string;
+  userExternalId: string
 }): Promise<PlatformOrganization[]> {
-  await requirePlatformAdmin(input.userExternalId);
+  await requirePlatformAdmin(input.userExternalId)
 
-  const db = getDb();
+  const db = getDb()
   const organizationRows = await db
     .select({
       id: organizations.id,
@@ -1147,19 +1148,19 @@ export async function listPlatformOrganizations(input: {
       timezone: organizations.timezone,
     })
     .from(organizations)
-    .orderBy(asc(organizations.name), asc(organizations.slug));
+    .orderBy(asc(organizations.name), asc(organizations.slug))
 
   if (organizationRows.length === 0) {
-    return [];
+    return []
   }
 
-  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE
   const configuredRuntimeImageVersion = extractRuntimeImageVersion(
     configuredRuntimeImage,
-  );
+  )
   const organizationIds = organizationRows.map(
     (organization) => organization.id,
-  );
+  )
 
   const tenantRows = await db
     .select({
@@ -1174,25 +1175,25 @@ export async function listPlatformOrganizations(input: {
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(inArray(tenants.organizationId, organizationIds))
-    .orderBy(desc(tenants.createdAt));
+    .orderBy(desc(tenants.createdAt))
 
   const latestTenantsByOrganization = new Map<
     string,
     (typeof tenantRows)[number]
-  >();
+  >()
 
   for (const tenant of tenantRows) {
     if (!latestTenantsByOrganization.has(tenant.organizationId)) {
-      latestTenantsByOrganization.set(tenant.organizationId, tenant);
+      latestTenantsByOrganization.set(tenant.organizationId, tenant)
     }
   }
 
   const tenantIds = Array.from(latestTenantsByOrganization.values()).map(
     (tenant) => tenant.id,
-  );
+  )
   const observedRuntimeImagesByTenant = await getObservedRuntimeImagesByTenant(
     Array.from(latestTenantsByOrganization.values()),
-  );
+  )
 
   const slackIntegrationRows =
     tenantIds.length === 0
@@ -1215,19 +1216,22 @@ export async function listPlatformOrganizations(input: {
           .from(tenantIntegrations)
           .leftJoin(
             integrationOauthConnections,
-            eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+            eq(
+              integrationOauthConnections.tenantIntegrationId,
+              tenantIntegrations.id,
+            ),
           )
           .where(
             and(
               inArray(tenantIntegrations.tenantId, tenantIds),
               eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
             ),
-          );
+          )
 
   const slackIntegrationsByTenant = new Map<
     string,
     SlackIntegrationSummary & { tenantId: string }
-  >();
+  >()
 
   for (const integration of slackIntegrationRows) {
     if (!slackIntegrationsByTenant.has(integration.tenantId)) {
@@ -1237,13 +1241,13 @@ export async function listPlatformOrganizations(input: {
         grantedScopesCsv: integration.grantedScopesCsv,
         providerMetadataJson: integration.providerMetadataJson,
         tenantIntegrationId: integration.tenantIntegrationId,
-      });
+      })
 
       slackIntegrationsByTenant.set(integration.tenantId, {
         ...integration,
         teamId: slackProfile?.teamId ?? null,
         teamName: slackProfile?.teamName ?? null,
-      });
+      })
     }
   }
 
@@ -1261,16 +1265,16 @@ export async function listPlatformOrganizations(input: {
           })
           .from(tenantApplyRuns)
           .where(inArray(tenantApplyRuns.tenantId, tenantIds))
-          .orderBy(desc(tenantApplyRuns.createdAt));
+          .orderBy(desc(tenantApplyRuns.createdAt))
 
   const latestApplyRunsByTenant = new Map<
     string,
     (typeof latestApplyRunRows)[number]
-  >();
+  >()
 
   for (const applyRun of latestApplyRunRows) {
     if (!latestApplyRunsByTenant.has(applyRun.tenantId)) {
-      latestApplyRunsByTenant.set(applyRun.tenantId, applyRun);
+      latestApplyRunsByTenant.set(applyRun.tenantId, applyRun)
     }
   }
 
@@ -1291,19 +1295,19 @@ export async function listPlatformOrganizations(input: {
           })
           .from(jobRuns)
           .where(inArray(jobRuns.tenantId, tenantIds))
-          .orderBy(desc(jobRuns.createdAt));
+          .orderBy(desc(jobRuns.createdAt))
 
-  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>();
+  const latestJobsByTenant = new Map<string, (typeof latestJobRows)[number]>()
 
   for (const job of latestJobRows) {
     if (job.tenantId && !latestJobsByTenant.has(job.tenantId)) {
-      latestJobsByTenant.set(job.tenantId, job);
+      latestJobsByTenant.set(job.tenantId, job)
     }
   }
 
   const latestJobIds = Array.from(latestJobsByTenant.values()).map(
     (job) => job.id,
-  );
+  )
 
   const jobEventRows =
     latestJobIds.length === 0
@@ -1317,29 +1321,29 @@ export async function listPlatformOrganizations(input: {
           })
           .from(jobEvents)
           .where(inArray(jobEvents.jobRunId, latestJobIds))
-          .orderBy(desc(jobEvents.createdAt));
+          .orderBy(desc(jobEvents.createdAt))
 
   const jobEventsByJobRunId = new Map<
     string,
     Array<{
-      createdAt: Date;
-      eventType: string;
-      message: string;
+      createdAt: Date
+      eventType: string
+      message: string
     }>
-  >();
+  >()
 
   for (const event of jobEventRows) {
-    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? []
     existingEvents.push({
       createdAt: event.createdAt,
       eventType: event.eventType,
       message: event.message,
-    });
-    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+    })
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents)
   }
 
   return organizationRows.map((organization) => {
-    const tenant = latestTenantsByOrganization.get(organization.id) ?? null;
+    const tenant = latestTenantsByOrganization.get(organization.id) ?? null
 
     return {
       configuredRuntimeImage,
@@ -1380,17 +1384,17 @@ export async function listPlatformOrganizations(input: {
             status: tenant.status,
           }
         : null,
-    };
-  });
+    }
+  })
 }
 
 export async function getPlatformOrganizationDetail(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<PlatformOrganizationDetail | null> {
-  await requirePlatformAdmin(input.userExternalId);
+  await requirePlatformAdmin(input.userExternalId)
 
-  const db = getDb();
+  const db = getDb()
   const [organization] = await db
     .select({
       id: organizations.id,
@@ -1403,16 +1407,16 @@ export async function getPlatformOrganizationDetail(input: {
     })
     .from(organizations)
     .where(eq(organizations.slug, input.orgSlug))
-    .limit(1);
+    .limit(1)
 
   if (!organization) {
-    return null;
+    return null
   }
 
-  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE;
+  const configuredRuntimeImage = getEnv().RUNTIME_OPENCLAW_IMAGE
   const configuredRuntimeImageVersion = extractRuntimeImageVersion(
     configuredRuntimeImage,
-  );
+  )
 
   const [tenant] = await db
     .select({
@@ -1427,7 +1431,7 @@ export async function getPlatformOrganizationDetail(input: {
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(eq(tenants.organizationId, organization.id))
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!tenant) {
     return {
@@ -1444,7 +1448,7 @@ export async function getPlatformOrganizationDetail(input: {
       timeFormatPreference: organization.timeFormatPreference,
       timezone: organization.timezone,
       tenant: null,
-    };
+    }
   }
 
   const [
@@ -1472,7 +1476,10 @@ export async function getPlatformOrganizationDetail(input: {
       .from(tenantIntegrations)
       .leftJoin(
         integrationOauthConnections,
-        eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+        eq(
+          integrationOauthConnections.tenantIntegrationId,
+          tenantIntegrations.id,
+        ),
       )
       .where(
         and(
@@ -1520,9 +1527,9 @@ export async function getPlatformOrganizationDetail(input: {
         .from(jobRuns)
         .where(eq(jobRuns.tenantId, tenant.id))
         .orderBy(desc(jobRuns.createdAt))
-        .limit(50);
+        .limit(50)
 
-      const recentJobIds = recentJobRows.map((job) => job.id);
+      const recentJobIds = recentJobRows.map((job) => job.id)
       const jobEventRows =
         recentJobIds.length === 0
           ? []
@@ -1536,9 +1543,9 @@ export async function getPlatformOrganizationDetail(input: {
               .from(jobEvents)
               .where(inArray(jobEvents.jobRunId, recentJobIds))
               .orderBy(desc(jobEvents.createdAt))
-              .limit(500);
+              .limit(500)
 
-      return { recentJobRows, jobEventRows };
+      return { recentJobRows, jobEventRows }
     })(),
 
     // Recent events
@@ -1568,9 +1575,9 @@ export async function getPlatformOrganizationDetail(input: {
 
     // OpenAI provider summary
     getTenantOpenAiProviderSummary(tenant.id),
-  ]);
+  ])
 
-  const slackIntegrationRow = slackIntegrationRows[0] ?? null;
+  const slackIntegrationRow = slackIntegrationRows[0] ?? null
   const slackIntegrationProfile = slackIntegrationRow
     ? buildSlackConnectionProfile({
         externalAccountId: slackIntegrationRow.externalAccountId,
@@ -1579,32 +1586,32 @@ export async function getPlatformOrganizationDetail(input: {
         providerMetadataJson: slackIntegrationRow.providerMetadataJson,
         tenantIntegrationId: slackIntegrationRow.tenantIntegrationId,
       })
-    : null;
+    : null
   const slackIntegration = slackIntegrationRow
     ? {
         ...slackIntegrationRow,
         teamId: slackIntegrationProfile?.teamId ?? null,
         teamName: slackIntegrationProfile?.teamName ?? null,
       }
-    : null;
+    : null
 
   const jobEventsByJobRunId = new Map<
     string,
     Array<{
-      createdAt: Date;
-      eventType: string;
-      message: string;
+      createdAt: Date
+      eventType: string
+      message: string
     }>
-  >();
+  >()
 
   for (const event of jobEventRows) {
-    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? [];
+    const existingEvents = jobEventsByJobRunId.get(event.jobRunId) ?? []
     existingEvents.push({
       createdAt: event.createdAt,
       eventType: event.eventType,
       message: event.message,
-    });
-    jobEventsByJobRunId.set(event.jobRunId, existingEvents);
+    })
+    jobEventsByJobRunId.set(event.jobRunId, existingEvents)
   }
 
   return {
@@ -1642,11 +1649,11 @@ export async function getPlatformOrganizationDetail(input: {
       serverStatus: tenant.serverStatus,
       status: tenant.status,
     },
-  };
+  }
 }
 
 async function getDashboardOrganizationRows(userExternalId: string) {
-  const db = getDb();
+  const db = getDb()
 
   return db
     .select({
@@ -1668,32 +1675,32 @@ async function getDashboardOrganizationRows(userExternalId: string) {
         eq(users.externalId, userExternalId),
         eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
       ),
-    );
+    )
 }
 
 type AuthorizedWorkspaceMembershipContext = {
-  currentMembershipId: string;
-  currentRoleSlug: string;
-  organizationExternalId: string;
-  organizationId: string;
-  organizationLocale: string;
-  organizationName: string;
-  organizationSlug: string;
-  organizationTimeFormatPreference: string;
-  organizationTimezone: string;
-};
+  currentMembershipId: string
+  currentRoleSlug: string
+  organizationExternalId: string
+  organizationId: string
+  organizationLocale: string
+  organizationName: string
+  organizationSlug: string
+  organizationTimeFormatPreference: string
+  organizationTimezone: string
+}
 
 async function getAuthorizedWorkspaceMembershipContext(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<AuthorizedWorkspaceMembershipContext> {
-  const db = getDb();
+  const db = getDb()
   await ensureWorkspaceMembershipProjection({
     allowStaleFallback: true,
     reason: "authorized-workspace-membership",
     requireFreshProjectionOnFailure: true,
     userExternalId: input.userExternalId,
-  });
+  })
 
   const [authorizedMembership] = await db
     .select({
@@ -1718,14 +1725,14 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
         eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!authorizedMembership) {
-    throw new Error("You do not have access to this organization");
+    throw new Error("You do not have access to this organization")
   }
 
   if (!authorizedMembership.localMembershipExternalId) {
-    throw new Error("Workspace membership is missing WorkOS sync state");
+    throw new Error("Workspace membership is missing WorkOS sync state")
   }
 
   return {
@@ -1739,34 +1746,34 @@ async function getAuthorizedWorkspaceMembershipContext(input: {
     organizationTimeFormatPreference:
       authorizedMembership.organizationTimeFormatPreference,
     organizationTimezone: authorizedMembership.organizationTimezone,
-  };
+  }
 }
 
 function canManageWorkspaceMembers(role: string) {
-  return role === "admin" || role === "owner";
+  return role === "admin" || role === "owner"
 }
 
 function isWorkspaceAdminRoleSlug(roleSlug: string | null | undefined) {
-  return roleSlug === "admin" || roleSlug === "owner";
+  return roleSlug === "admin" || roleSlug === "owner"
 }
 
 function parseWorkOsTimestamp(value: string | null | undefined) {
   if (!value) {
-    return null;
+    return null
   }
 
-  const timestamp = new Date(value);
+  const timestamp = new Date(value)
 
-  return Number.isNaN(timestamp.getTime()) ? null : timestamp;
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp
 }
 
 function buildWorkspaceMemberSearchText(input: {
-  email: string;
-  name: string;
-  roleName: string | null;
-  role: string | null;
-  status: string;
-  subtitle: string | null;
+  email: string
+  name: string
+  roleName: string | null
+  role: string | null
+  status: string
+  subtitle: string | null
 }) {
   return [
     input.name,
@@ -1778,7 +1785,7 @@ function buildWorkspaceMemberSearchText(input: {
   ]
     .filter(Boolean)
     .join(" ")
-    .toLowerCase();
+    .toLowerCase()
 }
 
 function buildWorkspaceRoleOption(role: Role): WorkspaceMemberRoleOption {
@@ -1787,7 +1794,7 @@ function buildWorkspaceRoleOption(role: Role): WorkspaceMemberRoleOption {
     id: role.id,
     name: role.name,
     slug: role.slug,
-  };
+  }
 }
 
 function buildFallbackWorkspaceRoleOption(roleSlug: string) {
@@ -1796,32 +1803,32 @@ function buildFallbackWorkspaceRoleOption(roleSlug: string) {
     id: roleSlug,
     name: roleSlug,
     slug: roleSlug,
-  } satisfies WorkspaceMemberRoleOption;
+  } satisfies WorkspaceMemberRoleOption
 }
 
 function buildWorkspaceMemberEntry(input: {
-  canManageRole: boolean;
-  canReactivate: boolean;
-  canSuspend: boolean;
-  isCurrentUser: boolean;
-  membership: OrganizationMembership;
-  roleName: string | null;
-  user: User | null;
+  canManageRole: boolean
+  canReactivate: boolean
+  canSuspend: boolean
+  isCurrentUser: boolean
+  membership: OrganizationMembership
+  roleName: string | null
+  user: User | null
 }): WorkspaceMemberDirectoryEntry {
   const fullName = [input.user?.firstName, input.user?.lastName]
     .filter(Boolean)
     .join(" ")
-    .trim();
+    .trim()
   const email =
     input.user?.email ??
-    `${input.membership.userId.slice(0, 8)}@workos-user.invalid`;
-  const name = fullName || email;
+    `${input.membership.userId.slice(0, 8)}@workos-user.invalid`
+  const name = fullName || email
   const subtitle =
     input.user?.email && fullName
       ? input.user.email.split("@")[0] || null
       : input.membership.directoryManaged
         ? "Directory-managed member"
-        : null;
+        : null
 
   return {
     avatarUrl: input.user?.profilePictureUrl ?? null,
@@ -1851,22 +1858,22 @@ function buildWorkspaceMemberEntry(input: {
     }),
     status: input.membership.status,
     subtitle,
-  };
+  }
 }
 
 function buildWorkspaceInvitationEntry(input: {
-  canResendInvitation: boolean;
-  canRevokeInvitation: boolean;
-  invitation: Invitation;
-  membershipId?: string | null;
-  role: WorkspaceMemberRoleOption | null;
+  canResendInvitation: boolean
+  canRevokeInvitation: boolean
+  invitation: Invitation
+  membershipId?: string | null
+  role: WorkspaceMemberRoleOption | null
 }): WorkspaceMemberDirectoryEntry {
   const subtitle =
     input.invitation.state === "pending"
       ? "Invitation pending"
       : input.invitation.state === "expired"
         ? "Invitation expired"
-        : "Invitation revoked";
+        : "Invitation revoked"
 
   return {
     avatarUrl: null,
@@ -1896,43 +1903,43 @@ function buildWorkspaceInvitationEntry(input: {
     }),
     status: input.invitation.state,
     subtitle,
-  };
+  }
 }
 
 function getWorkspaceMemberSortOrder(entry: WorkspaceMemberDirectoryEntry) {
   if (entry.rowType === "member" && entry.status === "active") {
-    return 0;
+    return 0
   }
 
   if (entry.rowType === "member") {
-    return 1;
+    return 1
   }
 
   if (entry.status === "pending") {
-    return 2;
+    return 2
   }
 
-  return 3;
+  return 3
 }
 
 type WorkspaceMembershipProjectionSnapshot = {
-  activeMembershipCount: number;
-  hasAnyMemberships: boolean;
-  localUserId: string | null;
-  newestSyncAt: Date | null;
-};
+  activeMembershipCount: number
+  hasAnyMemberships: boolean
+  localUserId: string | null
+  newestSyncAt: Date | null
+}
 
 async function getWorkspaceMembershipProjectionSnapshot(
   userExternalId: string,
 ): Promise<WorkspaceMembershipProjectionSnapshot> {
-  const db = getDb();
+  const db = getDb()
   const [localUser] = await db
     .select({
       id: users.id,
     })
     .from(users)
     .where(eq(users.externalId, userExternalId))
-    .limit(1);
+    .limit(1)
 
   if (!localUser) {
     return {
@@ -1940,7 +1947,7 @@ async function getWorkspaceMembershipProjectionSnapshot(
       hasAnyMemberships: false,
       localUserId: null,
       newestSyncAt: null,
-    };
+    }
   }
 
   const membershipRows = await db
@@ -1950,7 +1957,7 @@ async function getWorkspaceMembershipProjectionSnapshot(
     })
     .from(memberships)
     .where(eq(memberships.userId, localUser.id))
-    .orderBy(desc(memberships.lastSyncedAt));
+    .orderBy(desc(memberships.lastSyncedAt))
 
   return {
     activeMembershipCount: membershipRows.filter(
@@ -1959,7 +1966,7 @@ async function getWorkspaceMembershipProjectionSnapshot(
     hasAnyMemberships: membershipRows.length > 0,
     localUserId: localUser.id,
     newestSyncAt: membershipRows[0]?.lastSyncedAt ?? null,
-  };
+  }
 }
 
 function getWorkspaceMembershipProjectionAgeMs(
@@ -1967,68 +1974,68 @@ function getWorkspaceMembershipProjectionAgeMs(
 ) {
   return snapshot.newestSyncAt
     ? Date.now() - snapshot.newestSyncAt.getTime()
-    : null;
+    : null
 }
 
 function isWorkspaceMembershipProjectionFresh(
   snapshot: WorkspaceMembershipProjectionSnapshot,
 ) {
-  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot);
-  return ageMs !== null && ageMs < WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS;
+  const ageMs = getWorkspaceMembershipProjectionAgeMs(snapshot)
+  return ageMs !== null && ageMs < WORKSPACE_MEMBERSHIP_RECONCILE_TTL_MS
 }
 
 async function ensureWorkspaceMembershipProjection(input: {
-  allowStaleFallback: boolean;
-  localUserId?: string;
-  reason: string;
-  requireFreshProjectionOnFailure?: boolean;
-  userExternalId: string;
+  allowStaleFallback: boolean
+  localUserId?: string
+  reason: string
+  requireFreshProjectionOnFailure?: boolean
+  userExternalId: string
 }) {
   const snapshot = await getWorkspaceMembershipProjectionSnapshot(
     input.userExternalId,
-  );
+  )
 
   if (isWorkspaceMembershipProjectionFresh(snapshot)) {
-    return;
+    return
   }
 
   try {
     await reconcileWorkspaceMembershipsFromWorkOS({
       localUserId: input.localUserId ?? snapshot.localUserId ?? undefined,
       userExternalId: input.userExternalId,
-    });
+    })
   } catch (error) {
     if (input.allowStaleFallback && snapshot.hasAnyMemberships) {
-      return;
+      return
     }
 
     if (input.requireFreshProjectionOnFailure || !input.allowStaleFallback) {
-      throw error;
+      throw error
     }
   }
 }
 
 async function reconcileWorkspaceMembershipsFromWorkOS(input: {
-  localUserId?: string;
-  userExternalId: string;
+  localUserId?: string
+  userExternalId: string
 }) {
-  const db = getDb();
-  const workos = getWorkOS();
-  const now = new Date();
+  const db = getDb()
+  const workos = getWorkOS()
+  const now = new Date()
   const localUser =
     input.localUserId !== undefined
       ? { id: input.localUserId }
       : await upsertLocalUser(
           await workos.userManagement.getUser(input.userExternalId),
-        );
+        )
   const workosMemberships = await (
     await workos.userManagement.listOrganizationMemberships({
       userId: input.userExternalId,
     })
-  ).autoPagination();
+  ).autoPagination()
   const externalOrganizationIds = Array.from(
     new Set(workosMemberships.map((membership) => membership.organizationId)),
-  );
+  )
   const existingOrganizations =
     externalOrganizationIds.length === 0
       ? []
@@ -2039,13 +2046,13 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
             name: organizations.name,
           })
           .from(organizations)
-          .where(inArray(organizations.externalId, externalOrganizationIds));
+          .where(inArray(organizations.externalId, externalOrganizationIds))
   const organizationsByExternalId = new Map(
     existingOrganizations.map((organization) => [
       organization.externalId,
       organization,
     ]),
-  );
+  )
   const existingMembershipRows = await db
     .select({
       externalId: memberships.externalId,
@@ -2055,26 +2062,26 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
       status: memberships.status,
     })
     .from(memberships)
-    .where(eq(memberships.userId, localUser.id));
+    .where(eq(memberships.userId, localUser.id))
   const existingMembershipsByOrgId = new Map(
     existingMembershipRows.map((membership) => [
       membership.organizationId,
       membership,
     ]),
-  );
+  )
 
-  const seenOrganizationIds = new Set<string>();
+  const seenOrganizationIds = new Set<string>()
 
   for (const membership of workosMemberships) {
     let localOrganization = organizationsByExternalId.get(
       membership.organizationId,
-    );
+    )
 
     if (!localOrganization) {
       const slug = await generateOrganizationSlugFromWorkOS(
         membership.organizationName,
         membership.organizationId,
-      );
+      )
       const [createdOrganization] = await db
         .insert(organizations)
         .values({
@@ -2087,13 +2094,13 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
           externalId: organizations.externalId,
           id: organizations.id,
           name: organizations.name,
-        });
+        })
 
-      localOrganization = createdOrganization;
+      localOrganization = createdOrganization
       organizationsByExternalId.set(
         createdOrganization.externalId,
         createdOrganization,
-      );
+      )
     } else if (localOrganization.name !== membership.organizationName) {
       await db
         .update(organizations)
@@ -2101,16 +2108,16 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
           name: membership.organizationName,
           updatedAt: new Date(),
         })
-        .where(eq(organizations.id, localOrganization.id));
+        .where(eq(organizations.id, localOrganization.id))
     }
 
     const existingMembership = existingMembershipsByOrgId.get(
       localOrganization.id,
-    );
-    const nextStatus = normalizeWorkspaceMembershipStatus(membership.status);
+    )
+    const nextStatus = normalizeWorkspaceMembershipStatus(membership.status)
 
     if (existingMembership) {
-      seenOrganizationIds.add(localOrganization.id);
+      seenOrganizationIds.add(localOrganization.id)
 
       if (
         existingMembership.externalId !== membership.id ||
@@ -2127,17 +2134,17 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
             status: nextStatus,
             updatedAt: now,
           })
-          .where(eq(memberships.id, existingMembership.id));
+          .where(eq(memberships.id, existingMembership.id))
       } else {
         await db
           .update(memberships)
           .set({
             lastSyncedAt: now,
           })
-          .where(eq(memberships.id, existingMembership.id));
+          .where(eq(memberships.id, existingMembership.id))
       }
 
-      continue;
+      continue
     }
 
     await db.insert(memberships).values({
@@ -2149,20 +2156,20 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
       status: nextStatus,
       updatedAt: now,
       userId: localUser.id,
-    });
+    })
     existingMembershipsByOrgId.set(localOrganization.id, {
       externalId: membership.id,
       id: `pending-${localOrganization.id}`,
       organizationId: localOrganization.id,
       role: membership.role.slug,
       status: nextStatus,
-    });
-    seenOrganizationIds.add(localOrganization.id);
+    })
+    seenOrganizationIds.add(localOrganization.id)
   }
 
   const removedMembershipIds = existingMembershipRows
     .filter((membership) => !seenOrganizationIds.has(membership.organizationId))
-    .map((membership) => membership.id);
+    .map((membership) => membership.id)
 
   if (removedMembershipIds.length > 0) {
     await db
@@ -2173,168 +2180,166 @@ async function reconcileWorkspaceMembershipsFromWorkOS(input: {
         status: REMOVED_WORKSPACE_MEMBERSHIP_STATUS,
         updatedAt: now,
       })
-      .where(inArray(memberships.id, removedMembershipIds));
+      .where(inArray(memberships.id, removedMembershipIds))
   }
 }
 
 async function listWorkspaceRoleOptions(organizationExternalId: string) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const roleList = await workos.organizations.listOrganizationRoles({
     organizationId: organizationExternalId,
-  });
+  })
 
-  return roleList.data.map(buildWorkspaceRoleOption);
+  return roleList.data.map(buildWorkspaceRoleOption)
 }
 
 function getWorkspaceRoleOptionBySlug(
   availableRoles: WorkspaceMemberRoleOption[],
   roleSlug: string,
 ) {
-  return availableRoles.find((role) => role.slug === roleSlug) ?? null;
+  return availableRoles.find((role) => role.slug === roleSlug) ?? null
 }
 
 async function listWorkspaceUsersById(organizationExternalId: string) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const usersForOrganization = await (
     await workos.userManagement.listUsers({
       organizationId: organizationExternalId,
     })
-  ).autoPagination();
-  const usersById = new Map(
-    usersForOrganization.map((user) => [user.id, user]),
-  );
+  ).autoPagination()
+  const usersById = new Map(usersForOrganization.map((user) => [user.id, user]))
 
-  return usersById;
+  return usersById
 }
 
 async function hydrateWorkspaceUsersByMemberships(input: {
-  membershipsForOrganization: OrganizationMembership[];
-  organizationExternalId: string;
+  membershipsForOrganization: OrganizationMembership[]
+  organizationExternalId: string
 }) {
-  const workos = getWorkOS();
-  const usersById = await listWorkspaceUsersById(input.organizationExternalId);
+  const workos = getWorkOS()
+  const usersById = await listWorkspaceUsersById(input.organizationExternalId)
   const missingUserIds = Array.from(
     new Set(
       input.membershipsForOrganization
         .map((membership) => membership.userId)
         .filter((userId) => !usersById.has(userId)),
     ),
-  );
+  )
 
   if (missingUserIds.length > 0) {
     const missingUsers = await Promise.all(
       missingUserIds.map((userId) => workos.userManagement.getUser(userId)),
-    );
+    )
 
     for (const user of missingUsers) {
-      usersById.set(user.id, user);
+      usersById.set(user.id, user)
     }
   }
 
-  return usersById;
+  return usersById
 }
 
 function getPendingMembershipsByEmail(input: {
-  membershipsForOrganization: OrganizationMembership[];
-  usersById: Map<string, User>;
+  membershipsForOrganization: OrganizationMembership[]
+  usersById: Map<string, User>
 }) {
-  const membershipsByEmail = new Map<string, OrganizationMembership[]>();
+  const membershipsByEmail = new Map<string, OrganizationMembership[]>()
 
   for (const membership of input.membershipsForOrganization) {
     if (membership.status !== "pending") {
-      continue;
+      continue
     }
 
-    const email = input.usersById.get(membership.userId)?.email?.toLowerCase();
+    const email = input.usersById.get(membership.userId)?.email?.toLowerCase()
 
     if (!email) {
-      continue;
+      continue
     }
 
-    const existingMemberships = membershipsByEmail.get(email) ?? [];
-    existingMemberships.push(membership);
-    membershipsByEmail.set(email, existingMemberships);
+    const existingMemberships = membershipsByEmail.get(email) ?? []
+    existingMemberships.push(membership)
+    membershipsByEmail.set(email, existingMemberships)
   }
 
-  return membershipsByEmail;
+  return membershipsByEmail
 }
 
 function takePendingMembershipForEmail(
   membershipsByEmail: Map<string, OrganizationMembership[]>,
   email: string,
 ) {
-  const normalizedEmail = email.trim().toLowerCase();
-  const matchingMemberships = membershipsByEmail.get(normalizedEmail);
+  const normalizedEmail = email.trim().toLowerCase()
+  const matchingMemberships = membershipsByEmail.get(normalizedEmail)
 
   if (!matchingMemberships || matchingMemberships.length === 0) {
-    return null;
+    return null
   }
 
-  return matchingMemberships.shift() ?? null;
+  return matchingMemberships.shift() ?? null
 }
 
 async function getWorkspaceMembershipForMutation(input: {
-  context: AuthorizedWorkspaceMembershipContext;
-  membershipId: string;
+  context: AuthorizedWorkspaceMembershipContext
+  membershipId: string
 }) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const membership = await workos.userManagement.getOrganizationMembership(
     input.membershipId,
-  );
+  )
 
   if (membership.organizationId !== input.context.organizationExternalId) {
-    throw new Error("Workspace member not found");
+    throw new Error("Workspace member not found")
   }
 
-  return membership;
+  return membership
 }
 
 async function getWorkspaceInvitationForMutation(input: {
-  context: AuthorizedWorkspaceMembershipContext;
-  invitationId: string;
+  context: AuthorizedWorkspaceMembershipContext
+  invitationId: string
 }) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const invitation = await workos.userManagement.getInvitation(
     input.invitationId,
-  );
+  )
 
   if (invitation.organizationId !== input.context.organizationExternalId) {
-    throw new Error("Workspace invitation not found");
+    throw new Error("Workspace invitation not found")
   }
 
-  return invitation;
+  return invitation
 }
 
 async function getActiveWorkspaceAdminCount(organizationExternalId: string) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const membershipsForOrganization = await (
     await workos.userManagement.listOrganizationMemberships({
       organizationId: organizationExternalId,
       statuses: ["active"],
     })
-  ).autoPagination();
+  ).autoPagination()
 
   return membershipsForOrganization.filter((membership) =>
     isWorkspaceAdminRoleSlug(membership.role.slug),
-  ).length;
+  ).length
 }
 
 async function buildWorkspaceMemberEntryFromMembership(input: {
-  actingUserExternalId: string;
-  availableRoles: WorkspaceMemberRoleOption[];
-  canManageMembers: boolean;
-  currentMembershipId: string;
-  membership: OrganizationMembership;
+  actingUserExternalId: string
+  availableRoles: WorkspaceMemberRoleOption[]
+  canManageMembers: boolean
+  currentMembershipId: string
+  membership: OrganizationMembership
 }) {
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const user = await workos.userManagement
     .getUser(input.membership.userId)
     .catch(() => {
-      return null;
-    });
+      return null
+    })
   const isCurrentUser =
     input.membership.id === input.currentMembershipId ||
-    input.membership.userId === input.actingUserExternalId;
+    input.membership.userId === input.actingUserExternalId
 
   return buildWorkspaceMemberEntry({
     canManageRole: input.canManageMembers && !isCurrentUser,
@@ -2354,14 +2359,14 @@ async function buildWorkspaceMemberEntryFromMembership(input: {
         input.membership.role.slug,
       )?.name ?? input.membership.role.slug,
     user,
-  });
+  })
 }
 
 function buildSlackIntegrationSummary(
   integration: SlackIntegrationSummary | null,
 ) {
   if (!integration) {
-    return null;
+    return null
   }
 
   return {
@@ -2371,14 +2376,14 @@ function buildSlackIntegrationSummary(
     status: integration.status,
     teamId: integration.teamId,
     teamName: integration.teamName,
-  };
+  }
 }
 
 function buildWhatsAppIntegrationSummary(
   integration: WhatsAppIntegrationSummary | null,
 ) {
   if (!integration) {
-    return null;
+    return null
   }
 
   return {
@@ -2387,12 +2392,12 @@ function buildWhatsAppIntegrationSummary(
     lastErrorAt: integration.lastErrorAt,
     selfE164: integration.selfE164,
     status: integration.status,
-  };
+  }
 }
 
 function buildTenantApplyRunSummary(applyRun: TenantApplyRunSummary | null) {
   if (!applyRun) {
-    return null;
+    return null
   }
 
   return {
@@ -2401,21 +2406,21 @@ function buildTenantApplyRunSummary(applyRun: TenantApplyRunSummary | null) {
     finishedAt: applyRun.finishedAt,
     startedAt: applyRun.startedAt,
     status: applyRun.status,
-  };
+  }
 }
 
 function buildTenantApplyRunDetail(applyRun: {
-  createdAt: Date;
-  desiredStateVersion: number;
-  error: string | null;
-  finishedAt: Date | null;
-  id: string;
-  restartStderr: string | null;
-  restartStdout: string | null;
-  startedAt: Date | null;
-  status: string;
-  verifyStderr: string | null;
-  verifyStdout: string | null;
+  createdAt: Date
+  desiredStateVersion: number
+  error: string | null
+  finishedAt: Date | null
+  id: string
+  restartStderr: string | null
+  restartStdout: string | null
+  startedAt: Date | null
+  status: string
+  verifyStderr: string | null
+  verifyStdout: string | null
 }) {
   return {
     createdAt: applyRun.createdAt,
@@ -2429,38 +2434,38 @@ function buildTenantApplyRunDetail(applyRun: {
     status: applyRun.status,
     verifyStderr: applyRun.verifyStderr,
     verifyStdout: applyRun.verifyStdout,
-  };
+  }
 }
 
 function buildLatestJobSummary(
   job: {
-    attempt: number;
-    error: string | null;
-    finishedAt: Date | null;
-    id: string;
-    payloadJson: unknown;
-    startedAt: Date | null;
-    status: string;
+    attempt: number
+    error: string | null
+    finishedAt: Date | null
+    id: string
+    payloadJson: unknown
+    startedAt: Date | null
+    status: string
   } | null,
   jobEventsByJobRunId: Map<
     string,
     Array<{
-      createdAt: Date;
-      eventType: string;
-      message: string;
+      createdAt: Date
+      eventType: string
+      message: string
     }>
   >,
 ) {
   if (!job) {
-    return null;
+    return null
   }
 
-  const payload = parseRecord(job.payloadJson);
-  const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse();
+  const payload = parseRecord(job.payloadJson)
+  const events = (jobEventsByJobRunId.get(job.id) ?? []).slice(0, 6).reverse()
   const step =
     typeof payload.step === "string"
       ? payload.step
-      : deriveJobStepFromEvents(events);
+      : deriveJobStepFromEvents(events)
 
   return {
     attempt: job.attempt,
@@ -2471,35 +2476,35 @@ function buildLatestJobSummary(
     startedAt: job.startedAt,
     status: job.status,
     step,
-  };
+  }
 }
 
 function buildPlatformJobHistoryEntry(
   job: {
-    attempt: number;
-    createdAt: Date;
-    error: string | null;
-    finishedAt: Date | null;
-    id: string;
-    jobType: string;
-    payloadJson: unknown;
-    resultJson: unknown;
-    startedAt: Date | null;
-    status: string;
+    attempt: number
+    createdAt: Date
+    error: string | null
+    finishedAt: Date | null
+    id: string
+    jobType: string
+    payloadJson: unknown
+    resultJson: unknown
+    startedAt: Date | null
+    status: string
   },
   jobEventsByJobRunId: Map<
     string,
     Array<{
-      createdAt: Date;
-      eventType: string;
-      message: string;
+      createdAt: Date
+      eventType: string
+      message: string
     }>
   >,
 ) {
-  const summary = buildLatestJobSummary(job, jobEventsByJobRunId);
+  const summary = buildLatestJobSummary(job, jobEventsByJobRunId)
 
   if (!summary) {
-    throw new Error("Expected job summary to exist");
+    throw new Error("Expected job summary to exist")
   }
 
   return {
@@ -2507,21 +2512,20 @@ function buildPlatformJobHistoryEntry(
     createdAt: job.createdAt,
     jobType: job.jobType,
     result: buildPlatformJobResult(job.resultJson),
-  };
+  }
 }
 
 function buildPlatformJobEventHistoryEntry(event: {
-  createdAt: Date;
-  eventType: string;
-  jobRunId: string;
-  jobStatus: string;
-  jobType: string;
-  message: string;
-  payloadJson: unknown;
+  createdAt: Date
+  eventType: string
+  jobRunId: string
+  jobStatus: string
+  jobType: string
+  message: string
+  payloadJson: unknown
 }) {
-  const payload = parseRecord(event.payloadJson);
-  const step =
-    typeof payload.step === "string" ? payload.step : event.eventType;
+  const payload = parseRecord(event.payloadJson)
+  const step = typeof payload.step === "string" ? payload.step : event.eventType
 
   return {
     createdAt: event.createdAt,
@@ -2531,48 +2535,46 @@ function buildPlatformJobEventHistoryEntry(event: {
     jobType: event.jobType,
     message: event.message,
     step,
-  };
+  }
 }
 
 function parseRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {};
+    return {}
   }
 
-  return value as Record<string, unknown>;
+  return value as Record<string, unknown>
 }
 
 function deriveJobStepFromEvents(
   events: Array<{
-    createdAt: Date;
-    eventType: string;
-    message: string;
+    createdAt: Date
+    eventType: string
+    message: string
   }>,
 ) {
   for (let index = events.length - 1; index >= 0; index -= 1) {
-    const eventType = events[index]?.eventType;
+    const eventType = events[index]?.eventType
 
     if (!eventType || isGenericJobEventType(eventType)) {
-      continue;
+      continue
     }
 
-    return eventType;
+    return eventType
   }
 
-  return null;
+  return null
 }
 
 function isGenericJobEventType(eventType: string) {
-  return (
-    eventType === JOB_STATUSES.queued || eventType === JOB_STATUSES.running
-  );
+  return eventType === JOB_STATUSES.queued || eventType === JOB_STATUSES.running
 }
 
 function buildPlatformJobResult(value: unknown) {
-  const result = parseRecord(value);
+  const result = parseRecord(value)
 
   if (Object.keys(result).length === 0) {
-    return null;
+    return null
   }
 
   return {
@@ -2587,33 +2589,31 @@ function buildPlatformJobResult(value: unknown) {
       typeof result.verifyStderr === "string" ? result.verifyStderr : null,
     verifyStdout:
       typeof result.verifyStdout === "string" ? result.verifyStdout : null,
-  };
+  }
 }
 
 export async function getOrganizationWorkspaceBySlug(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const organizations = await getDashboardOrganizations(input.userExternalId);
-  const organization = organizations.find(
-    (item) => item.slug === input.orgSlug,
-  );
+  const organizations = await getDashboardOrganizations(input.userExternalId)
+  const organization = organizations.find((item) => item.slug === input.orgSlug)
 
   if (!organization) {
-    throw new Error("Organization not found");
+    throw new Error("Organization not found")
   }
 
-  return organization;
+  return organization
 }
 
 export async function updateWorkspaceDateTimePreferences(input: {
-  organizationId: string;
-  locale?: string;
-  timeFormatPreference?: string;
-  timezone?: string;
+  organizationId: string
+  locale?: string
+  timeFormatPreference?: string
+  timezone?: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   const result = await db.transaction(async (tx) => {
     const [currentOrganization] = await tx
@@ -2624,19 +2624,19 @@ export async function updateWorkspaceDateTimePreferences(input: {
       })
       .from(organizations)
       .where(eq(organizations.id, input.organizationId))
-      .limit(1);
+      .limit(1)
 
     if (!currentOrganization) {
-      throw new Error("Organization not found");
+      throw new Error("Organization not found")
     }
 
-    const nextLocale = input.locale ?? currentOrganization.locale;
+    const nextLocale = input.locale ?? currentOrganization.locale
     const nextTimeFormatPreference =
-      input.timeFormatPreference ?? currentOrganization.timeFormatPreference;
-    const nextTimezone = input.timezone ?? currentOrganization.timezone;
+      input.timeFormatPreference ?? currentOrganization.timeFormatPreference
+    const nextTimezone = input.timezone ?? currentOrganization.timezone
     const runtimeSettingsChanged =
       nextTimeFormatPreference !== currentOrganization.timeFormatPreference ||
-      nextTimezone !== currentOrganization.timezone;
+      nextTimezone !== currentOrganization.timezone
 
     await tx
       .update(organizations)
@@ -2646,7 +2646,7 @@ export async function updateWorkspaceDateTimePreferences(input: {
         timezone: nextTimezone,
         updatedAt: now,
       })
-      .where(eq(organizations.id, input.organizationId));
+      .where(eq(organizations.id, input.organizationId))
 
     if (!runtimeSettingsChanged) {
       return {
@@ -2656,7 +2656,7 @@ export async function updateWorkspaceDateTimePreferences(input: {
         tenantId: null as string | null,
         timeFormatPreference: nextTimeFormatPreference,
         timezone: nextTimezone,
-      };
+      }
     }
 
     const [tenant] = await tx
@@ -2669,7 +2669,7 @@ export async function updateWorkspaceDateTimePreferences(input: {
       .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
       .where(eq(tenants.organizationId, input.organizationId))
       .orderBy(desc(tenants.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!tenant) {
       return {
@@ -2679,16 +2679,16 @@ export async function updateWorkspaceDateTimePreferences(input: {
         tenantId: null as string | null,
         timeFormatPreference: nextTimeFormatPreference,
         timezone: nextTimezone,
-      };
+      }
     }
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: tenant.tenantId,
       })
-    ).version;
+    ).version
     const applyQueued =
-      tenant.tenantStatus === "ready" && tenant.serverStatus === "ready";
+      tenant.tenantStatus === "ready" && tenant.serverStatus === "ready"
 
     return {
       applyQueued,
@@ -2697,25 +2697,25 @@ export async function updateWorkspaceDateTimePreferences(input: {
       tenantId: tenant.tenantId,
       timeFormatPreference: nextTimeFormatPreference,
       timezone: nextTimezone,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion && result.tenantId) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: result.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function listWorkspaceMembers(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<WorkspaceMemberDirectory> {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
-  const workos = getWorkOS();
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
+  const workos = getWorkOS()
   const [availableRoles, membershipsForOrganization, invitations] =
     await Promise.all([
       listWorkspaceRoleOptions(context.organizationExternalId),
@@ -2729,33 +2729,33 @@ export async function listWorkspaceMembers(input: {
           organizationId: context.organizationExternalId,
         })
       ).autoPagination(),
-    ]);
+    ])
   const usersById = await hydrateWorkspaceUsersByMemberships({
     membershipsForOrganization,
     organizationExternalId: context.organizationExternalId,
-  });
+  })
   const pendingMembershipsByEmail = getPendingMembershipsByEmail({
     membershipsForOrganization,
     usersById,
-  });
-  const canManageMembers = canManageWorkspaceMembers(context.currentRoleSlug);
+  })
+  const canManageMembers = canManageWorkspaceMembers(context.currentRoleSlug)
   const activeAdminCount = membershipsForOrganization.filter((membership) => {
     return (
       membership.status === "active" &&
       isWorkspaceAdminRoleSlug(membership.role.slug)
-    );
-  }).length;
+    )
+  }).length
 
   const memberEntries = membershipsForOrganization
     .filter((membership) => membership.status !== "pending")
     .map((membership) => {
       const isCurrentUser =
         membership.id === context.currentMembershipId ||
-        membership.userId === input.userExternalId;
+        membership.userId === input.userExternalId
       const isLastActiveAdmin =
         membership.status === "active" &&
         isWorkspaceAdminRoleSlug(membership.role.slug) &&
-        activeAdminCount <= 1;
+        activeAdminCount <= 1
 
       return buildWorkspaceMemberEntry({
         canManageRole: canManageMembers && !isCurrentUser && !isLastActiveAdmin,
@@ -2774,22 +2774,22 @@ export async function listWorkspaceMembers(input: {
           getWorkspaceRoleOptionBySlug(availableRoles, membership.role.slug)
             ?.name ?? membership.role.slug,
         user: usersById.get(membership.userId) ?? null,
-      });
+      })
     })
-    .filter(Boolean) as WorkspaceMemberDirectoryEntry[];
+    .filter(Boolean) as WorkspaceMemberDirectoryEntry[]
   const invitationEntries = invitations
     .filter((invitation) => invitation.state !== "accepted")
     .map((invitation) => {
       const pendingMembership = takePendingMembershipForEmail(
         pendingMembershipsByEmail,
         invitation.email,
-      );
+      )
       const pendingRole = pendingMembership
         ? (getWorkspaceRoleOptionBySlug(
             availableRoles,
             pendingMembership.role.slug,
           ) ?? buildFallbackWorkspaceRoleOption(pendingMembership.role.slug))
-        : null;
+        : null
 
       return buildWorkspaceInvitationEntry({
         canResendInvitation:
@@ -2801,20 +2801,20 @@ export async function listWorkspaceMembers(input: {
         invitation,
         membershipId: pendingMembership?.id ?? null,
         role: pendingRole,
-      });
-    });
+      })
+    })
   const entries = [...memberEntries, ...invitationEntries].sort(
     (left, right) => {
       const orderDifference =
-        getWorkspaceMemberSortOrder(left) - getWorkspaceMemberSortOrder(right);
+        getWorkspaceMemberSortOrder(left) - getWorkspaceMemberSortOrder(right)
 
       if (orderDifference !== 0) {
-        return orderDifference;
+        return orderDifference
       }
 
-      return left.name.localeCompare(right.name);
+      return left.name.localeCompare(right.name)
     },
-  );
+  )
 
   return {
     activeMemberCount: memberEntries.filter(
@@ -2826,69 +2826,69 @@ export async function listWorkspaceMembers(input: {
     invitationCount: invitationEntries.length,
     organizationName: context.organizationName,
     organizationSlug: context.organizationSlug,
-  };
+  }
 }
 
 export async function inviteWorkspaceMembers(input: {
-  emails: string[];
-  orgSlug: string;
-  roleSlug: string;
-  userExternalId: string;
+  emails: string[]
+  orgSlug: string
+  roleSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const normalizedEmails = Array.from(
     new Set(
       input.emails.map((email) => email.trim().toLowerCase()).filter(Boolean),
     ),
-  );
+  )
 
   if (normalizedEmails.length === 0) {
-    throw new Error("At least one email is required");
+    throw new Error("At least one email is required")
   }
 
   const availableRoles = await listWorkspaceRoleOptions(
     context.organizationExternalId,
-  );
+  )
   const selectedRole = getWorkspaceRoleOptionBySlug(
     availableRoles,
     input.roleSlug,
-  );
+  )
 
   if (!selectedRole) {
-    throw new Error("Selected role is not available for this workspace");
+    throw new Error("Selected role is not available for this workspace")
   }
 
   const membershipsForOrganization = await (
     await workos.userManagement.listOrganizationMemberships({
       organizationId: context.organizationExternalId,
     })
-  ).autoPagination();
+  ).autoPagination()
   const usersById = await hydrateWorkspaceUsersByMemberships({
     membershipsForOrganization,
     organizationExternalId: context.organizationExternalId,
-  });
+  })
   const pendingMembershipsByEmail = getPendingMembershipsByEmail({
     membershipsForOrganization,
     usersById,
-  });
+  })
 
-  const invitedEntries: WorkspaceMemberDirectoryEntry[] = [];
+  const invitedEntries: WorkspaceMemberDirectoryEntry[] = []
   const results: Array<{
-    action: "resent" | "sent";
-    email: string;
-    invitationId: string;
-    state: string;
-  }> = [];
+    action: "resent" | "sent"
+    email: string
+    invitationId: string
+    state: string
+  }> = []
   const skipped: Array<{
-    email: string;
-    message: string;
-  }> = [];
+    email: string
+    message: string
+  }> = []
 
   for (const email of normalizedEmails) {
     const [existingUsers, existingInvitations] = await Promise.all([
@@ -2904,23 +2904,23 @@ export async function inviteWorkspaceMembers(input: {
           organizationId: context.organizationExternalId,
         })
       ).autoPagination(),
-    ]);
+    ])
 
     if (existingUsers.length > 0) {
       skipped.push({
         email,
         message: "That email already has access to this workspace",
-      });
-      continue;
+      })
+      continue
     }
 
     const pendingMembership = takePendingMembershipForEmail(
       pendingMembershipsByEmail,
       email,
-    );
+    )
     const pendingInvitation = existingInvitations.find(
       (invitation) => invitation.state === "pending",
-    );
+    )
     const invitation = pendingInvitation
       ? await (async () => {
           if (
@@ -2932,17 +2932,17 @@ export async function inviteWorkspaceMembers(input: {
               {
                 roleSlug: selectedRole.slug,
               },
-            );
+            )
           }
 
-          return workos.userManagement.resendInvitation(pendingInvitation.id);
+          return workos.userManagement.resendInvitation(pendingInvitation.id)
         })()
       : await workos.userManagement.sendInvitation({
           email,
           inviterUserId: input.userExternalId,
           organizationId: context.organizationExternalId,
           roleSlug: selectedRole.slug,
-        });
+        })
 
     invitedEntries.push(
       buildWorkspaceInvitationEntry({
@@ -2952,57 +2952,57 @@ export async function inviteWorkspaceMembers(input: {
         membershipId: pendingMembership?.id ?? null,
         role: selectedRole,
       }),
-    );
+    )
     results.push({
       action: pendingInvitation ? "resent" : "sent",
       email: invitation.email,
       invitationId: invitation.id,
       state: invitation.state,
-    });
+    })
   }
 
   if (results.length === 0) {
-    throw new Error(skipped[0]?.message ?? "Workspace invite failed");
+    throw new Error(skipped[0]?.message ?? "Workspace invite failed")
   }
 
   return {
     invited: invitedEntries,
     results,
     skipped,
-  };
+  }
 }
 
 export async function updateWorkspaceMemberRole(input: {
-  membershipId: string;
-  orgSlug: string;
-  roleSlug: string;
-  userExternalId: string;
+  membershipId: string
+  orgSlug: string
+  roleSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
   const availableRoles = await listWorkspaceRoleOptions(
     context.organizationExternalId,
-  );
+  )
 
   if (!getWorkspaceRoleOptionBySlug(availableRoles, input.roleSlug)) {
-    throw new Error("Selected role is not available for this workspace");
+    throw new Error("Selected role is not available for this workspace")
   }
 
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const membership = await getWorkspaceMembershipForMutation({
     context,
     membershipId: input.membershipId,
-  });
+  })
 
   if (
     membership.id === context.currentMembershipId ||
     membership.userId === input.userExternalId
   ) {
-    throw new Error("You cannot change your own role from this page");
+    throw new Error("You cannot change your own role from this page")
   }
 
   if (
@@ -3012,51 +3012,51 @@ export async function updateWorkspaceMemberRole(input: {
   ) {
     const activeAdminCount = await getActiveWorkspaceAdminCount(
       context.organizationExternalId,
-    );
+    )
 
     if (activeAdminCount <= 1) {
-      throw new Error("This workspace must keep at least one active admin");
+      throw new Error("This workspace must keep at least one active admin")
     }
   }
 
   const updatedMembership =
     await workos.userManagement.updateOrganizationMembership(membership.id, {
       roleSlug: input.roleSlug,
-    });
+    })
   const entry = await buildWorkspaceMemberEntryFromMembership({
     actingUserExternalId: input.userExternalId,
     canManageMembers: true,
     currentMembershipId: context.currentMembershipId,
     membership: updatedMembership,
     availableRoles,
-  });
+  })
 
   return {
     entry,
-  };
+  }
 }
 
 export async function suspendWorkspaceMember(input: {
-  membershipId: string;
-  orgSlug: string;
-  userExternalId: string;
+  membershipId: string
+  orgSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
   const membership = await getWorkspaceMembershipForMutation({
     context,
     membershipId: input.membershipId,
-  });
+  })
 
   if (
     membership.id === context.currentMembershipId ||
     membership.userId === input.userExternalId
   ) {
-    throw new Error("You cannot suspend your own access");
+    throw new Error("You cannot suspend your own access")
   }
 
   if (
@@ -3065,16 +3065,16 @@ export async function suspendWorkspaceMember(input: {
   ) {
     const activeAdminCount = await getActiveWorkspaceAdminCount(
       context.organizationExternalId,
-    );
+    )
 
     if (activeAdminCount <= 1) {
-      throw new Error("This workspace must keep at least one active admin");
+      throw new Error("This workspace must keep at least one active admin")
     }
   }
 
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const updatedMembership =
-    await workos.userManagement.deactivateOrganizationMembership(membership.id);
+    await workos.userManagement.deactivateOrganizationMembership(membership.id)
   const entry = await buildWorkspaceMemberEntryFromMembership({
     actingUserExternalId: input.userExternalId,
     availableRoles: await listWorkspaceRoleOptions(
@@ -3083,39 +3083,39 @@ export async function suspendWorkspaceMember(input: {
     canManageMembers: true,
     currentMembershipId: context.currentMembershipId,
     membership: updatedMembership,
-  });
+  })
 
   return {
     entry,
-  };
+  }
 }
 
 export async function reactivateWorkspaceMember(input: {
-  membershipId: string;
-  orgSlug: string;
-  userExternalId: string;
+  membershipId: string
+  orgSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
   const membership = await getWorkspaceMembershipForMutation({
     context,
     membershipId: input.membershipId,
-  });
+  })
 
   if (
     membership.id === context.currentMembershipId ||
     membership.userId === input.userExternalId
   ) {
-    throw new Error("You cannot reactivate your own access from this page");
+    throw new Error("You cannot reactivate your own access from this page")
   }
 
-  const workos = getWorkOS();
+  const workos = getWorkOS()
   const updatedMembership =
-    await workos.userManagement.reactivateOrganizationMembership(membership.id);
+    await workos.userManagement.reactivateOrganizationMembership(membership.id)
   const entry = await buildWorkspaceMemberEntryFromMembership({
     actingUserExternalId: input.userExternalId,
     availableRoles: await listWorkspaceRoleOptions(
@@ -3124,53 +3124,53 @@ export async function reactivateWorkspaceMember(input: {
     canManageMembers: true,
     currentMembershipId: context.currentMembershipId,
     membership: updatedMembership,
-  });
+  })
 
   return {
     entry,
-  };
+  }
 }
 
 export async function resendWorkspaceInvitation(input: {
-  invitationId: string;
-  orgSlug: string;
-  userExternalId: string;
+  invitationId: string
+  orgSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
   const invitation = await getWorkspaceInvitationForMutation({
     context,
     invitationId: input.invitationId,
-  });
-  const workos = getWorkOS();
+  })
+  const workos = getWorkOS()
   const pendingMemberships = await (
     await workos.userManagement.listOrganizationMemberships({
       organizationId: context.organizationExternalId,
       statuses: ["pending"],
     })
-  ).autoPagination();
+  ).autoPagination()
   const usersById = await hydrateWorkspaceUsersByMemberships({
     membershipsForOrganization: pendingMemberships,
     organizationExternalId: context.organizationExternalId,
-  });
+  })
   const pendingMembershipsByEmail = getPendingMembershipsByEmail({
     membershipsForOrganization: pendingMemberships,
     usersById,
-  });
+  })
   const pendingMembership = takePendingMembershipForEmail(
     pendingMembershipsByEmail,
     invitation.email,
-  );
+  )
   const availableRoles = await listWorkspaceRoleOptions(
     context.organizationExternalId,
-  );
+  )
   const updatedInvitation = await workos.userManagement.resendInvitation(
     invitation.id,
-  );
+  )
 
   return {
     entry: buildWorkspaceInvitationEntry({
@@ -3186,49 +3186,49 @@ export async function resendWorkspaceInvitation(input: {
         ) ??
           buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
     }),
-  };
+  }
 }
 
 export async function revokeWorkspaceInvitation(input: {
-  invitationId: string;
-  orgSlug: string;
-  userExternalId: string;
+  invitationId: string
+  orgSlug: string
+  userExternalId: string
 }) {
-  const context = await getAuthorizedWorkspaceMembershipContext(input);
+  const context = await getAuthorizedWorkspaceMembershipContext(input)
 
   if (!canManageWorkspaceMembers(context.currentRoleSlug)) {
-    throw new Error("Workspace admin access required");
+    throw new Error("Workspace admin access required")
   }
 
   const invitation = await getWorkspaceInvitationForMutation({
     context,
     invitationId: input.invitationId,
-  });
-  const workos = getWorkOS();
+  })
+  const workos = getWorkOS()
   const pendingMemberships = await (
     await workos.userManagement.listOrganizationMemberships({
       organizationId: context.organizationExternalId,
       statuses: ["pending"],
     })
-  ).autoPagination();
+  ).autoPagination()
   const usersById = await hydrateWorkspaceUsersByMemberships({
     membershipsForOrganization: pendingMemberships,
     organizationExternalId: context.organizationExternalId,
-  });
+  })
   const pendingMembershipsByEmail = getPendingMembershipsByEmail({
     membershipsForOrganization: pendingMemberships,
     usersById,
-  });
+  })
   const pendingMembership = takePendingMembershipForEmail(
     pendingMembershipsByEmail,
     invitation.email,
-  );
+  )
   const availableRoles = await listWorkspaceRoleOptions(
     context.organizationExternalId,
-  );
+  )
   const updatedInvitation = await workos.userManagement.revokeInvitation(
     invitation.id,
-  );
+  )
 
   return {
     entry: buildWorkspaceInvitationEntry({
@@ -3244,19 +3244,18 @@ export async function revokeWorkspaceInvitation(input: {
         ) ??
           buildFallbackWorkspaceRoleOption(pendingMembership.role.slug)),
     }),
-  };
+  }
 }
 
-
 export async function syncMessagingDirectoryForTenantIntegration(input: {
-  conversations: MessagingConversationInput[];
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
-  members: MessagingDirectoryMemberInput[];
+  conversations: MessagingConversationInput[]
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
+  members: MessagingDirectoryMemberInput[]
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -3264,11 +3263,11 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     for (const member of input.members) {
       if (!member.externalMemberId) {
-        continue;
+        continue
       }
 
       await tx
@@ -3303,7 +3302,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
             updatedAt: now,
             username: member.username,
           },
-        });
+        })
     }
 
     await removeStaleMessagingWorkspaceMembers(tx, {
@@ -3311,11 +3310,11 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       syncedExternalMemberIds: input.members.map(
         (member) => member.externalMemberId,
       ),
-    });
+    })
 
     for (const conversation of input.conversations) {
       if (!conversation.externalConversationId) {
-        continue;
+        continue
       }
 
       await tx
@@ -3346,7 +3345,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
             topic: conversation.topic,
             updatedAt: now,
           },
-        });
+        })
     }
 
     await removeStaleMessagingConversations(tx, {
@@ -3354,7 +3353,7 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       syncedExternalConversationIds: input.conversations.map(
         (conversation) => conversation.externalConversationId,
       ),
-    });
+    })
 
     await tx
       .update(integrationMessagingWorkspaces)
@@ -3365,8 +3364,8 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
         syncStatus: "succeeded",
         updatedAt: now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
-  });
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId))
+  })
 
   // Resolve user channel identities from the freshly synced directory
   try {
@@ -3375,12 +3374,12 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
       .from(tenantIntegrations)
       .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
       .where(eq(tenantIntegrations.id, input.tenantIntegrationId))
-      .limit(1);
+      .limit(1)
 
     if (integration) {
       await resolveUserChannelIdentitiesFromDirectory({
         organizationId: integration.organizationId,
-      });
+      })
     }
   } catch {
     // Identity resolution is best-effort; don't fail the directory sync
@@ -3388,14 +3387,14 @@ export async function syncMessagingDirectoryForTenantIntegration(input: {
 }
 
 export async function syncSlackUsersForTenantIntegration(input: {
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
-  members: MessagingDirectoryMemberInput[];
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
+  members: MessagingDirectoryMemberInput[]
 }): Promise<{ synced: number }> {
-  const db = getDb();
-  const now = new Date();
-  let synced = 0;
+  const db = getDb()
+  const now = new Date()
+  let synced = 0
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -3403,10 +3402,10 @@ export async function syncSlackUsersForTenantIntegration(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     for (const member of input.members) {
-      if (!member.externalMemberId) continue;
+      if (!member.externalMemberId) continue
 
       await tx
         .insert(integrationMessagingWorkspaceMembers)
@@ -3440,8 +3439,8 @@ export async function syncSlackUsersForTenantIntegration(input: {
             updatedAt: now,
             username: member.username,
           },
-        });
-      synced++;
+        })
+      synced++
     }
 
     await removeStaleMessagingWorkspaceMembers(tx, {
@@ -3449,21 +3448,21 @@ export async function syncSlackUsersForTenantIntegration(input: {
       syncedExternalMemberIds: input.members.map(
         (member) => member.externalMemberId,
       ),
-    });
-  });
+    })
+  })
 
-  return { synced };
+  return { synced }
 }
 
 export async function syncSlackChannelsForTenantIntegration(input: {
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
-  conversations: MessagingConversationInput[];
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
+  conversations: MessagingConversationInput[]
 }): Promise<{ synced: number }> {
-  const db = getDb();
-  const now = new Date();
-  let synced = 0;
+  const db = getDb()
+  const now = new Date()
+  let synced = 0
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -3471,10 +3470,10 @@ export async function syncSlackChannelsForTenantIntegration(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     for (const conversation of input.conversations) {
-      if (!conversation.externalConversationId) continue;
+      if (!conversation.externalConversationId) continue
 
       await tx
         .insert(integrationMessagingConversations)
@@ -3504,8 +3503,8 @@ export async function syncSlackChannelsForTenantIntegration(input: {
             topic: conversation.topic,
             updatedAt: now,
           },
-        });
-      synced++;
+        })
+      synced++
     }
 
     await removeStaleMessagingConversations(tx, {
@@ -3513,20 +3512,20 @@ export async function syncSlackChannelsForTenantIntegration(input: {
       syncedExternalConversationIds: input.conversations.map(
         (conversation) => conversation.externalConversationId,
       ),
-    });
-  });
+    })
+  })
 
-  return { synced };
+  return { synced }
 }
 
 export async function recordMessagingWorkspaceSyncFailure(input: {
-  error: string;
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
+  error: string
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const messagingWorkspaceId = await upsertMessagingWorkspace(tx, {
@@ -3534,7 +3533,7 @@ export async function recordMessagingWorkspaceSyncFailure(input: {
       now,
       tenantIntegrationId: input.tenantIntegrationId,
       workspaceDisplayName: input.workspaceDisplayName,
-    });
+    })
 
     await tx
       .update(integrationMessagingWorkspaces)
@@ -3544,12 +3543,12 @@ export async function recordMessagingWorkspaceSyncFailure(input: {
         syncStatus: "failed",
         updatedAt: now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId));
-  });
+      .where(eq(integrationMessagingWorkspaces.id, messagingWorkspaceId))
+  })
 }
 
 export async function getTenantSlackBotToken(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [oauthCredential] = await db
     .select({
       accessTokenCiphertext: integrationOauthCredentials.accessTokenCiphertext,
@@ -3557,7 +3556,10 @@ export async function getTenantSlackBotToken(tenantId: string) {
     .from(tenantIntegrations)
     .innerJoin(
       integrationOauthConnections,
-      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .innerJoin(
       integrationOauthCredentials,
@@ -3575,17 +3577,17 @@ export async function getTenantSlackBotToken(tenantId: string) {
       ),
     )
     .orderBy(desc(integrationOauthConnections.updatedAt))
-    .limit(1);
+    .limit(1)
 
   if (!oauthCredential?.accessTokenCiphertext) {
-    return null;
+    return null
   }
 
-  return decryptControlPlaneSecret(oauthCredential.accessTokenCiphertext);
+  return decryptControlPlaneSecret(oauthCredential.accessTokenCiphertext)
 }
 
 export async function getLatestTenantDesiredState(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const [desiredState] = await db
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -3594,83 +3596,83 @@ export async function getLatestTenantDesiredState(tenantId: string) {
     .from(tenantDesiredStates)
     .where(eq(tenantDesiredStates.tenantId, tenantId))
     .orderBy(desc(tenantDesiredStates.version))
-    .limit(1);
+    .limit(1)
 
   if (!desiredState) {
-    throw new Error(`No desired state found for tenant ${tenantId}`);
+    throw new Error(`No desired state found for tenant ${tenantId}`)
   }
 
-  return desiredState;
+  return desiredState
 }
 
 function extractRuntimeImageVersion(image: string) {
-  const digestSeparatorIndex = image.indexOf("@");
+  const digestSeparatorIndex = image.indexOf("@")
 
   if (digestSeparatorIndex >= 0) {
-    return image.slice(digestSeparatorIndex + 1);
+    return image.slice(digestSeparatorIndex + 1)
   }
 
-  const lastColonIndex = image.lastIndexOf(":");
-  const lastSlashIndex = image.lastIndexOf("/");
+  const lastColonIndex = image.lastIndexOf(":")
+  const lastSlashIndex = image.lastIndexOf("/")
 
   if (lastColonIndex > lastSlashIndex) {
-    return image.slice(lastColonIndex + 1);
+    return image.slice(lastColonIndex + 1)
   }
 
-  return null;
+  return null
 }
 
 function extractRuntimeImageVersionOrNull(image: string | null) {
   if (!image) {
-    return null;
+    return null
   }
 
-  return extractRuntimeImageVersion(image);
+  return extractRuntimeImageVersion(image)
 }
 
 async function getObservedRuntimeImagesByTenant(
   tenantsToInspect: Array<{
-    id: string;
-    serverStatus: string | null;
-    status: string;
+    id: string
+    serverStatus: string | null
+    status: string
   }>,
 ) {
   const observedImages = await Promise.all(
     tenantsToInspect.map(async (tenant) => {
-      const image = await getObservedRuntimeImageForTenant(tenant);
+      const image = await getObservedRuntimeImageForTenant(tenant)
 
-      return [tenant.id, image] as const;
+      return [tenant.id, image] as const
     }),
-  );
+  )
 
-  return new Map(observedImages);
+  return new Map(observedImages)
 }
 
 async function getObservedRuntimeImageForTenant(input: {
-  id: string;
-  serverStatus: string | null;
-  status: string;
+  id: string
+  serverStatus: string | null
+  status: string
 }) {
   if (input.status !== "ready" || input.serverStatus !== "ready") {
-    return null;
+    return null
   }
 
   try {
     const runtimeConnection = await getTenantRuntimeConnection(
       input.id,
       "platform runtime image inspection",
-    );
+    )
 
-    return await runtimeManager.inspectGatewayImage(runtimeConnection);
+    return await runtimeManager.inspectGatewayImage(runtimeConnection)
   } catch {
-    return null;
+    return null
   }
 }
 
 async function getLatestTenantForOrganizationSlug(
   orgSlug: string,
 ): Promise<PlatformTenantTarget | null> {
-  const db = getDb();
+  const db = getDb()
   const [tenant] = await db
     .select({
       ipv4: tenantServers.ipv4,
@@ -3686,41 +3688,41 @@ async function getLatestTenantForOrganizationSlug(
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(eq(organizations.slug, orgSlug))
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!tenant) {
-    return null;
+    return null
   }
 
-  return tenant;
+  return tenant
 }
 
 export async function getPlatformTenantTarget(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<PlatformTenantTarget | null> {
-  await requirePlatformAdmin(input.userExternalId);
+  await requirePlatformAdmin(input.userExternalId)
 
-  return getLatestTenantForOrganizationSlug(input.orgSlug);
+  return getLatestTenantForOrganizationSlug(input.orgSlug)
 }
 
 export async function triggerPlatformOrganizationApply(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const tenant = await getPlatformTenantTarget(input);
+  const tenant = await getPlatformTenantTarget(input)
 
   if (!tenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   const desiredState = await ensureCurrentTenantDesiredStateVersion({
     tenantId: tenant.tenantId,
-  });
+  })
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     tenantId: tenant.tenantId,
-  });
+  })
 
   return {
     desiredStateChanged: desiredState.changed,
@@ -3729,27 +3731,27 @@ export async function triggerPlatformOrganizationApply(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
-  };
+  }
 }
 
 export async function triggerPlatformOrganizationDeployRuntime(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const tenant = await getPlatformTenantTarget(input);
+  const tenant = await getPlatformTenantTarget(input)
 
   if (!tenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   const desiredState = await ensureCurrentTenantDesiredStateVersion({
     tenantId: tenant.tenantId,
-  });
+  })
   const jobId = await enqueueTenantConfigApply({
     desiredStateVersion: desiredState.version,
     pullImageFirst: true,
     tenantId: tenant.tenantId,
-  });
+  })
 
   return {
     desiredStateChanged: desiredState.changed,
@@ -3758,28 +3760,26 @@ export async function triggerPlatformOrganizationDeployRuntime(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
-  };
+  }
 }
 
 export async function triggerPlatformOrganizationProvisionOpenAiKey(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const tenant = await getPlatformTenantTarget(input);
+  const tenant = await getPlatformTenantTarget(input)
 
   if (!tenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const existingProvider = await getTenantOpenAiProviderSummary(
-    tenant.tenantId,
-  );
+  const existingProvider = await getTenantOpenAiProviderSummary(tenant.tenantId)
   const jobId = await enqueueJob({
     jobType: JOB_TYPES.provisionTenantOpenAiKey,
     payload: {
       tenantId: tenant.tenantId,
     },
-  });
+  })
 
   return {
     action: existingProvider ? "rotate" : "provision",
@@ -3787,17 +3787,17 @@ export async function triggerPlatformOrganizationProvisionOpenAiKey(input: {
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
-  };
+  }
 }
 
 export async function triggerPlatformOrganizationRefreshImage(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const tenant = await getPlatformTenantTarget(input);
+  const tenant = await getPlatformTenantTarget(input)
 
   if (!tenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   const jobId = await enqueueJob({
@@ -3805,48 +3805,48 @@ export async function triggerPlatformOrganizationRefreshImage(input: {
     payload: {
       tenantId: tenant.tenantId,
     },
-  });
+  })
 
   return {
     jobId,
     queued: true,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
-  };
+  }
 }
 
 export async function grantPlatformOrganizationCredits(input: {
-  credits: number;
-  note: string;
-  orgSlug: string;
-  userExternalId: string;
+  credits: number
+  note: string
+  orgSlug: string
+  userExternalId: string
 }) {
-  const tenant = await getPlatformTenantTarget(input);
+  const tenant = await getPlatformTenantTarget(input)
 
   if (!tenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const credits = Number(input.credits);
-  const creditsDeltaMilli = Math.round(credits * 1_000);
-  const note = input.note.trim();
+  const credits = Number(input.credits)
+  const creditsDeltaMilli = Math.round(credits * 1_000)
+  const note = input.note.trim()
 
   if (!Number.isFinite(credits) || credits <= 0 || creditsDeltaMilli <= 0) {
-    throw new Error("Credits must be a positive number.");
+    throw new Error("Credits must be a positive number.")
   }
 
   if (note.length === 0) {
-    throw new Error("A reason is required for manual credit grants.");
+    throw new Error("A reason is required for manual credit grants.")
   }
 
   const grant = await createManualCreditGrant({
     creditsDeltaMilli,
     description: `Manual credit grant by ${input.userExternalId}: ${note}`,
     tenantId: tenant.tenantId,
-  });
+  })
   const balance = await getTenantCreditBalanceSummary({
     tenantId: tenant.tenantId,
-  });
+  })
 
   return {
     balanceCreditsMilli: balance.currentBalanceCreditsMilli,
@@ -3854,31 +3854,31 @@ export async function grantPlatformOrganizationCredits(input: {
     ledgerEntryId: grant.id,
     tenantId: tenant.tenantId,
     tenantName: tenant.tenantName,
-  };
+  }
 }
 
 export async function getLatestTenantManagedConfig(
   tenantId: string,
 ): Promise<TenantManagedConfig> {
-  const db = getDb();
+  const db = getDb()
   const latestVersion = await db.transaction(async (tx) =>
     ensureLatestTenantManagedConfigVersion(tx, {
       tenantId,
     }),
-  );
+  )
 
   return getTenantManagedConfigByVersion({
     tenantId,
     version: latestVersion.version,
-  });
+  })
 }
 
 export async function getTenantManagedConfigByVersion(input: {
-  tenantId: string;
-  version: number;
+  tenantId: string
+  version: number
 }): Promise<TenantManagedConfig> {
-  const db = getDb();
-  const organizationSlugPromise = getOrganizationSlugForTenant(input.tenantId);
+  const db = getDb()
+  const organizationSlugPromise = getOrganizationSlugForTenant(input.tenantId)
   const [configVersion] = await db
     .select({
       createdAt: tenantManagedConfigVersions.createdAt,
@@ -3895,12 +3895,12 @@ export async function getTenantManagedConfigByVersion(input: {
         eq(tenantManagedConfigVersions.version, input.version),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!configVersion) {
     throw new Error(
       `Managed config version ${input.version} not found for tenant ${input.tenantId}`,
-    );
+    )
   }
 
   const fileRows = await db
@@ -3916,25 +3916,25 @@ export async function getTenantManagedConfigByVersion(input: {
         tenantManagedFileVersions.tenantManagedConfigVersionId,
         configVersion.id,
       ),
-    );
+    )
 
-  const normalizedFileRows = normalizeManagedFileRows(fileRows);
+  const normalizedFileRows = normalizeManagedFileRows(fileRows)
 
   const runtimeContext = {
     ottoBaseUrl: getControlPlaneBaseUrl(),
     workspaceSlug: await organizationSlugPromise,
-  };
+  }
 
   const files = getManagedBootstrapFileDefinitions().map((definition) => {
-    const fileRow = normalizedFileRows.get(definition.path);
+    const fileRow = normalizedFileRows.get(definition.path)
     const sharedContent =
-      fileRow?.sharedContent ?? definition.defaultSharedContent;
-    const systemContent = definition.systemContent;
+      fileRow?.sharedContent ?? definition.defaultSharedContent
+    const systemContent = definition.systemContent
     const effectiveSystemContent = buildManagedBootstrapSystemContent({
       path: definition.path,
       runtimeContext,
       systemContent,
-    });
+    })
 
     return {
       checksum: createManagedFileChecksum({
@@ -3953,8 +3953,8 @@ export async function getTenantManagedConfigByVersion(input: {
       }),
       sharedContent,
       systemContent: effectiveSystemContent,
-    };
-  });
+    }
+  })
 
   return {
     createdAt: configVersion.createdAt,
@@ -3963,14 +3963,14 @@ export async function getTenantManagedConfigByVersion(input: {
     files,
     summary: configVersion.summary,
     version: configVersion.version,
-  };
+  }
 }
 
 export async function getTenantDesiredStateByVersion(input: {
-  tenantId: string;
-  version: number;
+  tenantId: string
+  version: number
 }) {
-  const db = getDb();
+  const db = getDb()
   const [desiredState] = await db
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -3983,31 +3983,31 @@ export async function getTenantDesiredStateByVersion(input: {
         eq(tenantDesiredStates.version, input.version),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!desiredState) {
     throw new Error(
       `Desired state version ${input.version} not found for tenant ${input.tenantId}`,
-    );
+    )
   }
 
-  return desiredState;
+  return desiredState
 }
 
 export async function updateTenantManagedFileSharedContent(input: {
-  expectedVersion?: number;
-  filePath: ManagedBootstrapFilePath;
-  orgSlug: string;
-  sharedContent: string;
-  userExternalId: string;
+  expectedVersion?: number
+  filePath: ManagedBootstrapFilePath
+  orgSlug: string
+  sharedContent: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return updateTenantManagedFileSharedContentForTenant({
@@ -4018,24 +4018,24 @@ export async function updateTenantManagedFileSharedContent(input: {
     sharedContent: input.sharedContent,
     summary: `Updated ${input.filePath}`,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function updateTenantManagedSkillTextFile(input: {
-  contentText: string;
-  expectedVersion?: number;
-  orgSlug: string;
-  relativePath: string;
-  skillKey: string;
-  userExternalId: string;
+  contentText: string
+  expectedVersion?: number
+  orgSlug: string
+  relativePath: string
+  skillKey: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return updateTenantManagedSkillTextFileForTenant({
@@ -4047,20 +4047,20 @@ export async function updateTenantManagedSkillTextFile(input: {
     skillKey: input.skillKey,
     summary: `Updated ${input.skillKey}/${input.relativePath}`,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function updateTenantManagedSkillTextFileForTenant(input: {
-  contentText: string;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  expectedVersion?: number;
-  relativePath: string;
-  skillKey: string;
-  summary?: string;
-  tenantId: string;
+  contentText: string
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  relativePath: string
+  skillKey: string
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const updatedSkill = await updateTenantManagedSkillTextFileForTenantTx(tx, {
       contentText: input.contentText,
@@ -4071,22 +4071,22 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
       skillKey: input.skillKey,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
 
     if (!updatedSkill.changed) {
       return {
         applyQueued: false,
         changed: false,
         currentVersion: updatedSkill.currentVersion,
-      };
+      }
     }
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -4094,29 +4094,29 @@ export async function updateTenantManagedSkillTextFileForTenant(input: {
       currentVersion: updatedSkill.currentVersion,
       desiredStateVersion,
       skillKey: updatedSkill.skillKey,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.changed && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function renameTenantManagedSkillForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  expectedVersion?: number;
-  newSkillKey: string;
-  skillKey: string;
-  summary?: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  newSkillKey: string
+  skillKey: string
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const renamedSkill = await renameTenantManagedSkillForTenantTx(tx, {
       createdByExternalId: input.createdByExternalId ?? null,
@@ -4126,7 +4126,7 @@ export async function renameTenantManagedSkillForTenant(input: {
       skillKey: input.skillKey,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
 
     if (!renamedSkill.changed) {
       return {
@@ -4135,15 +4135,15 @@ export async function renameTenantManagedSkillForTenant(input: {
         currentVersion: renamedSkill.currentVersion,
         renamedFromSkillKey: renamedSkill.renamedFromSkillKey,
         skillKey: renamedSkill.skillKey,
-      };
+      }
     }
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -4152,8 +4152,8 @@ export async function renameTenantManagedSkillForTenant(input: {
       desiredStateVersion,
       renamedFromSkillKey: renamedSkill.renamedFromSkillKey,
       skillKey: renamedSkill.skillKey,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.changed && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
@@ -4165,25 +4165,25 @@ export async function renameTenantManagedSkillForTenant(input: {
         },
       ],
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function createTenantManagedSkillForTenant(input: {
-  contentText?: string;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  description?: string;
-  integrationKeys?: string[];
-  skillBody?: string;
-  skillKey: string;
-  skillKeys?: string[];
-  summary?: string;
-  tenantId: string;
+  contentText?: string
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  description?: string
+  integrationKeys?: string[]
+  skillBody?: string
+  skillKey: string
+  skillKeys?: string[]
+  summary?: string
+  tenantId: string
 }) {
-  const skillContent = buildManagedSkillContentForCreate(input);
+  const skillContent = buildManagedSkillContentForCreate(input)
   const createdSkill = await createTenantManagedSkillRecordForTenant({
     createdByExternalId: input.createdByExternalId ?? null,
     createdByType: input.createdByType,
@@ -4198,19 +4198,19 @@ export async function createTenantManagedSkillForTenant(input: {
     status: "ready",
     summary: input.summary ?? `Created ${input.skillKey}`,
     tenantId: input.tenantId,
-  });
+  })
   const desiredState = await ensureCurrentTenantDesiredStateVersion({
     tenantId: input.tenantId,
-  });
+  })
   const tenantRuntime = await getDb().transaction(async (tx) =>
     getTenantRuntimeState(tx, input.tenantId),
-  );
+  )
 
   if (tenantRuntime.isRuntimeReady) {
     await enqueueTenantConfigApply({
       desiredStateVersion: desiredState.version,
       tenantId: input.tenantId,
-    });
+    })
   }
 
   return {
@@ -4218,19 +4218,19 @@ export async function createTenantManagedSkillForTenant(input: {
     desiredStateVersion: desiredState.version,
     skillKey: createdSkill.skillKey,
     version: createdSkill.version,
-  };
+  }
 }
 
 export async function updateTenantManagedSkillForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  expectedVersion?: number;
-  patch: TenantManagedSkillPatch;
-  skillKey: string;
-  summary?: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  patch: TenantManagedSkillPatch
+  skillKey: string
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const updatedSkill = await updateTenantManagedSkillForTenantTx(tx, {
       createdByExternalId: input.createdByExternalId ?? null,
@@ -4240,7 +4240,7 @@ export async function updateTenantManagedSkillForTenant(input: {
       skillKey: input.skillKey,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
 
     if (!updatedSkill.changed) {
       return {
@@ -4248,15 +4248,15 @@ export async function updateTenantManagedSkillForTenant(input: {
         changed: false,
         currentVersion: updatedSkill.currentVersion,
         skillKey: updatedSkill.skillKey,
-      };
+      }
     }
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -4264,73 +4264,73 @@ export async function updateTenantManagedSkillForTenant(input: {
       currentVersion: updatedSkill.currentVersion,
       desiredStateVersion,
       skillKey: updatedSkill.skillKey,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.changed && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function deleteTenantManagedSkillForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  expectedVersion?: number;
-  skillKey: string;
-  summary?: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  skillKey: string
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const deletedSkill = await deleteTenantManagedSkillForTenantTx(tx, {
       createdByType: input.createdByType,
       expectedVersion: input.expectedVersion,
       skillKey: input.skillKey,
       tenantId: input.tenantId,
-    });
+    })
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       deleted: true,
       desiredStateVersion,
       skillKey: deletedSkill.skillKey,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function createTenantManagedSkill(input: {
-  orgSlug: string;
-  skillContent: string;
-  skillKey: string;
-  userExternalId: string;
+  orgSlug: string
+  skillContent: string
+  skillKey: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return createTenantManagedSkillForTenant({
@@ -4340,23 +4340,23 @@ export async function createTenantManagedSkill(input: {
     skillKey: input.skillKey,
     summary: `Created ${input.skillKey}`,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function renameTenantManagedSkill(input: {
-  expectedVersion?: number;
-  newSkillKey: string;
-  orgSlug: string;
-  skillKey: string;
-  userExternalId: string;
+  expectedVersion?: number
+  newSkillKey: string
+  orgSlug: string
+  skillKey: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return renameTenantManagedSkillForTenant({
@@ -4367,19 +4367,19 @@ export async function renameTenantManagedSkill(input: {
     skillKey: input.skillKey,
     summary: `Renamed ${input.skillKey} to ${input.newSkillKey}`,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 function buildManagedSkillContentForCreate(input: {
-  contentText?: string;
-  description?: string;
-  integrationKeys?: string[];
-  skillBody?: string;
-  skillKey: string;
-  skillKeys?: string[];
+  contentText?: string
+  description?: string
+  integrationKeys?: string[]
+  skillBody?: string
+  skillKey: string
+  skillKeys?: string[]
 }) {
   if (typeof input.contentText === "string") {
-    return input.contentText;
+    return input.contentText
   }
 
   if (
@@ -4388,7 +4388,7 @@ function buildManagedSkillContentForCreate(input: {
   ) {
     throw new Error(
       "Creating a managed skill requires contentText or both description and skillBody.",
-    );
+    )
   }
 
   return buildManagedSkillMarkdown({
@@ -4397,107 +4397,107 @@ function buildManagedSkillContentForCreate(input: {
     name: input.skillKey,
     skillBody: input.skillBody,
     skillKeys: input.skillKeys ?? [],
-  });
+  })
 }
 
 export async function getTenantSlackRuntimeConfig(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<TenantSlackRuntimeConfig | null> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!slackIntegration) {
-      return null;
+      return null
     }
 
     const slackConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
-    return buildTenantSlackRuntimeConfig(slackConfig);
-  });
+    return buildTenantSlackRuntimeConfig(slackConfig)
+  })
 }
 
 export async function getTenantSlackRuntimeConfigSurface(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<TenantSlackRuntimeConfigSurface | null> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
   return getTenantSlackRuntimeConfigSurfaceForTenant({
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function refreshTenantSlackDirectory(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
     return {
       error: "Organization tenant not found",
       refreshed: false,
-    };
+    }
   }
 
   return refreshTenantSlackDirectoryForTenant({
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function listTenantRuntimeConfigSurfaces(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  return listTenantToolConfigSurfaces(input);
+  return listTenantToolConfigSurfaces(input)
 }
 
 export async function listTenantToolConfigSurfaces(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<TenantToolConfigSurface[]> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return [];
+    return []
   }
 
   return listTenantToolConfigSurfacesForTenant({
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function listTenantToolConfigSurfacesForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<TenantToolConfigSurface[]> {
   const surfaces = await Promise.all(
     listToolDefinitions().map((definition) =>
@@ -4507,47 +4507,47 @@ export async function listTenantToolConfigSurfacesForTenant(input: {
         tenantId: input.tenantId,
       }),
     ),
-  );
+  )
 
   return surfaces.filter((surface): surface is TenantToolConfigSurface =>
     Boolean(surface),
-  );
+  )
 }
 
 export async function listRuntimeIntegrationManifestForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<RuntimeIntegrationManifestEntry[]> {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const providerKeys =
       await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
         tenantId: input.tenantId,
-      });
+      })
 
-    return buildRuntimeIntegrationManifestForKeys(providerKeys);
-  });
+    return buildRuntimeIntegrationManifestForKeys(providerKeys)
+  })
 }
 
-export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse;
+export type RuntimeTenantIntegration = RuntimeIntegrationSummaryResponse
 export type RuntimeIntegrationSettingsResponse = {
-  contract: RuntimeIntegrationSettingsContract;
+  contract: RuntimeIntegrationSettingsContract
   integration: Pick<
     RuntimeIntegrationSummaryResponse,
     "key" | "label" | "settings" | "status"
-  >;
-  surface: Record<string, unknown>;
-};
+  >
+  surface: Record<string, unknown>
+}
 
 async function listRuntimeIntegrationStatusRowsForTenantTx(
   tx: DbTransaction,
   input: {
-    providerKeys: string[];
-    tenantId: string;
+    providerKeys: string[]
+    tenantId: string
   },
 ) {
   if (input.providerKeys.length === 0) {
-    return [];
+    return []
   }
 
   return tx
@@ -4572,21 +4572,21 @@ async function listRuntimeIntegrationStatusRowsForTenantTx(
         eq(tenantIntegrations.tenantId, input.tenantId),
         inArray(tenantIntegrations.providerKey, input.providerKeys),
       ),
-    );
+    )
 }
 
 function buildRuntimeTenantIntegrations(input: {
-  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>
   rows: Array<{
-    connectedAt: Date | null;
-    connectionStatus: string | null;
-    disconnectedAt: Date | null;
-    integrationStatus: string | null;
-    providerKey: string;
-    tenantIntegrationId: string;
-  }>;
+    connectedAt: Date | null
+    connectionStatus: string | null
+    disconnectedAt: Date | null
+    integrationStatus: string | null
+    providerKey: string
+    tenantIntegrationId: string
+  }>
 }) {
-  const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input);
+  const definitionsWithStatus = buildRuntimeDefinitionsWithStatus(input)
 
   return definitionsWithStatus.map(({ definition, installed, status }) =>
     buildRuntimeIntegrationSummaryResponse({
@@ -4595,95 +4595,95 @@ function buildRuntimeTenantIntegrations(input: {
       installed,
       status,
     }),
-  );
+  )
 }
 
 function buildRuntimeDefinitionsWithStatus(input: {
-  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>;
+  definitions: ReturnType<typeof listRuntimeIntegrationDefinitions>
   rows: Array<{
-    connectedAt: Date | null;
-    connectionStatus: string | null;
-    disconnectedAt: Date | null;
-    integrationStatus: string | null;
-    providerKey: string;
-    tenantIntegrationId: string;
-  }>;
+    connectedAt: Date | null
+    connectionStatus: string | null
+    disconnectedAt: Date | null
+    integrationStatus: string | null
+    providerKey: string
+    tenantIntegrationId: string
+  }>
 }) {
   const statusByProviderKey = new Map<
     string,
     {
-      connectedAt: Date | null;
-      connectionStatus: string | null;
-      disconnectedAt: Date | null;
-      integrationStatus: string | null;
-      tenantIntegrationId: string;
+      connectedAt: Date | null
+      connectionStatus: string | null
+      disconnectedAt: Date | null
+      integrationStatus: string | null
+      tenantIntegrationId: string
     }
-  >();
+  >()
 
   for (const row of input.rows) {
-    const existing = statusByProviderKey.get(row.providerKey);
+    const existing = statusByProviderKey.get(row.providerKey)
 
     if (!existing) {
-      statusByProviderKey.set(row.providerKey, row);
-      continue;
+      statusByProviderKey.set(row.providerKey, row)
+      continue
     }
 
     if (!existing.connectionStatus && row.connectionStatus) {
-      statusByProviderKey.set(row.providerKey, row);
+      statusByProviderKey.set(row.providerKey, row)
     }
   }
 
   return input.definitions.map((definition) => {
-    const row = statusByProviderKey.get(definition.key) ?? null;
+    const row = statusByProviderKey.get(definition.key) ?? null
     const resolved = resolveRuntimeIntegrationStatus({
       definition,
       row,
-    });
+    })
 
     return {
       definition,
       installed: resolved.installed,
       status: resolved.status,
       tenantIntegrationId: resolved.tenantIntegrationId,
-    };
-  });
+    }
+  })
 }
 
 export async function listRuntimeIntegrationsForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<RuntimeTenantIntegration[]> {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: listSupportedRuntimeIntegrationKeys(),
       tenantId: input.tenantId,
-    });
-    const installedKeys = rows.map((row) => row.providerKey).sort();
+    })
+    const installedKeys = rows.map((row) => row.providerKey).sort()
     const definitions = listRuntimeIntegrationDefinitions().filter(
       (definition) =>
         installedKeys.includes(definition.key) ||
         isPlatformManagedIntegration(definition),
-    );
+    )
 
     if (definitions.length === 0) {
-      return [];
+      return []
     }
 
     return buildRuntimeTenantIntegrations({
       definitions,
       rows,
-    });
-  });
+    })
+  })
 }
 
 export async function listRuntimeIntegrationCatalogForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<RuntimeTenantIntegration[]> {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
-    const supportedKeys = listSupportedRuntimeIntegrationKeys();
+    const supportedKeys = listSupportedRuntimeIntegrationKeys()
     const definitions = supportedKeys
       .map((key) => getIntegrationDefinition(key))
       .filter(
@@ -4692,65 +4692,65 @@ export async function listRuntimeIntegrationCatalogForTenant(input: {
         ): definition is NonNullable<typeof definition> & {
           runtimeSurface: NonNullable<
             NonNullable<typeof definition>["runtimeSurface"]
-          >;
+          >
         } => Boolean(definition?.runtimeSurface),
-      );
+      )
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: supportedKeys,
       tenantId: input.tenantId,
-    });
+    })
 
     return buildRuntimeTenantIntegrations({
       definitions,
       rows,
-    });
-  });
+    })
+  })
 }
 
 export async function getRuntimeIntegrationForTenant(input: {
-  integrationKey: string;
-  tenantId: string;
+  integrationKey: string
+  tenantId: string
 }): Promise<RuntimeTenantIntegration | null> {
-  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrationKey = input.integrationKey.trim().toLowerCase()
   const integrations = await listRuntimeIntegrationCatalogForTenant({
     tenantId: input.tenantId,
-  });
+  })
 
   return (
     integrations.find((integration) => integration.key === integrationKey) ??
     null
-  );
+  )
 }
 
 export async function getRuntimeIntegrationSettingsForTenant(input: {
-  integrationKey: string;
-  tenantId: string;
+  integrationKey: string
+  tenantId: string
 }): Promise<RuntimeIntegrationSettingsResponse | null> {
   const integration = await getRuntimeIntegrationForTenant({
     integrationKey: input.integrationKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!integration?.settings) {
-    return null;
+    return null
   }
 
   switch (integration.key) {
     case "brave": {
-      const definition = getIntegrationDefinition("brave");
+      const definition = getIntegrationDefinition("brave")
 
       if (!definition?.settings) {
-        return null;
+        return null
       }
 
-      const resolved = resolveRuntimeWebSearchConfig();
+      const resolved = resolveRuntimeWebSearchConfig()
       const config = {
         ...parseWebSearchRuntimeConfig(resolved.surfaceConfig),
         enabled: true,
         entryVersion: 1,
         installState: "installed",
         schemaVersion: WEB_SEARCH_CONFIG_SCHEMA_VERSION,
-      };
+      }
 
       return {
         contract: buildRuntimeIntegrationSettingsContract({
@@ -4801,15 +4801,15 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
           uiGroup: "integrations",
           uiHints: webSearchRuntimeConfigUiHints,
         },
-      };
+      }
     }
     case "slack": {
       const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
         tenantId: input.tenantId,
-      });
+      })
 
       if (!surface) {
-        return null;
+        return null
       }
 
       return {
@@ -4835,15 +4835,15 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
           status: integration.status,
         },
         surface,
-      };
+      }
     }
     case "whatsapp": {
       const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
         tenantId: input.tenantId,
-      });
+      })
 
       if (!surface) {
-        return null;
+        return null
       }
 
       return {
@@ -4869,52 +4869,52 @@ export async function getRuntimeIntegrationSettingsForTenant(input: {
           status: integration.status,
         },
         surface,
-      };
+      }
     }
     default:
-      return null;
+      return null
   }
 }
 
 export async function validateRuntimeIntegrationSettingsForTenant(input: {
-  integrationKey: string;
-  patch: Record<string, unknown>;
-  tenantId: string;
+  integrationKey: string
+  patch: Record<string, unknown>
+  tenantId: string
 }) {
   const integration = await getRuntimeIntegrationForTenant({
     integrationKey: input.integrationKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!integration?.settings) {
-    return null;
+    return null
   }
 
   switch (integration.key) {
     case "brave":
       throw new Error(
         "Brave settings are platform-managed and read-only in the workspace.",
-      );
+      )
     case "slack": {
       const validation = await validateTenantSlackRuntimeConfigChangeForTenant({
         createdByType: "runtime",
         patch: slackRuntimeConfigPatchSchema.parse(input.patch),
         tenantId: input.tenantId,
-      });
+      })
       const settings = await getRuntimeIntegrationSettingsForTenant({
         integrationKey: integration.key,
         tenantId: input.tenantId,
-      });
+      })
 
       if (!settings) {
-        return null;
+        return null
       }
 
       return {
         integration: settings.integration,
         surface: settings.surface,
         validation: validation.validation,
-      };
+      }
     }
     case "whatsapp": {
       const validation =
@@ -4922,14 +4922,14 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
           createdByType: "runtime",
           patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
           tenantId: input.tenantId,
-        });
+        })
       const settings = await getRuntimeIntegrationSettingsForTenant({
         integrationKey: integration.key,
         tenantId: input.tenantId,
-      });
+      })
 
       if (!settings) {
-        return null;
+        return null
       }
 
       return {
@@ -4938,34 +4938,34 @@ export async function validateRuntimeIntegrationSettingsForTenant(input: {
         nextConfig: validation.nextConfig,
         surface: settings.surface,
         validation: validation.validation,
-      };
+      }
     }
     default:
-      return null;
+      return null
   }
 }
 
 export async function applyRuntimeIntegrationSettingsForTenant(input: {
-  expectedEntryVersion?: number;
-  integrationKey: string;
-  patch: Record<string, unknown>;
-  summary?: string;
-  tenantId: string;
+  expectedEntryVersion?: number
+  integrationKey: string
+  patch: Record<string, unknown>
+  summary?: string
+  tenantId: string
 }) {
   const integration = await getRuntimeIntegrationForTenant({
     integrationKey: input.integrationKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!integration?.settings) {
-    return null;
+    return null
   }
 
   switch (integration.key) {
     case "brave":
       throw new Error(
         "Brave settings are platform-managed and read-only in the workspace.",
-      );
+      )
     case "slack": {
       const result = await updateTenantSlackRuntimeConfigForTenant({
         createdByType: "runtime",
@@ -4973,14 +4973,14 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
         patch: slackRuntimeConfigPatchSchema.parse(input.patch),
         summary: input.summary,
         tenantId: input.tenantId,
-      });
+      })
       const settings = await getRuntimeIntegrationSettingsForTenant({
         integrationKey: integration.key,
         tenantId: input.tenantId,
-      });
+      })
 
       if (!settings) {
-        return null;
+        return null
       }
 
       return {
@@ -4991,7 +4991,7 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
           ok: true,
           warnings: result.effects?.warnings ?? [],
         },
-      };
+      }
     }
     case "whatsapp": {
       const result = await updateTenantWhatsAppRuntimeConfigForTenant({
@@ -5000,14 +5000,14 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
         patch: whatsappRuntimeConfigPatchSchema.parse(input.patch),
         summary: input.summary,
         tenantId: input.tenantId,
-      });
+      })
       const settings = await getRuntimeIntegrationSettingsForTenant({
         integrationKey: integration.key,
         tenantId: input.tenantId,
-      });
+      })
 
       if (!settings) {
-        return null;
+        return null
       }
 
       return {
@@ -5018,10 +5018,10 @@ export async function applyRuntimeIntegrationSettingsForTenant(input: {
           ok: true,
           warnings: result.effects?.warnings ?? [],
         },
-      };
+      }
     }
     default:
-      return null;
+      return null
   }
 }
 
@@ -5033,23 +5033,23 @@ function findRuntimeCommandByKey(
   >,
   commandKey: string,
 ): IntegrationRuntimeCommandDefinition | null {
-  const normalizedKey = commandKey.trim().toLowerCase();
+  const normalizedKey = commandKey.trim().toLowerCase()
 
   for (const command of surface.rootCommands) {
     if (command.commandKey.toLowerCase() === normalizedKey) {
-      return command;
+      return command
     }
   }
 
   for (const group of surface.commandGroups) {
-    const command = findRuntimeCommandByKeyInGroup(group, normalizedKey);
+    const command = findRuntimeCommandByKeyInGroup(group, normalizedKey)
 
     if (command) {
-      return command;
+      return command
     }
   }
 
-  return null;
+  return null
 }
 
 function findRuntimeCommandByKeyInGroup(
@@ -5058,7 +5058,7 @@ function findRuntimeCommandByKeyInGroup(
 ): IntegrationRuntimeCommandDefinition | null {
   for (const command of group.commands ?? []) {
     if (command.commandKey.toLowerCase() === normalizedCommandKey) {
-      return command;
+      return command
     }
   }
 
@@ -5066,14 +5066,14 @@ function findRuntimeCommandByKeyInGroup(
     const command = findRuntimeCommandByKeyInGroup(
       childGroup,
       normalizedCommandKey,
-    );
+    )
 
     if (command) {
-      return command;
+      return command
     }
   }
 
-  return null;
+  return null
 }
 
 function findRuntimeCommandGroupByKey(
@@ -5084,20 +5084,20 @@ function findRuntimeCommandGroupByKey(
   >,
   groupKey: string,
 ): IntegrationRuntimeCommandGroupDefinition | null {
-  const normalizedKey = groupKey.trim().toLowerCase();
+  const normalizedKey = groupKey.trim().toLowerCase()
 
   for (const group of surface.commandGroups) {
     const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
       group,
       normalizedKey,
-    );
+    )
 
     if (matchedGroup) {
-      return matchedGroup;
+      return matchedGroup
     }
   }
 
-  return null;
+  return null
 }
 
 function findRuntimeCommandGroupByKeyInGroup(
@@ -5105,65 +5105,63 @@ function findRuntimeCommandGroupByKeyInGroup(
   normalizedGroupKey: string,
 ): IntegrationRuntimeCommandGroupDefinition | null {
   if (group.groupKey.toLowerCase() === normalizedGroupKey) {
-    return group;
+    return group
   }
 
   if (group.groupPath.join(".").toLowerCase() === normalizedGroupKey) {
-    return group;
+    return group
   }
 
   for (const childGroup of group.childGroups ?? []) {
     const matchedGroup = findRuntimeCommandGroupByKeyInGroup(
       childGroup,
       normalizedGroupKey,
-    );
+    )
 
     if (matchedGroup) {
-      return matchedGroup;
+      return matchedGroup
     }
   }
 
-  return null;
+  return null
 }
 
 export async function getRuntimeIntegrationDetailsForTenant(input: {
-  detailKey: string;
-  detailType: "command" | "command_group";
-  integrationKey: string;
-  tenantId: string;
+  detailKey: string
+  detailType: "command" | "command_group"
+  integrationKey: string
+  tenantId: string
 }): Promise<RuntimeIntegrationDetailsResponse | null> {
-  const integrationKey = input.integrationKey.trim().toLowerCase();
-  const detailKey = input.detailKey.trim();
-  const db = getDb();
+  const integrationKey = input.integrationKey.trim().toLowerCase()
+  const detailKey = input.detailKey.trim()
+  const db = getDb()
 
   return db.transaction(async (tx) => {
-    const definitions = listRuntimeIntegrationDefinitions();
-    const definition = definitions.find(
-      (entry) => entry.key === integrationKey,
-    );
+    const definitions = listRuntimeIntegrationDefinitions()
+    const definition = definitions.find((entry) => entry.key === integrationKey)
 
     if (!definition) {
-      return null;
+      return null
     }
 
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: [integrationKey],
       tenantId: input.tenantId,
-    });
+    })
     const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
       {
         definitions: [definition],
         rows,
       },
-    );
+    )
 
     const detail =
       input.detailType === "command"
         ? findRuntimeCommandByKey(definition.runtimeSurface, detailKey)
-        : findRuntimeCommandGroupByKey(definition.runtimeSurface, detailKey);
+        : findRuntimeCommandGroupByKey(definition.runtimeSurface, detailKey)
 
     if (!detail) {
-      return null;
+      return null
     }
 
     const policy =
@@ -5173,7 +5171,7 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
               .commandKey,
             tenantIntegrationId,
           })
-        : null;
+        : null
 
     return buildRuntimeIntegrationDetailsResponse({
       definition,
@@ -5181,34 +5179,34 @@ export async function getRuntimeIntegrationDetailsForTenant(input: {
       detailType: input.detailType,
       policy,
       status,
-    });
-  });
+    })
+  })
 }
 
 export async function findRuntimeIntegrationCommandsForTenant(input: {
-  query: string;
-  tenantId: string;
+  query: string
+  tenantId: string
 }): Promise<{ matches: RuntimeIntegrationCommandMatch[]; query: string }> {
-  const db = getDb();
-  const normalizedQuery = input.query.trim();
+  const db = getDb()
+  const normalizedQuery = input.query.trim()
 
   if (!normalizedQuery) {
     return {
       matches: [],
       query: normalizedQuery,
-    };
+    }
   }
 
   return db.transaction(async (tx) => {
-    const definitions = listRuntimeIntegrationDefinitions();
+    const definitions = listRuntimeIntegrationDefinitions()
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: listSupportedRuntimeIntegrationKeys(),
       tenantId: input.tenantId,
-    });
+    })
     const definitionsWithStatus = buildRuntimeDefinitionsWithStatus({
       definitions,
       rows,
-    });
+    })
 
     return {
       matches: findIntegrationCommandMatches({
@@ -5219,39 +5217,39 @@ export async function findRuntimeIntegrationCommandsForTenant(input: {
         query: normalizedQuery,
       }),
       query: normalizedQuery,
-    };
-  });
+    }
+  })
 }
 
 export type RuntimeIntegrationConnectionAction = {
-  availableActions: string[];
-  connectUrl: string | null;
-  integrationKey: string;
-  label: string;
-  message: string;
-  recommendedAction: string;
-  requiresUserAction: boolean;
-  selectedAction: string;
-  status: RuntimeTenantIntegration["status"];
-  workspaceUrl: string | null;
-};
+  availableActions: string[]
+  connectUrl: string | null
+  integrationKey: string
+  label: string
+  message: string
+  recommendedAction: string
+  requiresUserAction: boolean
+  selectedAction: string
+  status: RuntimeTenantIntegration["status"]
+  workspaceUrl: string | null
+}
 
 export async function getRuntimeIntegrationConnectionActionForTenant(input: {
-  action?: string | null;
-  integrationKey: string;
-  tenantId: string;
+  action?: string | null
+  integrationKey: string
+  tenantId: string
 }): Promise<RuntimeIntegrationConnectionAction | null> {
-  const integrationKey = input.integrationKey.trim().toLowerCase();
+  const integrationKey = input.integrationKey.trim().toLowerCase()
   const integration = await getRuntimeIntegrationForTenant({
     integrationKey,
     tenantId: input.tenantId,
-  });
+  })
 
   if (!integration) {
-    return null;
+    return null
   }
 
-  const db = getDb();
+  const db = getDb()
   const [tenantContext] = await db
     .select({
       organizationSlug: organizations.slug,
@@ -5259,76 +5257,76 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
     .from(tenants)
     .innerJoin(organizations, eq(organizations.id, tenants.organizationId))
     .where(eq(tenants.id, input.tenantId))
-    .limit(1);
+    .limit(1)
 
   if (!tenantContext) {
-    throw new Error(`Tenant ${input.tenantId} is not available.`);
+    throw new Error(`Tenant ${input.tenantId} is not available.`)
   }
 
-  const baseUrl = getControlPlaneBaseUrl();
-  const definition = getIntegrationDefinition(integration.key);
+  const baseUrl = getControlPlaneBaseUrl()
+  const definition = getIntegrationDefinition(integration.key)
   const workspaceUrl =
     baseUrl && definition
       ? `${baseUrl}${definition.settingsPath(tenantContext.organizationSlug)}`
-      : null;
+      : null
 
-  let connectUrl: string | null = null;
-  let recommendedAction = "none";
-  let message = `${integration.label} is available.`;
+  let connectUrl: string | null = null
+  let recommendedAction = "none"
+  let message = `${integration.label} is available.`
 
   switch (integration.key) {
     case "brave": {
-      recommendedAction = "open_workspace";
+      recommendedAction = "open_workspace"
       message =
-        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults.";
-      break;
+        "Brave web search is platform-managed by Otto. Open the workspace integration page to inspect its status and projected defaults."
+      break
     }
     case "linear": {
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
-        : null;
+        : null
 
       if (integration.status.needsAttention) {
-        recommendedAction = "reconnect";
+        recommendedAction = "reconnect"
         message =
-          "Linear needs attention. Ask the user to reconnect it in the workspace.";
+          "Linear needs attention. Ask the user to reconnect it in the workspace."
       } else if (!integration.status.connected) {
-        recommendedAction = "connect";
+        recommendedAction = "connect"
         message =
-          "Linear is not connected yet. Ask the user to connect it in the workspace.";
+          "Linear is not connected yet. Ask the user to connect it in the workspace."
       } else {
-        recommendedAction = "open_workspace";
+        recommendedAction = "open_workspace"
         message =
-          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it.";
+          "Linear is already connected. Open the workspace integration page if the user wants to review or reconnect it."
       }
-      break;
+      break
     }
     case "slack": {
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
-        : null;
+        : null
 
       if (integration.status.needsAttention) {
-        recommendedAction = "reconnect";
+        recommendedAction = "reconnect"
         message =
-          "Slack needs attention. Ask the user to reconnect it in the workspace.";
+          "Slack needs attention. Ask the user to reconnect it in the workspace."
       } else if (!integration.status.connected) {
-        recommendedAction = "connect";
+        recommendedAction = "connect"
         message =
-          "Slack is not connected yet. Ask the user to connect it in the workspace.";
+          "Slack is not connected yet. Ask the user to connect it in the workspace."
       } else if (!integration.status.enabled) {
-        recommendedAction = "open_workspace";
+        recommendedAction = "open_workspace"
         message =
-          "Slack is connected but not active. Open the workspace integration page to review its status and settings.";
+          "Slack is connected but not active. Open the workspace integration page to review its status and settings."
       } else {
-        recommendedAction = "open_workspace";
+        recommendedAction = "open_workspace"
         message =
-          "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it.";
+          "Slack is connected. Open the workspace integration page to review, reconnect, or disconnect it."
       }
-      break;
+      break
     }
     case "whatsapp": {
-      connectUrl = workspaceUrl;
+      connectUrl = workspaceUrl
 
       if (
         integration.status.integrationStatus === "linking" ||
@@ -5336,32 +5334,32 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
         integration.status.integrationStatus === "applying" ||
         integration.status.integrationStatus === "activating"
       ) {
-        recommendedAction = "open_workspace";
+        recommendedAction = "open_workspace"
         message =
-          "WhatsApp setup is already in progress. Open the workspace integration page to follow pairing or activation.";
+          "WhatsApp setup is already in progress. Open the workspace integration page to follow pairing or activation."
       } else if (integration.status.needsAttention) {
-        recommendedAction = "reconnect";
+        recommendedAction = "reconnect"
         message =
-          "WhatsApp needs attention. Ask the user to reopen the workspace integration page and pair the number again.";
+          "WhatsApp needs attention. Ask the user to reopen the workspace integration page and pair the number again."
       } else if (!integration.status.connected) {
-        recommendedAction = "connect";
+        recommendedAction = "connect"
         message =
-          "WhatsApp is not connected yet. Ask the user to connect it in the workspace.";
+          "WhatsApp is not connected yet. Ask the user to connect it in the workspace."
       } else {
-        recommendedAction = "open_workspace";
+        recommendedAction = "open_workspace"
         message =
-          "WhatsApp is connected. Open the workspace integration page to review settings, pair a new number, or disconnect it.";
+          "WhatsApp is connected. Open the workspace integration page to review settings, pair a new number, or disconnect it."
       }
-      break;
+      break
     }
     default: {
-      recommendedAction = "open_workspace";
-      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`;
-      break;
+      recommendedAction = "open_workspace"
+      message = `${integration.label} is managed in the workspace. Open the workspace integration page for next steps.`
+      break
     }
   }
 
-  const requestedAction = (input.action ?? "").trim().toLowerCase();
+  const requestedAction = (input.action ?? "").trim().toLowerCase()
   const availableActions = [
     workspaceUrl ? "open_workspace" : null,
     connectUrl ? "connect" : null,
@@ -5370,11 +5368,11 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
     workspaceUrl
       ? "disconnect"
       : null,
-  ].filter((action): action is string => Boolean(action));
+  ].filter((action): action is string => Boolean(action))
   const selectedAction =
     requestedAction && availableActions.includes(requestedAction)
       ? requestedAction
-      : recommendedAction;
+      : recommendedAction
 
   return {
     availableActions,
@@ -5388,24 +5386,24 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
     selectedAction,
     status: integration.status,
     workspaceUrl,
-  };
+  }
 }
 
 export async function getTenantManagedIntegrationSummary(input: {
-  orgSlug: string;
-  providerKey: string;
-  userExternalId: string;
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
 }): Promise<TenantManagedIntegrationSummary | null> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
-  const db = getDb();
+  const db = getDb()
   const [integration] = await db
     .select({
       connectedAt: tenantIntegrations.connectedAt,
@@ -5425,53 +5423,53 @@ export async function getTenantManagedIntegrationSummary(input: {
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return integration ?? null;
+  return integration ?? null
 }
 
 export type ManagedIntegrationCapabilityRow = (
   | ResolvedIntegrationAgentCapability
   | ResolvedIntegrationCommandCapability
 ) & {
-  sourceHref: string | null;
-  sourceIcon: string | null;
-  sourceKey: string;
-  sourceLabel: string;
-  sourceType: "integration";
-};
+  sourceHref: string | null
+  sourceIcon: string | null
+  sourceKey: string
+  sourceLabel: string
+  sourceType: "integration"
+}
 
 function sortManagedIntegrationCapabilityRows(
   rows: ManagedIntegrationCapabilityRow[],
 ) {
   return [...rows].sort((left, right) => {
     if (left.capabilityType !== right.capabilityType) {
-      return left.capabilityType === "trigger" ? -1 : 1;
+      return left.capabilityType === "trigger" ? -1 : 1
     }
 
     if (left.label !== right.label) {
-      return left.label.localeCompare(right.label);
+      return left.label.localeCompare(right.label)
     }
 
-    return left.commandKey.localeCompare(right.commandKey);
-  });
+    return left.commandKey.localeCompare(right.commandKey)
+  })
 }
 
 function buildManagedIntegrationCapabilityRows(input: {
   definition: NonNullable<ReturnType<typeof getIntegrationDefinition>> & {
     runtimeSurface: NonNullable<
       NonNullable<ReturnType<typeof getIntegrationDefinition>>["runtimeSurface"]
-    >;
-  };
-  orgSlug: string;
-  policies: Map<string, { policy: "allow" | "block" }>;
+    >
+  }
+  orgSlug: string
+  policies: Map<string, { policy: "allow" | "block" }>
   status: {
-    connected: boolean;
-    connectionStatus: string | null;
-    enabled: boolean;
-    integrationStatus: string | null;
-    needsAttention: boolean;
-  };
+    connected: boolean
+    connectionStatus: string | null
+    enabled: boolean
+    integrationStatus: string | null
+    needsAttention: boolean
+  }
 }): ManagedIntegrationCapabilityRow[] {
   const commandRows = listIntegrationCommands({
     definition: input.definition,
@@ -5481,7 +5479,7 @@ function buildManagedIntegrationCapabilityRows(input: {
       definition: input.definition,
       policy: input.policies.get(command.commandKey) ?? null,
       status: input.status,
-    });
+    })
 
     return {
       ...resolved,
@@ -5494,8 +5492,8 @@ function buildManagedIntegrationCapabilityRows(input: {
       sourceKey: input.definition.key,
       sourceLabel: input.definition.label,
       sourceType: "integration" as const,
-    };
-  });
+    }
+  })
   const providerCapabilityRows = input.definition.agentCapabilities
     .filter(
       (capability) =>
@@ -5507,7 +5505,7 @@ function buildManagedIntegrationCapabilityRows(input: {
         definition: input.definition,
         policy: input.policies.get(capability.key) ?? null,
         status: input.status,
-      });
+      })
 
       return {
         ...resolved,
@@ -5520,102 +5518,102 @@ function buildManagedIntegrationCapabilityRows(input: {
         sourceKey: input.definition.key,
         sourceLabel: input.definition.label,
         sourceType: "integration" as const,
-      };
-    });
+      }
+    })
 
   return sortManagedIntegrationCapabilityRows([
     ...commandRows,
     ...providerCapabilityRows,
-  ]);
+  ])
 }
 
 export async function listManagedIntegrationCapabilitiesForOrganization(input: {
-  orgSlug: string;
-  providerKey: string;
-  userExternalId: string;
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
 }): Promise<ManagedIntegrationCapabilityRow[]> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return [];
+    return []
   }
 
   const definition = getIntegrationDefinition(
     input.providerKey.trim().toLowerCase(),
-  );
+  )
 
   if (!definition?.runtimeSurface) {
-    return [];
+    return []
   }
 
   const runtimeDefinition = definition as typeof definition & {
-    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
-  };
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>
+  }
 
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: [runtimeDefinition.key],
       tenantId: authorizedTenant.tenantId,
-    });
+    })
     const [{ status, tenantIntegrationId }] = buildRuntimeDefinitionsWithStatus(
       {
         definitions: [runtimeDefinition],
         rows,
       },
-    );
+    )
     const policies = tenantIntegrationId
       ? await listTenantIntegrationCapabilityPolicies({
           tenantIntegrationId,
         })
-      : new Map();
+      : new Map()
 
     return buildManagedIntegrationCapabilityRows({
       definition: runtimeDefinition,
       orgSlug: input.orgSlug,
       policies,
       status,
-    });
-  });
+    })
+  })
 }
 
 export async function listWorkspaceManagedIntegrationCapabilities(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<ManagedIntegrationCapabilityRow[]> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return [];
+    return []
   }
 
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const rows = await listRuntimeIntegrationStatusRowsForTenantTx(tx, {
       providerKeys: listSupportedRuntimeIntegrationKeys(),
       tenantId: authorizedTenant.tenantId,
-    });
+    })
     const installedProviderKeys = [
       ...new Set(rows.map((row) => row.providerKey)),
-    ].sort((left, right) => left.localeCompare(right));
+    ].sort((left, right) => left.localeCompare(right))
     const definitions = listRuntimeIntegrationDefinitions().filter(
       (definition) =>
         installedProviderKeys.includes(definition.key) ||
         isPlatformManagedIntegration(definition),
-    );
+    )
 
     const resolvedDefinitions = buildRuntimeDefinitionsWithStatus({
       definitions,
       rows,
-    });
+    })
     const capabilityRows = await Promise.all(
       resolvedDefinitions.map(
         async ({ definition, status, tenantIntegrationId }) => {
@@ -5623,79 +5621,79 @@ export async function listWorkspaceManagedIntegrationCapabilities(input: {
             ? await listTenantIntegrationCapabilityPolicies({
                 tenantIntegrationId,
               })
-            : new Map();
+            : new Map()
 
           return buildManagedIntegrationCapabilityRows({
             definition,
             orgSlug: input.orgSlug,
             policies,
             status,
-          });
+          })
         },
       ),
-    );
+    )
 
     return capabilityRows.flat().sort((left, right) => {
       if (left.sourceLabel !== right.sourceLabel) {
-        return left.sourceLabel.localeCompare(right.sourceLabel);
+        return left.sourceLabel.localeCompare(right.sourceLabel)
       }
 
       if (left.capabilityType !== right.capabilityType) {
-        return left.capabilityType === "trigger" ? -1 : 1;
+        return left.capabilityType === "trigger" ? -1 : 1
       }
 
-      return left.label.localeCompare(right.label);
-    });
-  });
+      return left.label.localeCompare(right.label)
+    })
+  })
 }
 
 export async function updateManagedIntegrationCapabilityPolicy(input: {
-  capabilityKey: string;
-  orgSlug: string;
-  policy: { policy: "allow" | "block" };
-  providerKey: string;
-  userExternalId: string;
+  capabilityKey: string
+  orgSlug: string
+  policy: { policy: "allow" | "block" }
+  providerKey: string
+  userExternalId: string
 }): Promise<ManagedIntegrationCapabilityRow> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Workspace is not available.");
+    throw new Error("Workspace is not available.")
   }
 
   const definition = getIntegrationDefinition(
     input.providerKey.trim().toLowerCase(),
-  );
+  )
 
   if (!definition?.runtimeSurface) {
     throw new Error(
       `Managed integration ${input.providerKey} is not available.`,
-    );
+    )
   }
 
   const runtimeDefinition = definition as typeof definition & {
-    runtimeSurface: NonNullable<typeof definition.runtimeSurface>;
-  };
+    runtimeSurface: NonNullable<typeof definition.runtimeSurface>
+  }
 
   const command = listIntegrationCommands({
     definition: runtimeDefinition,
-  }).find((entry) => entry.commandKey === input.capabilityKey);
+  }).find((entry) => entry.commandKey === input.capabilityKey)
   const providerCapability = runtimeDefinition.agentCapabilities.find(
     (entry) => entry.key === input.capabilityKey,
-  );
+  )
 
   if (!command && !providerCapability) {
     throw new Error(
       `${definition.label} does not expose the ${input.capabilityKey} capability.`,
-    );
+    )
   }
 
   if (command && !isCommandUserControllable(command)) {
     throw new Error(
       `${definition.label} does not allow workspace policy changes for ${command.commandKey}.`,
-    );
+    )
   }
 
   if (
@@ -5704,19 +5702,19 @@ export async function updateManagedIntegrationCapabilityPolicy(input: {
   ) {
     throw new Error(
       `${definition.label} does not allow workspace policy changes for ${providerCapability.key}.`,
-    );
+    )
   }
 
   const resolvedCapabilityKey =
-    command?.commandKey ?? providerCapability?.key ?? null;
+    command?.commandKey ?? providerCapability?.key ?? null
 
   if (!resolvedCapabilityKey) {
     throw new Error(
       `${definition.label} does not expose the ${input.capabilityKey} capability.`,
-    );
+    )
   }
 
-  const db = getDb();
+  const db = getDb()
   const [integration] = await db
     .select({
       id: tenantIntegrations.id,
@@ -5728,43 +5726,43 @@ export async function updateManagedIntegrationCapabilityPolicy(input: {
         eq(tenantIntegrations.providerKey, runtimeDefinition.key),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!integration) {
     throw new Error(
       `${definition.label} must be connected before capability policy can be updated.`,
-    );
+    )
   }
 
   await upsertTenantIntegrationCapabilityPolicy({
     capabilityKey: resolvedCapabilityKey,
     policy: input.policy,
     tenantIntegrationId: integration.id,
-  });
+  })
 
   const rows = await listManagedIntegrationCapabilitiesForOrganization({
     orgSlug: input.orgSlug,
     providerKey: runtimeDefinition.key,
     userExternalId: input.userExternalId,
-  });
-  const row = rows.find((entry) => entry.commandKey === resolvedCapabilityKey);
+  })
+  const row = rows.find((entry) => entry.commandKey === resolvedCapabilityKey)
 
   if (!row) {
     throw new Error(
       "Capability policy was updated but the capability could not be reloaded.",
-    );
+    )
   }
 
-  return row;
+  return row
 }
 
 export async function getTenantManagedIntegrationConnectContext(input: {
-  orgSlug: string;
-  providerKey: string;
-  userExternalId: string;
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
 }): Promise<TenantManagedIntegrationConnectContext | null> {
-  const db = getDb();
-  const normalizedProviderKey = input.providerKey.trim().toLowerCase();
+  const db = getDb()
+  const normalizedProviderKey = input.providerKey.trim().toLowerCase()
   const [row] = await db
     .select({
       integrationStatus: tenantIntegrations.status,
@@ -5798,10 +5796,10 @@ export async function getTenantManagedIntegrationConnectContext(input: {
       ),
     )
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!row) {
-    return null;
+    return null
   }
 
   if (
@@ -5810,28 +5808,28 @@ export async function getTenantManagedIntegrationConnectContext(input: {
   ) {
     throw new Error(
       `Managed integration ${input.providerKey} does not support connect sessions yet.`,
-    );
+    )
   }
 
-  return row;
+  return row
 }
 
 export async function completeLinearOauthConnection(input: {
-  actorType: string | null;
-  externalAccountId?: string | null;
-  externalAccountLabel?: string | null;
-  mode: "connect" | "reconnect";
-  organizationId: string;
-  requestedScopes: string[];
-  sessionId: string;
-  tokenResult: OAuthTokenExchangeResult;
+  actorType: string | null
+  externalAccountId?: string | null
+  externalAccountLabel?: string | null
+  mode: "connect" | "reconnect"
+  organizationId: string
+  requestedScopes: string[]
+  sessionId: string
+  tokenResult: OAuthTokenExchangeResult
 }) {
-  const db = getDb();
-  const now = new Date();
-  let desiredStateVersion = 0;
-  let tenantId = "";
-  let organizationSlug = "";
-  let shouldEnqueueApply = false;
+  const db = getDb()
+  const now = new Date()
+  let desiredStateVersion = 0
+  let tenantId = ""
+  let organizationSlug = ""
+  let shouldEnqueueApply = false
 
   await db.transaction(async (tx) => {
     const [authorizedTenant] = await tx
@@ -5846,23 +5844,23 @@ export async function completeLinearOauthConnection(input: {
       .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
       .where(eq(organizations.id, input.organizationId))
       .orderBy(desc(tenants.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!authorizedTenant) {
       throw new Error(
         "The Linear connection could not be matched to a workspace.",
-      );
+      )
     }
 
-    tenantId = authorizedTenant.tenantId;
-    organizationSlug = authorizedTenant.organizationSlug;
+    tenantId = authorizedTenant.tenantId
+    organizationSlug = authorizedTenant.organizationSlug
     shouldEnqueueApply =
       authorizedTenant.tenantStatus === "ready" &&
-      authorizedTenant.serverStatus === "ready";
+      authorizedTenant.serverStatus === "ready"
     const tenantIntegrationId = await upsertLinearIntegrationForTenant(tx, {
       now,
       tenantId,
-    });
+    })
 
     await upsertOauthConnectionForTenantIntegrationTx(tx, {
       actorType: input.actorType,
@@ -5874,57 +5872,57 @@ export async function completeLinearOauthConnection(input: {
       requestedScopes: input.requestedScopes,
       tenantIntegrationId,
       tokenResult: input.tokenResult,
-    });
+    })
 
-    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now)
 
     desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId,
       })
-    ).version;
-  });
+    ).version
+  })
 
   if (shouldEnqueueApply) {
     await enqueueTenantConfigApply({
       desiredStateVersion,
       tenantId,
-    });
+    })
   }
 
   return {
     applyQueued: shouldEnqueueApply,
     organizationSlug,
     tenantId,
-  };
+  }
 }
 
 export async function completeSlackOauthConnection(input: {
-  mode: "connect" | "reconnect";
-  organizationId: string;
-  requestedScopes: string[];
-  sessionId: string;
-  tokenResult: OAuthTokenExchangeResult;
+  mode: "connect" | "reconnect"
+  organizationId: string
+  requestedScopes: string[]
+  sessionId: string
+  tokenResult: OAuthTokenExchangeResult
 }) {
-  const metadata = input.tokenResult.identity?.providerMetadata ?? {};
+  const metadata = input.tokenResult.identity?.providerMetadata ?? {}
   const slackTeamId =
     input.tokenResult.identity?.externalAccountId ??
-    getStringMetadataValue(metadata, "slackTeamId");
+    getStringMetadataValue(metadata, "slackTeamId")
   const slackTeamName =
     input.tokenResult.identity?.externalAccountLabel ??
-    getNullableStringMetadataValue(metadata, "slackTeamName");
+    getNullableStringMetadataValue(metadata, "slackTeamName")
 
   if (!slackTeamId) {
-    throw new Error("Slack workspace id is missing from the OAuth response.");
+    throw new Error("Slack workspace id is missing from the OAuth response.")
   }
 
-  const db = getDb();
-  const now = new Date();
-  let desiredStateVersion = 0;
-  let tenantId = "";
-  let organizationSlug = "";
-  let tenantIntegrationId = "";
-  let shouldEnqueueApply = false;
+  const db = getDb()
+  const now = new Date()
+  let desiredStateVersion = 0
+  let tenantId = ""
+  let organizationSlug = ""
+  let tenantIntegrationId = ""
+  let shouldEnqueueApply = false
 
   await db.transaction(async (tx) => {
     const [authorizedTenant] = await tx
@@ -5939,24 +5937,24 @@ export async function completeSlackOauthConnection(input: {
       .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
       .where(eq(organizations.id, input.organizationId))
       .orderBy(desc(tenants.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!authorizedTenant) {
       throw new Error(
         "The Slack connection could not be matched to a workspace.",
-      );
+      )
     }
 
-    tenantId = authorizedTenant.tenantId;
-    organizationSlug = authorizedTenant.organizationSlug;
+    tenantId = authorizedTenant.tenantId
+    organizationSlug = authorizedTenant.organizationSlug
     shouldEnqueueApply =
       authorizedTenant.tenantStatus === "ready" &&
-      authorizedTenant.serverStatus === "ready";
+      authorizedTenant.serverStatus === "ready"
 
     tenantIntegrationId = await upsertSlackIntegrationForTenant(tx, {
       now,
       tenantId,
-    });
+    })
 
     await upsertOauthConnectionForTenantIntegrationTx(tx, {
       actorType: input.tokenResult.actorType,
@@ -5969,23 +5967,23 @@ export async function completeSlackOauthConnection(input: {
       requestedScopes: input.requestedScopes,
       tenantIntegrationId,
       tokenResult: input.tokenResult,
-    });
+    })
 
-    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now);
+    await markIntegrationOauthSessionConsumedTx(tx, input.sessionId, now)
 
     desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId,
       })
-    ).version;
+    ).version
 
     if (shouldEnqueueApply) {
       await markSlackIntegrationPendingApply(tx, {
         now,
         tenantId,
-      });
+      })
     }
-  });
+  })
 
   try {
     await refreshSlackDirectoryForInstallation({
@@ -5993,55 +5991,55 @@ export async function completeSlackOauthConnection(input: {
       externalWorkspaceId: slackTeamId,
       tenantIntegrationId,
       workspaceDisplayName: slackTeamName,
-    });
+    })
   } catch (directoryError) {
     await recordMessagingWorkspaceSyncFailure({
       error: getUnknownErrorMessage(directoryError),
       externalWorkspaceId: slackTeamId,
       tenantIntegrationId,
       workspaceDisplayName: slackTeamName,
-    });
+    })
   }
 
   if (shouldEnqueueApply) {
     await enqueueTenantConfigApply({
       desiredStateVersion,
       tenantId,
-    });
+    })
   }
 
   return {
     applyQueued: shouldEnqueueApply,
     organizationSlug,
     tenantId,
-  };
+  }
 }
 
 export async function disconnectTenantManagedIntegration(input: {
-  orgSlug: string;
-  providerKey: string;
-  userExternalId: string;
+  orgSlug: string
+  providerKey: string
+  userExternalId: string
 }) {
-  const providerKey = input.providerKey.trim().toLowerCase();
+  const providerKey = input.providerKey.trim().toLowerCase()
 
   switch (providerKey) {
     case LINEAR_PROVIDER_KEY:
-      return disconnectTenantLinearIntegration(input);
+      return disconnectTenantLinearIntegration(input)
     case SLACK_PROVIDER_KEY:
-      return disconnectTenantSlackIntegration(input);
+      return disconnectTenantSlackIntegration(input)
     case WHATSAPP_PROVIDER_KEY:
-      return disconnectTenantWhatsApp(input);
+      return disconnectTenantWhatsApp(input)
     default:
-      throw new Error(`Disconnect is not supported for ${providerKey} yet.`);
+      throw new Error(`Disconnect is not supported for ${providerKey} yet.`)
   }
 }
 
 export async function recordLinearOauthFailure(input: {
-  error: string;
-  organizationId: string;
+  error: string
+  organizationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [authorizedTenant] = await tx
@@ -6052,28 +6050,28 @@ export async function recordLinearOauthFailure(input: {
       .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
       .where(eq(organizations.id, input.organizationId))
       .orderBy(desc(tenants.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!authorizedTenant) {
       throw new Error(
         "The Linear refresh failure could not be matched to a workspace.",
-      );
+      )
     }
 
     await recordLinearIntegrationError(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
-    });
-  });
+    })
+  })
 }
 
 export async function recordSlackManagedOauthFailure(input: {
-  error: string;
-  organizationId: string;
+  error: string
+  organizationId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db.transaction(async (tx) => {
     const [authorizedTenant] = await tx
@@ -6084,53 +6082,53 @@ export async function recordSlackManagedOauthFailure(input: {
       .innerJoin(tenants, eq(tenants.organizationId, organizations.id))
       .where(eq(organizations.id, input.organizationId))
       .orderBy(desc(tenants.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!authorizedTenant) {
       throw new Error(
         "The Slack OAuth failure could not be matched to a workspace.",
-      );
+      )
     }
 
     await recordSlackIntegrationError(tx, {
       error: input.error,
       now,
       tenantId: authorizedTenant.tenantId,
-    });
-  });
+    })
+  })
 }
 
 export async function getTenantToolConfigSurface(input: {
-  orgSlug: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  userExternalId: string;
+  orgSlug: string
+  surfaceKey: string
+  surfaceKind: string
+  userExternalId: string
 }): Promise<TenantToolConfigSurface | null> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
   return getTenantToolConfigSurfaceForTenant({
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function getTenantToolConfigSurfaceForTenant(input: {
-  surfaceKey: string;
-  surfaceKind: string;
-  tenantId: string;
+  surfaceKey: string
+  surfaceKind: string
+  tenantId: string
 }): Promise<TenantToolConfigSurface | null> {
-  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey)
 
   if (!definition) {
-    return null;
+    return null
   }
 
   if (
@@ -6139,7 +6137,7 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
   ) {
     return getTenantSlackRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
-    }) as Promise<TenantToolConfigSurface | null>;
+    }) as Promise<TenantToolConfigSurface | null>
   }
 
   if (
@@ -6148,27 +6146,27 @@ export async function getTenantToolConfigSurfaceForTenant(input: {
   ) {
     return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
-    }) as Promise<TenantToolConfigSurface | null>;
+    }) as Promise<TenantToolConfigSurface | null>
   }
 
-  return null;
+  return null
 }
 
 export async function validateTenantToolConfigChange(input: {
-  createdByType?: "runtime" | "system" | "user";
-  orgSlug: string;
-  patch: Record<string, unknown>;
-  surfaceKey: string;
-  surfaceKind: string;
-  userExternalId: string;
+  createdByType?: "runtime" | "system" | "user"
+  orgSlug: string
+  patch: Record<string, unknown>
+  surfaceKey: string
+  surfaceKind: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return validateTenantToolConfigChangeForTenant({
@@ -6177,34 +6175,34 @@ export async function validateTenantToolConfigChange(input: {
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function validateTenantToolConfigChangeForTenant(input: {
-  createdByType?: "runtime" | "system" | "user";
-  patch: Record<string, unknown>;
-  surfaceKey: string;
-  surfaceKind: string;
-  tenantId: string;
+  createdByType?: "runtime" | "system" | "user"
+  patch: Record<string, unknown>
+  surfaceKey: string
+  surfaceKind: string
+  tenantId: string
 }) {
-  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey)
 
   if (!definition) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
   if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     if (input.createdByType === "runtime") {
       throw new Error(
         "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
-      );
+      )
     }
 
     return validateTenantSlackRuntimeConfigChangeForTenant({
       createdByType: input.createdByType ?? "user",
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
       tenantId: input.tenantId,
-    });
+    })
   }
 
   if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
@@ -6214,44 +6212,44 @@ export async function validateTenantToolConfigChangeForTenant(input: {
         input.patch,
       ) as Partial<WhatsAppRuntimeConfig>,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  const mutationError = getSurfaceConfigMutationError(definition);
+  const mutationError = getSurfaceConfigMutationError(definition)
 
   if (mutationError) {
-    throw new Error(mutationError);
+    throw new Error(mutationError)
   }
 
-  throw new Error("Unsupported tool config surface");
+  throw new Error("Unsupported tool config surface")
 }
 
 export async function applyTenantToolConfigChange(input: {
-  allowDestructiveChanges?: boolean;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  expectedEntryVersion?: number;
-  orgSlug: string;
-  patch: Record<string, unknown>;
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  userExternalId?: string;
+  allowDestructiveChanges?: boolean
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  expectedEntryVersion?: number
+  orgSlug: string
+  patch: Record<string, unknown>
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  userExternalId?: string
 }) {
   const actorExternalId =
     input.createdByType === "user"
       ? (input.userExternalId ?? input.createdByExternalId ?? null)
-      : (input.createdByExternalId ?? null);
+      : (input.createdByExternalId ?? null)
   const authorizedTenant =
     input.createdByType === "user"
       ? await getAuthorizedLatestTenantForOrganization({
           orgSlug: input.orgSlug,
           userExternalId: input.userExternalId ?? "",
         })
-      : null;
+      : null
 
   if (input.createdByType === "user" && !authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return applyTenantToolConfigChangeForTenant({
@@ -6264,35 +6262,35 @@ export async function applyTenantToolConfigChange(input: {
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
     tenantId: authorizedTenant?.tenantId,
-  });
+  })
 }
 
 export async function applyTenantToolConfigChangeForTenant(input: {
-  allowDestructiveChanges?: boolean;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  expectedEntryVersion?: number;
-  patch: Record<string, unknown>;
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  tenantId?: string;
+  allowDestructiveChanges?: boolean
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  expectedEntryVersion?: number
+  patch: Record<string, unknown>
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  tenantId?: string
 }) {
   if (!input.tenantId) {
-    throw new Error("Tenant runtime config target is missing");
+    throw new Error("Tenant runtime config target is missing")
   }
 
-  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey)
 
   if (!definition) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
   if (isSlackSurface(input.surfaceKind, input.surfaceKey)) {
     if (input.createdByType === "runtime") {
       throw new Error(
         "Raw Slack config patches are disabled for runtime callers. Use the Slack policy action tools instead.",
-      );
+      )
     }
 
     const result = await updateTenantSlackRuntimeConfigForTenant({
@@ -6303,12 +6301,12 @@ export async function applyTenantToolConfigChangeForTenant(input: {
       patch: definition.parsePatch(input.patch) as Partial<SlackRuntimeConfig>,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
     const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey: input.surfaceKey,
       surfaceKind: input.surfaceKind,
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       ...result,
@@ -6316,7 +6314,7 @@ export async function applyTenantToolConfigChangeForTenant(input: {
       validation: {
         ok: true,
       },
-    };
+    }
   }
 
   if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
@@ -6330,12 +6328,12 @@ export async function applyTenantToolConfigChangeForTenant(input: {
       ) as Partial<WhatsAppRuntimeConfig>,
       summary: input.summary,
       tenantId: input.tenantId,
-    });
+    })
     const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey: input.surfaceKey,
       surfaceKind: input.surfaceKind,
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       ...result,
@@ -6343,37 +6341,37 @@ export async function applyTenantToolConfigChangeForTenant(input: {
       validation: {
         ok: true,
       },
-    };
+    }
   }
 
-  const mutationError = getSurfaceConfigMutationError(definition);
+  const mutationError = getSurfaceConfigMutationError(definition)
 
   if (mutationError) {
-    throw new Error(mutationError);
+    throw new Error(mutationError)
   }
 
-  throw new Error("Unsupported tool config surface");
+  throw new Error("Unsupported tool config surface")
 }
 
 export async function setTenantToolInstallState(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  enabled?: boolean;
-  expectedEntryVersion?: number;
-  installState: ToolInstallState;
-  orgSlug: string;
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  userExternalId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  enabled?: boolean
+  expectedEntryVersion?: number
+  installState: ToolInstallState
+  orgSlug: string
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return setTenantToolInstallStateForTenant({
@@ -6386,25 +6384,25 @@ export async function setTenantToolInstallState(input: {
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function reapplyTenantToolSurface(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  orgSlug: string;
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  userExternalId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  orgSlug: string
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return reapplyTenantToolSurfaceForTenant({
@@ -6414,13 +6412,13 @@ export async function reapplyTenantToolSurface(input: {
     surfaceKey: input.surfaceKey,
     surfaceKind: input.surfaceKind,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<TenantSlackRuntimeConfigSurface | null> {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const [slackConfig, directory, slackIntegration, organizationSlug] =
@@ -6437,16 +6435,16 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
         getOrganizationSlugForTenantTx(tx, {
           tenantId: input.tenantId,
         }),
-      ]);
+      ])
 
     const allowedActions = getSlackSurfaceAllowedActions({
       enabled: slackConfig.enabled,
       installState: slackConfig.installState,
-    });
+    })
     const effects = await evaluateSlackPolicyForTenant(tx, {
       config: slackConfig.config,
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       agentCapabilities: slackAgentCapabilities,
@@ -6490,36 +6488,36 @@ export async function getTenantSlackRuntimeConfigSurfaceForTenant(input: {
       surfaceType: "integration",
       uiGroup: "integrations",
       uiHints: slackRuntimeConfigUiHints,
-    };
-  });
+    }
+  })
 }
 
 export async function getTenantWhatsAppRuntimeConfigSurface(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
   return getTenantWhatsAppRuntimeConfigSurfaceForTenant({
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<TenantWhatsAppRuntimeConfigSurface | null> {
-  const db = getDb();
+  const db = getDb()
   const definition = getToolDefinition(
     WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
     WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
-  );
+  )
 
   return db.transaction(async (tx) => {
     const [whatsAppIntegration, organizationSlug] = await Promise.all([
@@ -6529,10 +6527,10 @@ export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
       getOrganizationSlugForTenantTx(tx, {
         tenantId: input.tenantId,
       }),
-    ]);
+    ])
 
     if (!whatsAppIntegration) {
-      return null;
+      return null
     }
 
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -6540,20 +6538,20 @@ export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
       {
         tenantId: input.tenantId,
       },
-    );
+    )
     const allowedActions = definition
       ? listAvailableToolActions(definition, {
           enabled: currentConfig.enabled,
           installState: currentConfig.installState,
         })
-      : [];
+      : []
     const effects = deriveWhatsAppPolicyEffects({
       config: currentConfig.config,
-    });
+    })
     const isBlocked =
       whatsAppIntegration.status === "pending_apply" ||
       whatsAppIntegration.status === "applying" ||
-      whatsAppIntegration.status === "activating";
+      whatsAppIntegration.status === "activating"
 
     return {
       actionMeanings: definition?.actionMeanings ?? [],
@@ -6587,28 +6585,28 @@ export async function getTenantWhatsAppRuntimeConfigSurfaceForTenant(input: {
       surfaceType: "integration",
       uiGroup: "integrations",
       uiHints: whatsappRuntimeConfigUiHints,
-    };
-  });
+    }
+  })
 }
 
 export async function enableTenantWhatsAppIntegration(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const existingIntegration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (existingIntegration) {
       const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -6616,7 +6614,7 @@ export async function enableTenantWhatsAppIntegration(input: {
         {
           tenantId: authorizedTenant.tenantId,
         },
-      );
+      )
 
       if (currentConfig.installState === "installed" && currentConfig.enabled) {
         return {
@@ -6624,11 +6622,11 @@ export async function enableTenantWhatsAppIntegration(input: {
           changed: false,
           desiredStateVersion: null as number | null,
           tenantId: authorizedTenant.tenantId,
-        };
+        }
       }
 
-      const now = new Date();
-      const nextEntryVersion = currentConfig.entryVersion + 1;
+      const now = new Date()
+      const nextEntryVersion = currentConfig.entryVersion + 1
 
       await tx
         .update(tenantRuntimeConfigEntries)
@@ -6644,17 +6642,17 @@ export async function enableTenantWhatsAppIntegration(input: {
           updatedByExternalId: input.userExternalId,
           updatedByType: "user",
         })
-        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
       const desiredStateVersion = (
         await createNextDesiredStateVersion(tx, {
           tenantId: authorizedTenant.tenantId,
         })
-      ).version;
+      ).version
       const tenantRuntime = await getTenantRuntimeState(
         tx,
         authorizedTenant.tenantId,
-      );
+      )
 
       await tx.insert(tenantRuntimeConfigMutations).values({
         actorExternalId: input.userExternalId,
@@ -6668,34 +6666,34 @@ export async function enableTenantWhatsAppIntegration(input: {
         resultingEntryVersion: nextEntryVersion,
         tenantId: authorizedTenant.tenantId,
         tenantRuntimeConfigEntryId: currentConfig.id,
-      });
+      })
 
       await markWhatsAppIntegrationPendingApply(tx, {
         now,
         tenantId: authorizedTenant.tenantId,
-      });
+      })
 
       return {
         applyQueued: tenantRuntime.isRuntimeReady,
         changed: true,
         desiredStateVersion,
         tenantId: authorizedTenant.tenantId,
-      };
+      }
     }
 
-    const now = new Date();
+    const now = new Date()
     await upsertWhatsAppIntegrationForTenant(tx, {
       now,
       statusWhenNotConnected: "pending_apply",
       tenantId: authorizedTenant.tenantId,
-    });
+    })
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
       tx,
       {
         tenantId: authorizedTenant.tenantId,
       },
-    );
-    const nextEntryVersion = currentConfig.entryVersion + 1;
+    )
+    const nextEntryVersion = currentConfig.entryVersion + 1
 
     await tx
       .update(tenantRuntimeConfigEntries)
@@ -6711,22 +6709,22 @@ export async function enableTenantWhatsAppIntegration(input: {
         updatedByExternalId: input.userExternalId,
         updatedByType: "user",
       })
-      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: authorizedTenant.tenantId,
       })
-    ).version;
+    ).version
     const tenantRuntime = await getTenantRuntimeState(
       tx,
       authorizedTenant.tenantId,
-    );
+    )
 
     await markWhatsAppIntegrationPendingApply(tx, {
       now,
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.userExternalId,
@@ -6740,21 +6738,21 @@ export async function enableTenantWhatsAppIntegration(input: {
       resultingEntryVersion: nextEntryVersion,
       tenantId: authorizedTenant.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       changed: true,
       desiredStateVersion,
       tenantId: authorizedTenant.tenantId,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: result.tenantId,
-    });
+    })
   }
 
   return {
@@ -6762,25 +6760,25 @@ export async function enableTenantWhatsAppIntegration(input: {
     surface: await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: result.tenantId,
     }),
-  };
+  }
 }
 
 async function disconnectTenantLinearIntegration(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
-  const now = new Date();
-  let desiredStateVersion = 0;
+  const db = getDb()
+  const now = new Date()
+  let desiredStateVersion = 0
 
   const result = await db.transaction(async (tx) => {
     const [integration] = await tx
@@ -6797,10 +6795,10 @@ async function disconnectTenantLinearIntegration(input: {
           eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!integration) {
-      throw new Error("Linear is not connected in this workspace.");
+      throw new Error("Linear is not connected in this workspace.")
     }
 
     const [oauthConnection] = await tx
@@ -6812,14 +6810,12 @@ async function disconnectTenantLinearIntegration(input: {
       .where(
         eq(integrationOauthConnections.tenantIntegrationId, integration.id),
       )
-      .limit(1);
+      .limit(1)
 
     if (oauthConnection) {
       await tx
         .delete(integrationOauthCredentials)
-        .where(
-          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
-        );
+        .where(eq(integrationOauthCredentials.connectionId, oauthConnection.id))
 
       await tx
         .update(integrationOauthConnections)
@@ -6834,7 +6830,7 @@ async function disconnectTenantLinearIntegration(input: {
           status: "disconnected",
           updatedAt: now,
         })
-        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+        .where(eq(integrationOauthConnections.id, oauthConnection.id))
 
       await appendIntegrationOauthEventTx(tx, {
         connectionId: oauthConnection.id,
@@ -6846,7 +6842,7 @@ async function disconnectTenantLinearIntegration(input: {
         statusAfter: "disconnected",
         statusBefore: oauthConnection.status,
         tenantIntegrationId: integration.id,
-      });
+      })
     }
 
     await tx
@@ -6858,52 +6854,52 @@ async function disconnectTenantLinearIntegration(input: {
         status: "disconnected",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, integration.id));
+      .where(eq(tenantIntegrations.id, integration.id))
 
     desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: authorizedTenant.tenantId,
       })
-    ).version;
+    ).version
 
     const tenantRuntime = await getTenantRuntimeState(
       tx,
       authorizedTenant.tenantId,
-    );
+    )
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       status: "disconnected",
       tenantId: authorizedTenant.tenantId,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued) {
     await enqueueTenantConfigApply({
       desiredStateVersion,
       tenantId: result.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 async function disconnectTenantSlackIntegration(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
-  const now = new Date();
-  let desiredStateVersion = 0;
+  const db = getDb()
+  const now = new Date()
+  let desiredStateVersion = 0
 
   const result = await db.transaction(async (tx) => {
     const [integration] = await tx
@@ -6920,10 +6916,10 @@ async function disconnectTenantSlackIntegration(input: {
           eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     if (!integration?.connectedAt || integration.disconnectedAt) {
-      throw new Error("Slack is not connected in this workspace.");
+      throw new Error("Slack is not connected in this workspace.")
     }
 
     const [oauthConnection] = await tx
@@ -6935,14 +6931,12 @@ async function disconnectTenantSlackIntegration(input: {
       .where(
         eq(integrationOauthConnections.tenantIntegrationId, integration.id),
       )
-      .limit(1);
+      .limit(1)
 
     if (oauthConnection) {
       await tx
         .delete(integrationOauthCredentials)
-        .where(
-          eq(integrationOauthCredentials.connectionId, oauthConnection.id),
-        );
+        .where(eq(integrationOauthCredentials.connectionId, oauthConnection.id))
 
       await tx
         .update(integrationOauthConnections)
@@ -6957,7 +6951,7 @@ async function disconnectTenantSlackIntegration(input: {
           status: "disconnected",
           updatedAt: now,
         })
-        .where(eq(integrationOauthConnections.id, oauthConnection.id));
+        .where(eq(integrationOauthConnections.id, oauthConnection.id))
 
       await appendIntegrationOauthEventTx(tx, {
         connectionId: oauthConnection.id,
@@ -6969,7 +6963,7 @@ async function disconnectTenantSlackIntegration(input: {
         statusAfter: "disconnected",
         statusBefore: oauthConnection.status,
         tenantIntegrationId: integration.id,
-      });
+      })
     }
 
     await tx
@@ -6981,57 +6975,57 @@ async function disconnectTenantSlackIntegration(input: {
         status: "disconnected",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, integration.id));
+      .where(eq(tenantIntegrations.id, integration.id))
 
     desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: authorizedTenant.tenantId,
       })
-    ).version;
+    ).version
 
     const tenantRuntime = await getTenantRuntimeState(
       tx,
       authorizedTenant.tenantId,
-    );
+    )
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       status: "disconnected",
       tenantId: authorizedTenant.tenantId,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued) {
     await enqueueTenantConfigApply({
       desiredStateVersion,
       tenantId: result.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function disableTenantWhatsAppIntegration(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!integration) {
-      throw new Error("WhatsApp is not enabled for this workspace");
+      throw new Error("WhatsApp is not enabled for this workspace")
     }
 
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -7039,7 +7033,7 @@ export async function disableTenantWhatsAppIntegration(input: {
       {
         tenantId: authorizedTenant.tenantId,
       },
-    );
+    )
     const [session] = await tx
       .select({
         completedAt: integrationWhatsAppLinkSessions.completedAt,
@@ -7057,8 +7051,8 @@ export async function disableTenantWhatsAppIntegration(input: {
         eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
       )
       .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
-      .limit(1);
-    const now = new Date();
+      .limit(1)
+    const now = new Date()
 
     if (
       session &&
@@ -7076,13 +7070,13 @@ export async function disableTenantWhatsAppIntegration(input: {
           status: "dismissed",
           updatedAt: now,
         })
-        .where(eq(integrationWhatsAppLinkSessions.id, session.id));
+        .where(eq(integrationWhatsAppLinkSessions.id, session.id))
     }
 
-    let desiredStateVersion: number | null = null;
+    let desiredStateVersion: number | null = null
 
     if (currentConfig.installState !== "uninstalled" || currentConfig.enabled) {
-      const nextEntryVersion = currentConfig.entryVersion + 1;
+      const nextEntryVersion = currentConfig.entryVersion + 1
 
       await tx
         .update(tenantRuntimeConfigEntries)
@@ -7098,13 +7092,13 @@ export async function disableTenantWhatsAppIntegration(input: {
           updatedByExternalId: input.userExternalId,
           updatedByType: "user",
         })
-        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+        .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
       desiredStateVersion = (
         await createNextDesiredStateVersion(tx, {
           tenantId: authorizedTenant.tenantId,
         })
-      ).version;
+      ).version
 
       await tx.insert(tenantRuntimeConfigMutations).values({
         actorExternalId: input.userExternalId,
@@ -7118,13 +7112,13 @@ export async function disableTenantWhatsAppIntegration(input: {
         resultingEntryVersion: nextEntryVersion,
         tenantId: authorizedTenant.tenantId,
         tenantRuntimeConfigEntryId: currentConfig.id,
-      });
+      })
     }
 
     const tenantRuntime = await getTenantRuntimeState(
       tx,
       authorizedTenant.tenantId,
-    );
+    )
 
     return {
       desiredStateVersion,
@@ -7146,8 +7140,8 @@ export async function disableTenantWhatsAppIntegration(input: {
           : (session ?? null),
       ),
       tenantId: authorizedTenant.tenantId,
-    };
-  });
+    }
+  })
 
   if (result.disconnectQueued) {
     await enqueueJob({
@@ -7156,7 +7150,7 @@ export async function disableTenantWhatsAppIntegration(input: {
         desiredStateVersion: result.desiredStateVersion ?? undefined,
         tenantId: result.tenantId,
       },
-    });
+    })
   }
 
   return {
@@ -7164,22 +7158,22 @@ export async function disableTenantWhatsAppIntegration(input: {
     surface: await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: result.tenantId,
     }),
-  };
+  }
 }
 
 export async function activateTenantWhatsAppAfterPairing(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (!integration) {
-      throw new Error("WhatsApp integration not found");
+      throw new Error("WhatsApp integration not found")
     }
 
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -7187,18 +7181,18 @@ export async function activateTenantWhatsAppAfterPairing(input: {
       {
         tenantId: input.tenantId,
       },
-    );
+    )
 
     if (currentConfig.installState === "installed" && currentConfig.enabled) {
       return {
         applyQueued: false,
         changed: false,
         desiredStateVersion: null as number | null,
-      };
+      }
     }
 
-    const now = new Date();
-    const nextEntryVersion = currentConfig.entryVersion + 1;
+    const now = new Date()
+    const nextEntryVersion = currentConfig.entryVersion + 1
 
     await tx
       .update(tenantRuntimeConfigEntries)
@@ -7214,14 +7208,14 @@ export async function activateTenantWhatsAppAfterPairing(input: {
         updatedByExternalId: input.createdByExternalId ?? null,
         updatedByType: input.createdByType,
       })
-      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     await tx
       .update(tenantIntegrations)
@@ -7238,7 +7232,7 @@ export async function activateTenantWhatsAppAfterPairing(input: {
           eq(tenantIntegrations.tenantId, input.tenantId),
           eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
         ),
-      );
+      )
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.createdByExternalId ?? null,
@@ -7252,61 +7246,61 @@ export async function activateTenantWhatsAppAfterPairing(input: {
       resultingEntryVersion: nextEntryVersion,
       tenantId: input.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
       changed: true,
       desiredStateVersion,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function createTenantWhatsAppLinkSession(input: {
-  forceRelink?: boolean;
-  orgSlug: string;
-  userExternalId: string;
+  forceRelink?: boolean
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const tenantRuntime = await getTenantRuntimeState(
       tx,
       authorizedTenant.tenantId,
-    );
+    )
 
     if (!tenantRuntime.isRuntimeReady) {
-      throw new Error("WhatsApp linking requires a ready workspace runtime");
+      throw new Error("WhatsApp linking requires a ready workspace runtime")
     }
 
     let integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!integration) {
-      const now = new Date();
+      const now = new Date()
       const integrationId = await upsertWhatsAppIntegrationForTenant(tx, {
         now,
         statusWhenNotConnected: "ready_to_link",
         tenantId: authorizedTenant.tenantId,
-      });
+      })
       integration = {
         connectedAt: null,
         disconnectedAt: null,
@@ -7316,12 +7310,12 @@ export async function createTenantWhatsAppLinkSession(input: {
         selfE164: null,
         selfJid: null,
         status: "ready_to_link",
-      };
+      }
     }
 
     await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (
       integration.status === "pending_apply" ||
@@ -7330,16 +7324,16 @@ export async function createTenantWhatsAppLinkSession(input: {
     ) {
       throw new Error(
         "Otto is still applying WhatsApp. Wait for the latest update to finish before generating a QR code.",
-      );
+      )
     }
 
     if (integration.status === "apply_failed") {
       throw new Error(
         "WhatsApp setup is not applied on the tenant runtime yet. Reapply the WhatsApp settings before generating a QR code.",
-      );
+      )
     }
 
-    const now = new Date();
+    const now = new Date()
     const [linkSession] = await tx
       .insert(integrationWhatsAppLinkSessions)
       .values({
@@ -7359,7 +7353,7 @@ export async function createTenantWhatsAppLinkSession(input: {
         qrDataUrl: integrationWhatsAppLinkSessions.qrDataUrl,
         status: integrationWhatsAppLinkSessions.status,
         updatedAt: integrationWhatsAppLinkSessions.updatedAt,
-      });
+      })
 
     await tx
       .update(tenantIntegrations)
@@ -7369,13 +7363,13 @@ export async function createTenantWhatsAppLinkSession(input: {
         status: "linking",
         updatedAt: now,
       })
-      .where(eq(tenantIntegrations.id, integration.id));
+      .where(eq(tenantIntegrations.id, integration.id))
 
     return {
       linkSession: buildTenantWhatsAppLinkSession(linkSession),
       tenantId: authorizedTenant.tenantId,
-    };
-  });
+    }
+  })
 
   await enqueueJob({
     jobType: JOB_TYPES.whatsappLinkSession,
@@ -7383,33 +7377,33 @@ export async function createTenantWhatsAppLinkSession(input: {
       linkSessionId: result.linkSession?.id ?? "",
       tenantId: result.tenantId,
     },
-  });
+  })
 
-  return result;
+  return result
 }
 
 export async function getCurrentTenantWhatsAppLinkSession(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    return null;
+    return null
   }
 
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!integration) {
-      return null;
+      return null
     }
 
     const [session] = await tx
@@ -7429,73 +7423,73 @@ export async function getCurrentTenantWhatsAppLinkSession(input: {
         eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
       )
       .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
-      .limit(1);
+      .limit(1)
 
-    return buildTenantWhatsAppLinkSession(session ?? null);
-  });
+    return buildTenantWhatsAppLinkSession(session ?? null)
+  })
 }
 
 export async function disconnectTenantWhatsApp(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
+  const db = getDb()
   const tenantId = await db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!integration) {
-      throw new Error("WhatsApp is not enabled for this workspace");
+      throw new Error("WhatsApp is not enabled for this workspace")
     }
 
-    return authorizedTenant.tenantId;
-  });
+    return authorizedTenant.tenantId
+  })
 
   await enqueueJob({
     jobType: JOB_TYPES.whatsappDisconnect,
     payload: {
       tenantId,
     },
-  });
+  })
 
   return {
     disconnectQueued: true,
     tenantId,
-  };
+  }
 }
 
 export async function clearCurrentTenantWhatsAppLinkSession(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: authorizedTenant.tenantId,
-    });
+    })
 
     if (!integration) {
-      throw new Error("WhatsApp is not enabled for this workspace");
+      throw new Error("WhatsApp is not enabled for this workspace")
     }
 
     const [session] = await tx
@@ -7508,16 +7502,16 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
         eq(integrationWhatsAppLinkSessions.tenantIntegrationId, integration.id),
       )
       .orderBy(desc(integrationWhatsAppLinkSessions.createdAt))
-      .limit(1);
+      .limit(1)
 
     if (!session) {
       return {
         cleared: false,
         linkSession: null,
-      };
+      }
     }
 
-    const now = new Date();
+    const now = new Date()
 
     await tx
       .update(integrationWhatsAppLinkSessions)
@@ -7529,7 +7523,7 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
         status: "dismissed",
         updatedAt: now,
       })
-      .where(eq(integrationWhatsAppLinkSessions.id, session.id));
+      .where(eq(integrationWhatsAppLinkSessions.id, session.id))
 
     if (integration.status === "linking") {
       await tx
@@ -7540,7 +7534,7 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
           status: "ready_to_link",
           updatedAt: now,
         })
-        .where(eq(tenantIntegrations.id, integration.id));
+        .where(eq(tenantIntegrations.id, integration.id))
     }
 
     const [updatedSession] = await tx
@@ -7557,81 +7551,81 @@ export async function clearCurrentTenantWhatsAppLinkSession(input: {
       })
       .from(integrationWhatsAppLinkSessions)
       .where(eq(integrationWhatsAppLinkSessions.id, session.id))
-      .limit(1);
+      .limit(1)
 
     return {
       cleared: true,
       linkSession: buildTenantWhatsAppLinkSession(updatedSession ?? null),
-    };
-  });
+    }
+  })
 }
 
 export async function updateTenantSlackChannelMembership(input: {
-  action: "join" | "leave";
-  channelId: string;
-  orgSlug: string;
-  userExternalId: string;
+  action: "join" | "leave"
+  channelId: string
+  orgSlug: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return updateTenantSlackChannelMembershipForTenant({
     action: input.action,
     channelId: input.channelId,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function updateTenantSlackChannelMembershipForTenant(input: {
-  action: "join" | "leave";
-  channelId: string;
-  tenantId: string;
+  action: "join" | "leave"
+  channelId: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const installation = await db.transaction(async (tx) => {
     const slackInstallation = await getConnectedSlackInstallationForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (!slackInstallation) {
       throw new Error(
         "Slack must be connected before Otto can join or leave channels",
-      );
+      )
     }
 
     const runtimeConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       channelAccessMode: runtimeConfig.config.channelAccessMode,
       slackInstallation,
-    };
-  });
-  const botToken = await getTenantSlackBotToken(input.tenantId);
+    }
+  })
+  const botToken = await getTenantSlackBotToken(input.tenantId)
 
   if (!botToken) {
     throw new Error(
       "Slack bot token is unavailable, so Otto cannot update channel membership",
-    );
+    )
   }
 
   if (input.action === "join") {
     await joinSlackChannel({
       botToken,
       channelId: input.channelId,
-    });
+    })
   } else {
     await leaveSlackChannel({
       botToken,
       channelId: input.channelId,
-    });
+    })
   }
 
   await refreshSlackDirectoryForInstallation({
@@ -7639,9 +7633,9 @@ export async function updateTenantSlackChannelMembershipForTenant(input: {
     externalWorkspaceId: installation.slackInstallation.slackTeamId,
     tenantIntegrationId: installation.slackInstallation.tenantIntegrationId,
     workspaceDisplayName: installation.slackInstallation.slackTeamName,
-  });
+  })
 
-  let applyQueued = false;
+  let applyQueued = false
 
   if (installation.channelAccessMode === "member_of_channels") {
     const applyResult = await db.transaction(async (tx) => {
@@ -7649,55 +7643,55 @@ export async function updateTenantSlackChannelMembershipForTenant(input: {
         await createNextDesiredStateVersion(tx, {
           tenantId: input.tenantId,
         })
-      ).version;
-      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+      ).version
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
       return {
         applyQueued: tenantRuntime.isRuntimeReady,
         desiredStateVersion,
-      };
-    });
+      }
+    })
 
     if (applyResult.applyQueued) {
       await enqueueTenantConfigApply({
         desiredStateVersion: applyResult.desiredStateVersion,
         tenantId: input.tenantId,
-      });
-      applyQueued = true;
+      })
+      applyQueued = true
     }
   }
 
   const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
     tenantId: input.tenantId,
-  });
+  })
 
   if (!surface) {
     throw new Error(
       "Slack runtime config surface not found after channel update",
-    );
+    )
   }
 
   return {
     applyQueued,
     surface,
-  };
+  }
 }
 
 export async function updateTenantSlackRuntimeConfig(input: {
-  allowDestructiveChanges?: boolean;
-  expectedEntryVersion?: number;
-  orgSlug: string;
-  patch: Partial<SlackRuntimeConfig>;
-  summary?: string;
-  userExternalId: string;
+  allowDestructiveChanges?: boolean
+  expectedEntryVersion?: number
+  orgSlug: string
+  patch: Partial<SlackRuntimeConfig>
+  summary?: string
+  userExternalId: string
 }) {
   const authorizedTenant = await getAuthorizedLatestTenantForOrganization({
     orgSlug: input.orgSlug,
     userExternalId: input.userExternalId,
-  });
+  })
 
   if (!authorizedTenant) {
-    throw new Error("Organization tenant not found");
+    throw new Error("Organization tenant not found")
   }
 
   return updateTenantSlackRuntimeConfigForTenant({
@@ -7708,55 +7702,53 @@ export async function updateTenantSlackRuntimeConfig(input: {
     patch: slackRuntimeConfigPatchSchema.parse(input.patch),
     summary: input.summary,
     tenantId: authorizedTenant.tenantId,
-  });
+  })
 }
 
 export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
-  createdByType: "runtime" | "system" | "user";
-  patch: Partial<SlackRuntimeConfig>;
-  tenantId: string;
+  createdByType: "runtime" | "system" | "user"
+  patch: Partial<SlackRuntimeConfig>
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (currentConfig.installState !== "installed") {
-      throw new Error(
-        "Slack config must be installed before it can be updated",
-      );
+      throw new Error("Slack config must be installed before it can be updated")
     }
 
     const nextConfig = parseSlackRuntimeConfig({
       ...currentConfig.config,
       ...input.patch,
-    });
+    })
 
     await validateSlackRuntimeConfigSemantics(tx, {
       config: nextConfig,
       tenantId: input.tenantId,
-    });
+    })
     const effects = await evaluateSlackPolicyForTenant(tx, {
       config: nextConfig,
       currentConfig: currentConfig.config,
       tenantId: input.tenantId,
-    });
+    })
 
     const destructiveChangeError = getSlackDestructiveChangeError({
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
       wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
-    });
+    })
 
     if (destructiveChangeError) {
-      throw new Error(destructiveChangeError);
+      throw new Error(destructiveChangeError)
     }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       effects,
@@ -7766,26 +7758,26 @@ export async function validateTenantSlackRuntimeConfigChangeForTenant(input: {
         ok: true,
         warnings: effects.warnings,
       },
-    };
-  });
+    }
+  })
 }
 
 export async function validateTenantWhatsAppRuntimeConfigChangeForTenant(input: {
-  createdByType: "runtime" | "system" | "user";
-  patch: Partial<WhatsAppRuntimeConfig>;
-  tenantId: string;
+  createdByType: "runtime" | "system" | "user"
+  patch: Partial<WhatsAppRuntimeConfig>
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (!integration) {
       throw new Error(
         "WhatsApp must be enabled before its runtime config can be updated",
-      );
+      )
     }
 
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -7793,25 +7785,25 @@ export async function validateTenantWhatsAppRuntimeConfigChangeForTenant(input: 
       {
         tenantId: input.tenantId,
       },
-    );
+    )
 
     if (currentConfig.installState !== "installed") {
       throw new Error(
         "WhatsApp config must be installed before it can be updated",
-      );
+      )
     }
 
     const nextConfig = parseWhatsAppRuntimeConfig({
       ...currentConfig.config,
       ...input.patch,
-    });
+    })
     const effects = deriveWhatsAppPolicyEffects({
       config: nextConfig,
       currentConfig: currentConfig.config,
-    });
+    })
     const surface = await getTenantWhatsAppRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       effects,
@@ -7821,57 +7813,55 @@ export async function validateTenantWhatsAppRuntimeConfigChangeForTenant(input: 
         ok: true,
         warnings: effects.warnings,
       },
-    };
-  });
+    }
+  })
 }
 
 export async function validateTenantSlackPolicyActionForTenant(input: {
-  action: SlackPolicyAction;
-  createdByType: "runtime" | "system" | "user";
-  tenantId: string;
+  action: SlackPolicyAction
+  createdByType: "runtime" | "system" | "user"
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   return db.transaction(async (tx) => {
     const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (currentConfig.installState !== "installed") {
-      throw new Error(
-        "Slack config must be installed before it can be updated",
-      );
+      throw new Error("Slack config must be installed before it can be updated")
     }
 
     const nextConfig = applySlackPolicyAction(
       currentConfig.config,
       input.action,
-    );
+    )
 
     await validateSlackRuntimeConfigSemantics(tx, {
       config: nextConfig,
       tenantId: input.tenantId,
-    });
+    })
 
     const effects = await evaluateSlackPolicyForTenant(tx, {
       config: nextConfig,
       currentConfig: currentConfig.config,
       tenantId: input.tenantId,
-    });
+    })
 
     const destructiveChangeError = getSlackDestructiveChangeError({
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
       wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
-    });
+    })
 
     if (destructiveChangeError) {
-      throw new Error(destructiveChangeError);
+      throw new Error(destructiveChangeError)
     }
 
     const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       action: input.action,
@@ -7882,23 +7872,23 @@ export async function validateTenantSlackPolicyActionForTenant(input: {
         ok: true,
         warnings: effects.warnings,
       },
-    };
-  });
+    }
+  })
 }
 
 export async function applyTenantSlackPolicyActionForTenant(input: {
-  action: SlackPolicyAction;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  expectedEntryVersion?: number;
-  summary?: string;
-  tenantId: string;
+  action: SlackPolicyAction
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  expectedEntryVersion?: number
+  summary?: string
+  tenantId: string
 }) {
   const validation = await validateTenantSlackPolicyActionForTenant({
     action: input.action,
     createdByType: input.createdByType,
     tenantId: input.tenantId,
-  });
+  })
 
   const result = await updateTenantSlackRuntimeConfigForTenant({
     allowDestructiveChanges: false,
@@ -7910,10 +7900,10 @@ export async function applyTenantSlackPolicyActionForTenant(input: {
       input.summary ??
       `Applied Slack policy action: ${input.action.type.replaceAll("_", " ")}`,
     tenantId: input.tenantId,
-  });
+  })
   const surface = await getTenantSlackRuntimeConfigSurfaceForTenant({
     tenantId: input.tenantId,
-  });
+  })
 
   return {
     ...result,
@@ -7923,29 +7913,29 @@ export async function applyTenantSlackPolicyActionForTenant(input: {
       ok: true,
       warnings: validation.effects.warnings,
     },
-  };
+  }
 }
 
 export async function updateTenantManagedFileSharedContentForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "user";
-  expectedVersion?: number;
-  filePath: ManagedBootstrapFilePath;
-  sharedContent: string;
-  summary?: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "user"
+  expectedVersion?: number
+  filePath: ManagedBootstrapFilePath
+  sharedContent: string
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
-  const normalizedSharedContent = input.sharedContent.trim();
+  const db = getDb()
+  const normalizedSharedContent = input.sharedContent.trim()
 
   if (!normalizedSharedContent) {
-    throw new Error("Shared managed content cannot be empty");
+    throw new Error("Shared managed content cannot be empty")
   }
 
   const result = await db.transaction(async (tx) => {
     const latestConfig = await ensureLatestTenantManagedConfigVersion(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (
       input.expectedVersion !== undefined &&
@@ -7954,7 +7944,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
       throw new ManagedConfigVersionConflictError(
         input.expectedVersion,
         latestConfig.version,
-      );
+      )
     }
 
     const latestFiles = await tx
@@ -7969,29 +7959,29 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
           tenantManagedFileVersions.tenantManagedConfigVersionId,
           latestConfig.id,
         ),
-      );
+      )
 
-    const normalizedLatestFiles = normalizeManagedFileRows(latestFiles);
+    const normalizedLatestFiles = normalizeManagedFileRows(latestFiles)
 
     const completeLatestFiles = getManagedBootstrapFileDefinitions().map(
       (definition) => {
-        const existingFile = normalizedLatestFiles.get(definition.path);
+        const existingFile = normalizedLatestFiles.get(definition.path)
 
         return {
           path: definition.path,
           sharedContent:
             existingFile?.sharedContent ?? definition.defaultSharedContent,
           systemContent: definition.systemContent,
-        };
+        }
       },
-    );
+    )
 
     const targetFile = completeLatestFiles.find(
       (file) => file.path === input.filePath,
-    );
+    )
 
     if (!targetFile) {
-      throw new Error(`Managed file ${input.filePath} is missing`);
+      throw new Error(`Managed file ${input.filePath} is missing`)
     }
 
     if (targetFile.sharedContent === normalizedSharedContent) {
@@ -7999,7 +7989,7 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
         applyQueued: false,
         changed: false,
         currentVersion: latestConfig.version,
-      };
+      }
     }
 
     const [createdVersion] = await tx
@@ -8014,14 +8004,14 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
       .returning({
         id: tenantManagedConfigVersions.id,
         version: tenantManagedConfigVersions.version,
-      });
+      })
 
     await tx.insert(tenantManagedFileVersions).values(
       completeLatestFiles.map((file) => {
         const sharedContent =
           file.path === input.filePath
             ? normalizedSharedContent
-            : file.sharedContent;
+            : file.sharedContent
 
         return {
           checksum: createManagedFileChecksum({
@@ -8033,16 +8023,16 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
           sharedContent,
           systemContent: file.systemContent,
           tenantManagedConfigVersionId: createdVersion.id,
-        };
+        }
       }),
-    );
+    )
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -8050,52 +8040,50 @@ export async function updateTenantManagedFileSharedContentForTenant(input: {
       currentVersion: createdVersion.version,
       desiredStateVersion,
       managedConfigVersion: createdVersion.version,
-    };
-  });
+    }
+  })
 
   if (!result.changed) {
-    return result;
+    return result
   }
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function updateTenantSlackRuntimeConfigForTenant(input: {
-  allowDestructiveChanges?: boolean;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  expectedEntryVersion?: number;
-  patch: Partial<SlackRuntimeConfig>;
-  summary?: string;
-  tenantId: string;
+  allowDestructiveChanges?: boolean
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  expectedEntryVersion?: number
+  patch: Partial<SlackRuntimeConfig>
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (!slackIntegration) {
       throw new Error(
         "Slack must be connected before its runtime config can be updated",
-      );
+      )
     }
 
     const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (currentConfig.installState !== "installed") {
-      throw new Error(
-        "Slack config must be installed before it can be updated",
-      );
+      throw new Error("Slack config must be installed before it can be updated")
     }
 
     if (
@@ -8105,33 +8093,33 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       throw new TenantRuntimeConfigVersionConflictError(
         input.expectedEntryVersion,
         currentConfig.entryVersion,
-      );
+      )
     }
 
     const nextConfig = parseSlackRuntimeConfig({
       ...currentConfig.config,
       ...input.patch,
-    });
+    })
 
     await validateSlackRuntimeConfigSemantics(tx, {
       config: nextConfig,
       tenantId: input.tenantId,
-    });
+    })
     const effects = await evaluateSlackPolicyForTenant(tx, {
       config: nextConfig,
       currentConfig: currentConfig.config,
       tenantId: input.tenantId,
-    });
+    })
 
     const destructiveChangeError = getSlackDestructiveChangeError({
       allowDestructiveChanges: input.allowDestructiveChanges,
       createdByType: input.createdByType,
       isDestructive: isSlackPolicyDestructive(effects),
       wouldFullyLockOutSlack: effects.wouldFullyLockOutSlack,
-    });
+    })
 
     if (destructiveChangeError) {
-      throw new Error(destructiveChangeError);
+      throw new Error(destructiveChangeError)
     }
 
     if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
@@ -8139,11 +8127,11 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
         applyQueued: false,
         changed: false,
         currentEntryVersion: currentConfig.entryVersion,
-      };
+      }
     }
 
-    const now = new Date();
-    const nextEntryVersion = currentConfig.entryVersion + 1;
+    const now = new Date()
+    const nextEntryVersion = currentConfig.entryVersion + 1
 
     await tx
       .update(tenantRuntimeConfigEntries)
@@ -8159,14 +8147,14 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
         updatedByExternalId: input.createdByExternalId ?? null,
         updatedByType: input.createdByType,
       })
-      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.createdByExternalId ?? null,
@@ -8179,7 +8167,7 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       resultingEntryVersion: nextEntryVersion,
       tenantId: input.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -8188,38 +8176,38 @@ export async function updateTenantSlackRuntimeConfigForTenant(input: {
       desiredStateVersion,
       effects,
       installState: "installed" as const,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
-  allowDestructiveChanges?: boolean;
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  expectedEntryVersion?: number;
-  patch: Partial<WhatsAppRuntimeConfig>;
-  summary?: string;
-  tenantId: string;
+  allowDestructiveChanges?: boolean
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  expectedEntryVersion?: number
+  patch: Partial<WhatsAppRuntimeConfig>
+  summary?: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const integration = await getWhatsAppIntegrationForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (!integration) {
       throw new Error(
         "WhatsApp must be enabled before its runtime config can be updated",
-      );
+      )
     }
 
     const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -8227,12 +8215,12 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
       {
         tenantId: input.tenantId,
       },
-    );
+    )
 
     if (currentConfig.installState !== "installed") {
       throw new Error(
         "WhatsApp config must be installed before it can be updated",
-      );
+      )
     }
 
     if (
@@ -8242,17 +8230,17 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
       throw new TenantRuntimeConfigVersionConflictError(
         input.expectedEntryVersion,
         currentConfig.entryVersion,
-      );
+      )
     }
 
     const nextConfig = parseWhatsAppRuntimeConfig({
       ...currentConfig.config,
       ...input.patch,
-    });
+    })
     const effects = deriveWhatsAppPolicyEffects({
       config: nextConfig,
       currentConfig: currentConfig.config,
-    });
+    })
 
     if (
       input.createdByType === "user" &&
@@ -8261,7 +8249,7 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
     ) {
       throw new Error(
         "This WhatsApp settings change would fully lock Otto out of WhatsApp. Confirm the destructive change in the workspace before saving it.",
-      );
+      )
     }
 
     if (JSON.stringify(currentConfig.config) === JSON.stringify(nextConfig)) {
@@ -8269,11 +8257,11 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
         applyQueued: false,
         changed: false,
         currentEntryVersion: currentConfig.entryVersion,
-      };
+      }
     }
 
-    const now = new Date();
-    const nextEntryVersion = currentConfig.entryVersion + 1;
+    const now = new Date()
+    const nextEntryVersion = currentConfig.entryVersion + 1
 
     await tx
       .update(tenantRuntimeConfigEntries)
@@ -8289,14 +8277,14 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
         updatedByExternalId: input.createdByExternalId ?? null,
         updatedByType: input.createdByType,
       })
-      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.createdByExternalId ?? null,
@@ -8309,7 +8297,7 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
       resultingEntryVersion: nextEntryVersion,
       tenantId: input.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -8318,51 +8306,51 @@ export async function updateTenantWhatsAppRuntimeConfigForTenant(input: {
       desiredStateVersion,
       effects,
       installState: "installed" as const,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function setTenantToolInstallStateForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  enabled?: boolean;
-  expectedEntryVersion?: number;
-  installState: ToolInstallState;
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  enabled?: boolean
+  expectedEntryVersion?: number
+  installState: ToolInstallState
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  tenantId: string
 }) {
-  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey)
 
   if (!definition) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
-  const mutationError = getSurfaceLifecycleMutationError(definition);
+  const mutationError = getSurfaceLifecycleMutationError(definition)
 
   if (mutationError) {
-    throw new Error(mutationError);
+    throw new Error(mutationError)
   }
 
   if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (
       typeof input.expectedEntryVersion === "number" &&
@@ -8371,18 +8359,18 @@ export async function setTenantToolInstallStateForTenant(input: {
       throw new TenantRuntimeConfigVersionConflictError(
         input.expectedEntryVersion,
         currentConfig.entryVersion,
-      );
+      )
     }
 
     if (input.installState === "installed") {
       const slackIntegration = await getConnectedSlackIntegrationForTenant(tx, {
         tenantId: input.tenantId,
-      });
+      })
 
       if (!slackIntegration) {
         throw new Error(
           "Slack must be connected before its runtime surface can be installed",
-        );
+        )
       }
     }
 
@@ -8391,7 +8379,7 @@ export async function setTenantToolInstallStateForTenant(input: {
       typeof input.enabled === "boolean" &&
       input.enabled
     ) {
-      throw new Error("An uninstalled runtime surface cannot be enabled");
+      throw new Error("An uninstalled runtime surface cannot be enabled")
     }
 
     const nextEnabled =
@@ -8401,7 +8389,7 @@ export async function setTenantToolInstallStateForTenant(input: {
           ? input.enabled
           : currentConfig.installState === "uninstalled"
             ? true
-            : currentConfig.enabled;
+            : currentConfig.enabled
 
     if (
       currentConfig.installState === input.installState &&
@@ -8411,7 +8399,7 @@ export async function setTenantToolInstallStateForTenant(input: {
         surfaceKey: input.surfaceKey,
         surfaceKind: input.surfaceKind,
         tenantId: input.tenantId,
-      });
+      })
 
       return {
         applyQueued: false,
@@ -8419,11 +8407,11 @@ export async function setTenantToolInstallStateForTenant(input: {
         currentEntryVersion: currentConfig.entryVersion,
         desiredStateVersion: undefined,
         surface,
-      };
+      }
     }
 
-    const now = new Date();
-    const nextEntryVersion = currentConfig.entryVersion + 1;
+    const now = new Date()
+    const nextEntryVersion = currentConfig.entryVersion + 1
     const mutationType =
       currentConfig.installState !== input.installState
         ? input.installState === "installed"
@@ -8431,7 +8419,7 @@ export async function setTenantToolInstallStateForTenant(input: {
           : "uninstall"
         : nextEnabled
           ? "enable"
-          : "disable";
+          : "disable"
 
     await tx
       .update(tenantRuntimeConfigEntries)
@@ -8454,14 +8442,14 @@ export async function setTenantToolInstallStateForTenant(input: {
         updatedByExternalId: input.createdByExternalId ?? null,
         updatedByType: input.createdByType,
       })
-      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id));
+      .where(eq(tenantRuntimeConfigEntries.id, currentConfig.id))
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.createdByExternalId ?? null,
@@ -8476,13 +8464,13 @@ export async function setTenantToolInstallStateForTenant(input: {
       resultingEntryVersion: nextEntryVersion,
       tenantId: input.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey: input.surfaceKey,
       surfaceKind: input.surfaceKind,
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -8490,50 +8478,50 @@ export async function setTenantToolInstallStateForTenant(input: {
       currentEntryVersion: nextEntryVersion,
       desiredStateVersion,
       surface,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function reapplyTenantToolSurfaceForTenant(input: {
-  createdByExternalId?: string | null;
-  createdByType: "runtime" | "system" | "user";
-  summary?: string;
-  surfaceKey: string;
-  surfaceKind: string;
-  tenantId: string;
+  createdByExternalId?: string | null
+  createdByType: "runtime" | "system" | "user"
+  summary?: string
+  surfaceKey: string
+  surfaceKind: string
+  tenantId: string
 }) {
-  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey);
+  const definition = getToolDefinition(input.surfaceKind, input.surfaceKey)
 
   if (!definition) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
-  const mutationError = getSurfaceReapplyError(definition);
+  const mutationError = getSurfaceReapplyError(definition)
 
   if (mutationError) {
-    throw new Error(mutationError);
+    throw new Error(mutationError)
   }
 
   if (isWhatsAppSurface(input.surfaceKind, input.surfaceKey)) {
-    const db = getDb();
+    const db = getDb()
     const result = await db.transaction(async (tx) => {
       const integration = await getWhatsAppIntegrationForTenant(tx, {
         tenantId: input.tenantId,
-      });
+      })
 
       if (!integration) {
         throw new Error(
           "WhatsApp must be enabled before its runtime surface can be reapplied",
-        );
+        )
       }
 
       const currentConfig = await getOrCreateTenantWhatsAppRuntimeConfigEntry(
@@ -8541,20 +8529,20 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
         {
           tenantId: input.tenantId,
         },
-      );
+      )
 
       if (currentConfig.installState !== "installed") {
         throw new Error(
           "Tool surface must be installed before it can be reapplied",
-        );
+        )
       }
 
       const desiredStateVersion = (
         await createNextDesiredStateVersion(tx, {
           tenantId: input.tenantId,
         })
-      ).version;
-      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+      ).version
+      const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
       await tx.insert(tenantRuntimeConfigMutations).values({
         actorExternalId: input.createdByExternalId ?? null,
@@ -8567,13 +8555,13 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
         resultingEntryVersion: currentConfig.entryVersion,
         tenantId: input.tenantId,
         tenantRuntimeConfigEntryId: currentConfig.id,
-      });
+      })
 
       const surface = await getTenantToolConfigSurfaceForTenant({
         surfaceKey: input.surfaceKey,
         surfaceKind: input.surfaceKind,
         tenantId: input.tenantId,
-      });
+      })
 
       return {
         applyQueued: tenantRuntime.isRuntimeReady,
@@ -8581,41 +8569,41 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
         currentEntryVersion: currentConfig.entryVersion,
         desiredStateVersion,
         surface,
-      };
-    });
+      }
+    })
 
     if (result.applyQueued && result.desiredStateVersion) {
       await enqueueTenantConfigApply({
         desiredStateVersion: result.desiredStateVersion,
         tenantId: input.tenantId,
-      });
+      })
     }
 
-    return result;
+    return result
   }
 
   if (!isSlackSurface(input.surfaceKind, input.surfaceKey)) {
-    throw new Error("Unsupported tool config surface");
+    throw new Error("Unsupported tool config surface")
   }
 
-  const db = getDb();
+  const db = getDb()
   const result = await db.transaction(async (tx) => {
     const currentConfig = await getOrCreateTenantSlackRuntimeConfigEntry(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
     if (currentConfig.installState !== "installed") {
       throw new Error(
         "Tool surface must be installed before it can be reapplied",
-      );
+      )
     }
 
     const desiredStateVersion = (
       await createNextDesiredStateVersion(tx, {
         tenantId: input.tenantId,
       })
-    ).version;
-    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId);
+    ).version
+    const tenantRuntime = await getTenantRuntimeState(tx, input.tenantId)
 
     await tx.insert(tenantRuntimeConfigMutations).values({
       actorExternalId: input.createdByExternalId ?? null,
@@ -8628,13 +8616,13 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
       resultingEntryVersion: currentConfig.entryVersion,
       tenantId: input.tenantId,
       tenantRuntimeConfigEntryId: currentConfig.id,
-    });
+    })
 
     const surface = await getTenantToolConfigSurfaceForTenant({
       surfaceKey: input.surfaceKey,
       surfaceKind: input.surfaceKind,
       tenantId: input.tenantId,
-    });
+    })
 
     return {
       applyQueued: tenantRuntime.isRuntimeReady,
@@ -8642,91 +8630,91 @@ export async function reapplyTenantToolSurfaceForTenant(input: {
       currentEntryVersion: currentConfig.entryVersion,
       desiredStateVersion,
       surface,
-    };
-  });
+    }
+  })
 
   if (result.applyQueued && result.desiredStateVersion) {
     await enqueueTenantConfigApply({
       desiredStateVersion: result.desiredStateVersion,
       tenantId: input.tenantId,
-    });
+    })
   }
 
-  return result;
+  return result
 }
 
 export async function getTenantRuntimeGatewayToken(tenantId: string) {
   return getTenantRuntimeSecretValue({
     secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
     tenantId,
-  });
+  })
 }
 
 export async function ensureTenantRuntimeGatewayToken(tenantId: string) {
-  const existingToken = await getTenantRuntimeGatewayToken(tenantId);
+  const existingToken = await getTenantRuntimeGatewayToken(tenantId)
 
   if (existingToken) {
-    return existingToken;
+    return existingToken
   }
 
-  const gatewayToken = buildGatewayToken();
+  const gatewayToken = buildGatewayToken()
   await storeTenantRuntimeGatewayToken({
     gatewayToken,
     tenantId,
-  });
+  })
 
-  return gatewayToken;
+  return gatewayToken
 }
 
 export async function storeTenantRuntimeGatewayToken(input: {
-  gatewayToken: string;
-  tenantId: string;
+  gatewayToken: string
+  tenantId: string
 }) {
   await storeTenantRuntimeSecretValue({
     plaintext: input.gatewayToken,
     secretType: OPENCLAW_GATEWAY_TOKEN_SECRET_TYPE,
     tenantId: input.tenantId,
-  });
+  })
 }
 
 export async function getTenantRuntimeTenantToken(tenantId: string) {
   return getTenantRuntimeSecretValue({
     secretType: TENANT_TOKEN_SECRET_TYPE,
     tenantId,
-  });
+  })
 }
 
 export async function ensureTenantRuntimeTenantToken(tenantId: string) {
-  const existingToken = await getTenantRuntimeTenantToken(tenantId);
+  const existingToken = await getTenantRuntimeTenantToken(tenantId)
 
   if (existingToken) {
-    return existingToken;
+    return existingToken
   }
 
-  const tenantToken = buildTenantToken();
+  const tenantToken = buildTenantToken()
   await storeTenantRuntimeTenantToken({
     tenantId,
     tenantToken,
-  });
+  })
 
-  return tenantToken;
+  return tenantToken
 }
 
 export async function storeTenantRuntimeTenantToken(input: {
-  tenantId: string;
-  tenantToken: string;
+  tenantId: string
+  tenantToken: string
 }) {
   await storeTenantRuntimeSecretValue({
     lookupHash: createTokenLookupHash(input.tenantToken),
     plaintext: input.tenantToken,
     secretType: TENANT_TOKEN_SECRET_TYPE,
     tenantId: input.tenantId,
-  });
+  })
 }
 
 export async function getTenantByTenantToken(tenantToken: string) {
-  const db = getDb();
-  const lookupHash = createTokenLookupHash(tenantToken);
+  const db = getDb()
+  const lookupHash = createTokenLookupHash(tenantToken)
   const [secret] = await db
     .select({
       ciphertext: tenantRuntimeSecrets.ciphertext,
@@ -8739,33 +8727,33 @@ export async function getTenantByTenantToken(tenantToken: string) {
         eq(tenantRuntimeSecrets.lookupHash, lookupHash),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!secret?.ciphertext) {
-    return null;
+    return null
   }
 
-  const storedToken = decryptControlPlaneSecret(secret.ciphertext);
+  const storedToken = decryptControlPlaneSecret(secret.ciphertext)
 
   if (!tokensMatch(storedToken, tenantToken)) {
-    return null;
+    return null
   }
 
   return {
     tenantId: secret.tenantId,
-  };
+  }
 }
 
 export async function enqueueTenantConfigApply(input: {
-  desiredStateVersion: number;
+  desiredStateVersion: number
   managedSkillRenameOperations?: Array<{
-    fromSkillKey: string;
-    toSkillKey: string;
-  }>;
-  pullImageFirst?: boolean;
-  tenantId: string;
+    fromSkillKey: string
+    toSkillKey: string
+  }>
+  pullImageFirst?: boolean
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const jobId = await enqueueJob({
     jobType: JOB_TYPES.applyTenantConfig,
     payload: {
@@ -8779,36 +8767,36 @@ export async function enqueueTenantConfigApply(input: {
       ...(input.pullImageFirst === true ? { pullImageFirst: true } : {}),
       tenantId: input.tenantId,
     },
-  });
+  })
 
   await db.insert(tenantApplyRuns).values({
     desiredStateVersion: input.desiredStateVersion,
     jobRunId: jobId,
     status: "queued",
     tenantId: input.tenantId,
-  });
+  })
 
-  return jobId;
+  return jobId
 }
 
 export async function ensureCurrentTenantDesiredStateVersion(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   return db.transaction(async (tx) =>
     ensureCurrentTenantDesiredStateVersionTx(tx, {
       tenantId: input.tenantId,
     }),
-  );
+  )
 }
 
 async function upsertMessagingWorkspace(
   tx: DbTransaction,
   input: {
-    externalWorkspaceId: string;
-    now: Date;
-    tenantIntegrationId: string;
-    workspaceDisplayName: string | null;
+    externalWorkspaceId: string
+    now: Date
+    tenantIntegrationId: string
+    workspaceDisplayName: string | null
   },
 ) {
   const [existingWorkspace] = await tx
@@ -8822,7 +8810,7 @@ async function upsertMessagingWorkspace(
         input.tenantIntegrationId,
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingWorkspace) {
     await tx
@@ -8832,9 +8820,9 @@ async function upsertMessagingWorkspace(
         externalWorkspaceId: input.externalWorkspaceId,
         updatedAt: input.now,
       })
-      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id));
+      .where(eq(integrationMessagingWorkspaces.id, existingWorkspace.id))
 
-    return existingWorkspace.id;
+    return existingWorkspace.id
   }
 
   const [workspace] = await tx
@@ -8847,16 +8835,16 @@ async function upsertMessagingWorkspace(
     })
     .returning({
       id: integrationMessagingWorkspaces.id,
-    });
+    })
 
-  return workspace.id;
+  return workspace.id
 }
 
 async function removeStaleMessagingWorkspaceMembers(
   tx: DbTransaction,
   input: {
-    messagingWorkspaceId: string;
-    syncedExternalMemberIds: string[];
+    messagingWorkspaceId: string
+    syncedExternalMemberIds: string[]
   },
 ) {
   const existingMembers = await tx
@@ -8869,15 +8857,15 @@ async function removeStaleMessagingWorkspaceMembers(
         integrationMessagingWorkspaceMembers.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
-    );
+    )
 
   const staleMemberIds = getStaleDirectoryIds({
     currentIds: existingMembers.map((member) => member.externalMemberId),
     syncedIds: input.syncedExternalMemberIds,
-  });
+  })
 
   if (staleMemberIds.length === 0) {
-    return;
+    return
   }
 
   await tx
@@ -8893,14 +8881,14 @@ async function removeStaleMessagingWorkspaceMembers(
           staleMemberIds,
         ),
       ),
-    );
+    )
 }
 
 async function removeStaleMessagingConversations(
   tx: DbTransaction,
   input: {
-    messagingWorkspaceId: string;
-    syncedExternalConversationIds: string[];
+    messagingWorkspaceId: string
+    syncedExternalConversationIds: string[]
   },
 ) {
   const existingConversations = await tx
@@ -8914,17 +8902,17 @@ async function removeStaleMessagingConversations(
         integrationMessagingConversations.messagingWorkspaceId,
         input.messagingWorkspaceId,
       ),
-    );
+    )
 
   const staleConversationIds = getStaleDirectoryIds({
     currentIds: existingConversations.map(
       (conversation) => conversation.externalConversationId,
     ),
     syncedIds: input.syncedExternalConversationIds,
-  });
+  })
 
   if (staleConversationIds.length === 0) {
-    return;
+    return
   }
 
   await tx
@@ -8940,14 +8928,14 @@ async function removeStaleMessagingConversations(
           staleConversationIds,
         ),
       ),
-    );
+    )
 }
 
 async function upsertSlackIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -8961,9 +8949,9 @@ async function upsertSlackIntegrationForTenant(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  let tenantIntegrationId = existingIntegration?.id ?? null;
+  let tenantIntegrationId = existingIntegration?.id ?? null
 
   if (tenantIntegrationId) {
     await tx
@@ -8976,7 +8964,7 @@ async function upsertSlackIntegrationForTenant(
         status: "connected",
         updatedAt: input.now,
       })
-      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, tenantIntegrationId))
   } else {
     const [createdIntegration] = await tx
       .insert(tenantIntegrations)
@@ -8988,19 +8976,19 @@ async function upsertSlackIntegrationForTenant(
       })
       .returning({
         id: tenantIntegrations.id,
-      });
+      })
 
-    tenantIntegrationId = createdIntegration.id;
+    tenantIntegrationId = createdIntegration.id
   }
 
-  return tenantIntegrationId;
+  return tenantIntegrationId
 }
 
 async function upsertLinearIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -9014,9 +9002,9 @@ async function upsertLinearIntegrationForTenant(
         eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  let tenantIntegrationId = existingIntegration?.id ?? null;
+  let tenantIntegrationId = existingIntegration?.id ?? null
 
   if (tenantIntegrationId) {
     await tx
@@ -9029,7 +9017,7 @@ async function upsertLinearIntegrationForTenant(
         status: "connected",
         updatedAt: input.now,
       })
-      .where(eq(tenantIntegrations.id, tenantIntegrationId));
+      .where(eq(tenantIntegrations.id, tenantIntegrationId))
   } else {
     const [createdIntegration] = await tx
       .insert(tenantIntegrations)
@@ -9041,20 +9029,20 @@ async function upsertLinearIntegrationForTenant(
       })
       .returning({
         id: tenantIntegrations.id,
-      });
+      })
 
-    tenantIntegrationId = createdIntegration.id;
+    tenantIntegrationId = createdIntegration.id
   }
 
-  return tenantIntegrationId;
+  return tenantIntegrationId
 }
 
 async function upsertWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    now: Date;
-    statusWhenNotConnected?: string;
-    tenantId: string;
+    now: Date
+    statusWhenNotConnected?: string
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -9069,7 +9057,7 @@ async function upsertWhatsAppIntegrationForTenant(
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingIntegration) {
     await tx
@@ -9084,9 +9072,9 @@ async function upsertWhatsAppIntegrationForTenant(
             : (input.statusWhenNotConnected ?? "pending_apply"),
         updatedAt: input.now,
       })
-      .where(eq(tenantIntegrations.id, existingIntegration.id));
+      .where(eq(tenantIntegrations.id, existingIntegration.id))
 
-    return existingIntegration.id;
+    return existingIntegration.id
   }
 
   const [createdIntegration] = await tx
@@ -9098,17 +9086,17 @@ async function upsertWhatsAppIntegrationForTenant(
     })
     .returning({
       id: tenantIntegrations.id,
-    });
+    })
 
-  return createdIntegration.id;
+  return createdIntegration.id
 }
 
 async function recordSlackIntegrationError(
   tx: DbTransaction,
   input: {
-    error: string;
-    now: Date;
-    tenantId: string;
+    error: string
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -9124,7 +9112,7 @@ async function recordSlackIntegrationError(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!existingIntegration) {
     await tx.insert(tenantIntegrations).values({
@@ -9133,8 +9121,8 @@ async function recordSlackIntegrationError(
       providerKey: SLACK_PROVIDER_KEY,
       status: "error",
       tenantId: input.tenantId,
-    });
-    return;
+    })
+    return
   }
 
   await tx
@@ -9147,15 +9135,15 @@ async function recordSlackIntegrationError(
         : "error",
       updatedAt: input.now,
     })
-    .where(eq(tenantIntegrations.id, existingIntegration.id));
+    .where(eq(tenantIntegrations.id, existingIntegration.id))
 }
 
 async function recordLinearIntegrationError(
   tx: DbTransaction,
   input: {
-    error: string;
-    now: Date;
-    tenantId: string;
+    error: string
+    now: Date
+    tenantId: string
   },
 ) {
   const [existingIntegration] = await tx
@@ -9171,7 +9159,7 @@ async function recordLinearIntegrationError(
         eq(tenantIntegrations.providerKey, LINEAR_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!existingIntegration) {
     await tx.insert(tenantIntegrations).values({
@@ -9180,8 +9168,8 @@ async function recordLinearIntegrationError(
       providerKey: LINEAR_PROVIDER_KEY,
       status: "error",
       tenantId: input.tenantId,
-    });
-    return;
+    })
+    return
   }
 
   await tx
@@ -9194,13 +9182,13 @@ async function recordLinearIntegrationError(
         : "error",
       updatedAt: input.now,
     })
-    .where(eq(tenantIntegrations.id, existingIntegration.id));
+    .where(eq(tenantIntegrations.id, existingIntegration.id))
 }
 
 async function createNextDesiredStateVersion(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [latestDesiredState] = await tx
@@ -9210,10 +9198,10 @@ async function createNextDesiredStateVersion(
     .from(tenantDesiredStates)
     .where(eq(tenantDesiredStates.tenantId, input.tenantId))
     .orderBy(desc(tenantDesiredStates.version))
-    .limit(1);
+    .limit(1)
 
-  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
-  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId)
 
   const [createdDesiredState] = await tx
     .insert(tenantDesiredStates)
@@ -9225,18 +9213,18 @@ async function createNextDesiredStateVersion(
     .returning({
       configJson: tenantDesiredStates.configJson,
       version: tenantDesiredStates.version,
-    });
+    })
 
-  return createdDesiredState;
+  return createdDesiredState
 }
 
 async function ensureCurrentTenantDesiredStateVersionTx(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
-  await configureDesiredStateTransactionTimeouts(tx);
+  await configureDesiredStateTransactionTimeouts(tx)
   const [latestDesiredState] = await tx
     .select({
       configJson: tenantDesiredStates.configJson,
@@ -9245,9 +9233,9 @@ async function ensureCurrentTenantDesiredStateVersionTx(
     .from(tenantDesiredStates)
     .where(eq(tenantDesiredStates.tenantId, input.tenantId))
     .orderBy(desc(tenantDesiredStates.version))
-    .limit(1);
+    .limit(1)
 
-  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId);
+  const configJson = await compileTenantDesiredStateConfig(tx, input.tenantId)
 
   if (
     latestDesiredState &&
@@ -9257,10 +9245,10 @@ async function ensureCurrentTenantDesiredStateVersionTx(
       changed: false,
       configJson: latestDesiredState.configJson,
       version: latestDesiredState.version,
-    };
+    }
   }
 
-  const nextVersion = (latestDesiredState?.version ?? 0) + 1;
+  const nextVersion = (latestDesiredState?.version ?? 0) + 1
   const [createdDesiredState] = await tx
     .insert(tenantDesiredStates)
     .values({
@@ -9271,13 +9259,13 @@ async function ensureCurrentTenantDesiredStateVersionTx(
     .returning({
       configJson: tenantDesiredStates.configJson,
       version: tenantDesiredStates.version,
-    });
+    })
 
   return {
     changed: true,
     configJson: createdDesiredState.configJson,
     version: createdDesiredState.version,
-  };
+  }
 }
 
 async function compileTenantDesiredStateConfig(
@@ -9286,16 +9274,16 @@ async function compileTenantDesiredStateConfig(
 ) {
   const managedConfig = await ensureLatestTenantManagedConfigVersion(tx, {
     tenantId,
-  });
+  })
   await ensureTenantSystemManagedSkillsForTenantTx(tx, {
     tenantId,
-  });
+  })
   const managedSkillVersionMap = await listLatestTenantManagedSkillVersionMapTx(
     tx,
     {
       tenantId,
     },
-  );
+  )
   const [workspace, slackIntegration, whatsAppIntegration] = await Promise.all([
     tx
       .select({
@@ -9321,7 +9309,10 @@ async function compileTenantDesiredStateConfig(
       .from(tenantIntegrations)
       .leftJoin(
         integrationOauthConnections,
-        eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+        eq(
+          integrationOauthConnections.tenantIntegrationId,
+          tenantIntegrations.id,
+        ),
       )
       .where(
         and(
@@ -9334,7 +9325,7 @@ async function compileTenantDesiredStateConfig(
     getWhatsAppIntegrationForTenant(tx, {
       tenantId,
     }),
-  ]);
+  ])
   const slackProfile = slackIntegration
     ? buildSlackConnectionProfile({
         externalAccountId: slackIntegration.externalAccountId,
@@ -9343,7 +9334,7 @@ async function compileTenantDesiredStateConfig(
         providerMetadataJson: slackIntegration.providerMetadataJson,
         tenantIntegrationId: slackIntegration.tenantIntegrationId,
       })
-    : null;
+    : null
 
   const config: Record<string, unknown> = {
     integrations: [],
@@ -9356,11 +9347,11 @@ async function compileTenantDesiredStateConfig(
     prompts: {},
     timeFormat: workspace?.timeFormatPreference ?? "auto",
     timezone: workspace?.timezone ?? "UTC",
-  };
-  const webSearch = resolveRuntimeWebSearchConfig();
+  }
+  const webSearch = resolveRuntimeWebSearchConfig()
 
   if (webSearch.openClawConfig) {
-    config.webSearch = webSearch.surfaceConfig;
+    config.webSearch = webSearch.surfaceConfig
   }
 
   if (
@@ -9374,19 +9365,19 @@ async function compileTenantDesiredStateConfig(
       {
         tenantId,
       },
-    );
+    )
 
     if (
       slackRuntimeConfig.installState === "installed" &&
       slackRuntimeConfig.enabled
     ) {
-      config.integrations = ["slack"];
+      config.integrations = ["slack"]
       const effectiveAllowedChannelIds =
         slackRuntimeConfig.config.channelAccessMode === "member_of_channels"
           ? await getSlackMemberChannelIds(tx, {
               tenantId,
             })
-          : slackRuntimeConfig.config.allowedChannelIds;
+          : slackRuntimeConfig.config.allowedChannelIds
 
       config.slack = {
         ackReactionEnabled: slackRuntimeConfig.config.ackReactionEnabled,
@@ -9400,7 +9391,7 @@ async function compileTenantDesiredStateConfig(
         slackBotUserId: slackProfile.slackBotUserId,
         teamId: slackProfile.teamId,
         teamName: slackProfile.teamName,
-      };
+      }
     }
 
     config.media = {
@@ -9412,14 +9403,14 @@ async function compileTenantDesiredStateConfig(
         model: "gpt-4o-mini-transcribe",
         provider: "openai",
       },
-    };
+    }
   }
 
   if (whatsAppIntegration) {
     const whatsAppRuntimeConfig =
       await getOrCreateTenantWhatsAppRuntimeConfigEntry(tx, {
         tenantId,
-      });
+      })
 
     if (
       whatsAppRuntimeConfig.installState === "installed" &&
@@ -9427,13 +9418,13 @@ async function compileTenantDesiredStateConfig(
     ) {
       const integrations = Array.isArray(config.integrations)
         ? [...config.integrations]
-        : [];
+        : []
 
       if (!integrations.includes("whatsapp")) {
-        integrations.push("whatsapp");
+        integrations.push("whatsapp")
       }
 
-      config.integrations = integrations;
+      config.integrations = integrations
       config.whatsapp = {
         ackReactionEnabled: whatsAppRuntimeConfig.config.ackReactionEnabled,
         allowedGroupIds: whatsAppRuntimeConfig.config.allowedGroupIds,
@@ -9446,48 +9437,48 @@ async function compileTenantDesiredStateConfig(
         groupPolicy: whatsAppRuntimeConfig.config.groupPolicy,
         requireMentionInGroups:
           whatsAppRuntimeConfig.config.requireMentionInGroups,
-      };
+      }
     }
   }
 
   const managedRuntimeIntegrationKeys =
     await getEnabledManagedRuntimeIntegrationKeysForTenantTx(tx, {
       tenantId,
-    });
+    })
 
   if (managedRuntimeIntegrationKeys.length > 0) {
     const integrations = Array.isArray(config.integrations)
       ? [...config.integrations]
-      : [];
+      : []
 
     for (const providerKey of managedRuntimeIntegrationKeys) {
       if (!integrations.includes(providerKey)) {
-        integrations.push(providerKey);
+        integrations.push(providerKey)
       }
     }
 
-    config.integrations = integrations;
+    config.integrations = integrations
   }
 
-  return config;
+  return config
 }
 
 async function configureDesiredStateTransactionTimeouts(tx: DbTransaction) {
   await tx.execute(
     sql`select set_config('lock_timeout', ${DESIRED_STATE_LOCK_TIMEOUT}, true)`,
-  );
+  )
   await tx.execute(
     sql`select set_config('statement_timeout', ${DESIRED_STATE_STATEMENT_TIMEOUT}, true)`,
-  );
+  )
   await tx.execute(
     sql`select set_config('idle_in_transaction_session_timeout', ${DESIRED_STATE_IDLE_TRANSACTION_TIMEOUT}, true)`,
-  );
+  )
 }
 
 async function getOrCreateTenantSlackRuntimeConfigEntry(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [existingEntry] = await tx
@@ -9513,7 +9504,7 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingEntry) {
     return {
@@ -9523,11 +9514,11 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
       id: existingEntry.id,
       installState: normalizeInstallState(existingEntry.installState),
       schemaVersion: existingEntry.schemaVersion,
-    };
+    }
   }
 
-  const now = new Date();
-  const defaultConfig = getDefaultSlackRuntimeConfig();
+  const now = new Date()
+  const defaultConfig = getDefaultSlackRuntimeConfig()
   const [createdEntry] = await tx
     .insert(tenantRuntimeConfigEntries)
     .values({
@@ -9552,7 +9543,7 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
       enabled: tenantRuntimeConfigEntries.enabled,
       installState: tenantRuntimeConfigEntries.installState,
       schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
-    });
+    })
 
   return {
     config: parseSlackRuntimeConfig(createdEntry.configJson),
@@ -9561,13 +9552,13 @@ async function getOrCreateTenantSlackRuntimeConfigEntry(
     id: createdEntry.id,
     installState: normalizeInstallState(createdEntry.installState),
     schemaVersion: createdEntry.schemaVersion,
-  };
+  }
 }
 
 async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [existingEntry] = await tx
@@ -9593,7 +9584,7 @@ async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingEntry) {
     return {
@@ -9603,11 +9594,11 @@ async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
       id: existingEntry.id,
       installState: normalizeInstallState(existingEntry.installState),
       schemaVersion: existingEntry.schemaVersion,
-    };
+    }
   }
 
-  const now = new Date();
-  const defaultConfig = getDefaultWhatsAppRuntimeConfig();
+  const now = new Date()
+  const defaultConfig = getDefaultWhatsAppRuntimeConfig()
   const [createdEntry] = await tx
     .insert(tenantRuntimeConfigEntries)
     .values({
@@ -9632,7 +9623,7 @@ async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
       enabled: tenantRuntimeConfigEntries.enabled,
       installState: tenantRuntimeConfigEntries.installState,
       schemaVersion: tenantRuntimeConfigEntries.schemaVersion,
-    });
+    })
 
   return {
     config: parseWhatsAppRuntimeConfig(createdEntry.configJson),
@@ -9641,13 +9632,13 @@ async function getOrCreateTenantWhatsAppRuntimeConfigEntry(
     id: createdEntry.id,
     installState: normalizeInstallState(createdEntry.installState),
     schemaVersion: createdEntry.schemaVersion,
-  };
+  }
 }
 
 async function getConnectedSlackIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [slackIntegration] = await tx
@@ -9663,23 +9654,23 @@ async function getConnectedSlackIntegrationForTenant(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!slackIntegration?.connectedAt || slackIntegration.disconnectedAt) {
-    return null;
+    return null
   }
 
-  return slackIntegration;
+  return slackIntegration
 }
 
 async function getEnabledManagedRuntimeIntegrationKeysForTenantTx(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   if (MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS.length === 0) {
-    return [];
+    return []
   }
 
   const rows = await tx
@@ -9697,18 +9688,18 @@ async function getEnabledManagedRuntimeIntegrationKeysForTenantTx(
           MANAGED_RUNTIME_INTEGRATION_PROVIDER_KEYS,
         ),
       ),
-    );
+    )
 
   return rows
     .filter((row) => row.connectedAt && !row.disconnectedAt)
     .map((row) => row.providerKey)
-    .sort((left, right) => left.localeCompare(right));
+    .sort((left, right) => left.localeCompare(right))
 }
 
 async function getWhatsAppIntegrationForTenant(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [integration] = await tx
@@ -9736,13 +9727,13 @@ async function getWhatsAppIntegrationForTenant(
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return integration ?? null;
+  return integration ?? null
 }
 
 async function getOrganizationSlugForTenant(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
 
   const [organization] = await db
     .select({
@@ -9751,15 +9742,15 @@ async function getOrganizationSlugForTenant(tenantId: string) {
     .from(tenants)
     .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
     .where(eq(tenants.id, tenantId))
-    .limit(1);
+    .limit(1)
 
-  return organization?.slug ?? null;
+  return organization?.slug ?? null
 }
 
 async function getOrganizationSlugForTenantTx(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [organization] = await tx
@@ -9769,15 +9760,15 @@ async function getOrganizationSlugForTenantTx(
     .from(tenants)
     .innerJoin(organizations, eq(tenants.organizationId, organizations.id))
     .where(eq(tenants.id, input.tenantId))
-    .limit(1);
+    .limit(1)
 
-  return organization?.slug ?? null;
+  return organization?.slug ?? null
 }
 
 async function getConnectedSlackInstallationForTenant(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [slackInstallation] = await tx
@@ -9791,7 +9782,10 @@ async function getConnectedSlackInstallationForTenant(
     .from(tenantIntegrations)
     .innerJoin(
       integrationOauthConnections,
-      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -9800,33 +9794,33 @@ async function getConnectedSlackInstallationForTenant(
         eq(integrationOauthConnections.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!slackInstallation?.connectedAt || slackInstallation.disconnectedAt) {
-    return null;
+    return null
   }
 
   if (!slackInstallation.slackTeamId) {
-    return null;
+    return null
   }
 
   return {
     ...slackInstallation,
     slackTeamId: slackInstallation.slackTeamId,
-  };
+  }
 }
 
 export async function getSlackInstallationForTenant(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   return db.transaction(async (tx) => {
-    return getConnectedSlackInstallationForTenant(tx, { tenantId });
-  });
+    return getConnectedSlackInstallationForTenant(tx, { tenantId })
+  })
 }
 
 async function getConnectedSlackInstallationForTeam(
   tx: DbTransaction,
   input: {
-    teamId: string;
+    teamId: string
   },
 ) {
   const matches = await tx
@@ -9841,7 +9835,10 @@ async function getConnectedSlackInstallationForTeam(
     .from(tenantIntegrations)
     .innerJoin(
       integrationOauthConnections,
-      eq(integrationOauthConnections.tenantIntegrationId, tenantIntegrations.id),
+      eq(
+        integrationOauthConnections.tenantIntegrationId,
+        tenantIntegrations.id,
+      ),
     )
     .where(
       and(
@@ -9851,53 +9848,53 @@ async function getConnectedSlackInstallationForTeam(
       ),
     )
     .orderBy(desc(tenantIntegrations.connectedAt))
-    .limit(2);
+    .limit(2)
 
   const connectedMatches = matches.filter(
     (match) => match.connectedAt && !match.disconnectedAt && match.slackTeamId,
-  );
+  )
 
   if (connectedMatches.length === 0) {
-    return null;
+    return null
   }
 
   if (connectedMatches.length > 1) {
     throw new Error(
       `Multiple tenants are connected to Slack team ${input.teamId}.`,
-    );
+    )
   }
 
-  const match = connectedMatches[0];
+  const match = connectedMatches[0]
 
   if (!match?.slackTeamId) {
-    return null;
+    return null
   }
 
   return {
     ...match,
     slackTeamId: match.slackTeamId,
-  };
+  }
 }
 
 export async function forwardSlackIngressForTeam(input: {
-  body: string;
-  enterpriseId?: string | null;
-  headers: Record<string, string>;
-  requestPath: string;
-  requestType: SlackIngressRequestType;
-  teamId: string;
+  body: string
+  enterpriseId?: string | null
+  headers: Record<string, string>
+  requestPath: string
+  requestType: SlackIngressRequestType
+  teamId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const target = await db.transaction(async (tx) => {
     return getConnectedSlackInstallationForTeam(tx, {
       teamId: input.teamId,
-    });
-  });
+    })
+  })
 
   if (!target) {
     throw new Error(
       `No connected Slack installation was found for team ${input.teamId}.`,
-    );
+    )
   }
 
   const [delivery] = await db
@@ -9914,21 +9911,21 @@ export async function forwardSlackIngressForTeam(input: {
     })
     .returning({
       id: integrationIngressDeliveries.id,
-    });
+    })
 
   try {
     const runtimeConnection = await getTenantRuntimeConnection(
       target.tenantId,
       `Slack ${input.requestType} ingress`,
-    );
+    )
     const response = await runtimeManager.forwardSlackHttpRequest(
       runtimeConnection,
       {
         body: input.body,
         headers: input.headers,
       },
-    );
-    const finishedAt = new Date();
+    )
+    const finishedAt = new Date()
 
     await db.transaction(async (tx) => {
       await tx
@@ -9938,7 +9935,7 @@ export async function forwardSlackIngressForTeam(input: {
           responseStatus: response.status,
           status: "forwarded",
         })
-        .where(eq(integrationIngressDeliveries.id, delivery.id));
+        .where(eq(integrationIngressDeliveries.id, delivery.id))
 
       await tx
         .update(tenantIntegrations)
@@ -9947,16 +9944,14 @@ export async function forwardSlackIngressForTeam(input: {
           lastErrorAt: null,
           updatedAt: finishedAt,
         })
-        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
-    });
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId))
+    })
 
-    return response;
+    return response
   } catch (error) {
     const message =
-      error instanceof Error
-        ? error.message
-        : "Slack ingress forwarding failed";
-    const finishedAt = new Date();
+      error instanceof Error ? error.message : "Slack ingress forwarding failed"
+    const finishedAt = new Date()
 
     await db.transaction(async (tx) => {
       await tx
@@ -9966,7 +9961,7 @@ export async function forwardSlackIngressForTeam(input: {
           finishedAt,
           status: "failed",
         })
-        .where(eq(integrationIngressDeliveries.id, delivery.id));
+        .where(eq(integrationIngressDeliveries.id, delivery.id))
 
       await tx
         .update(tenantIntegrations)
@@ -9975,47 +9970,47 @@ export async function forwardSlackIngressForTeam(input: {
           lastErrorAt: finishedAt,
           updatedAt: finishedAt,
         })
-        .where(eq(tenantIntegrations.id, target.tenantIntegrationId));
-    });
+        .where(eq(tenantIntegrations.id, target.tenantIntegrationId))
+    })
 
-    throw new Error(message);
+    throw new Error(message)
   }
 }
 
 async function refreshTenantSlackDirectoryForTenant(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const slackInstallation = await db.transaction(async (tx) => {
     return getConnectedSlackInstallationForTenant(tx, {
       tenantId: input.tenantId,
-    });
-  });
+    })
+  })
 
   if (!slackInstallation) {
     return {
       error: null,
       refreshed: false,
-    };
+    }
   }
 
-  const botToken = await getTenantSlackBotToken(input.tenantId);
+  const botToken = await getTenantSlackBotToken(input.tenantId)
 
   if (!botToken) {
     const error =
-      "Slack bot token is unavailable, so the Slack directory could not be refreshed";
+      "Slack bot token is unavailable, so the Slack directory could not be refreshed"
 
     await recordMessagingWorkspaceSyncFailure({
       error,
       externalWorkspaceId: slackInstallation.slackTeamId,
       tenantIntegrationId: slackInstallation.tenantIntegrationId,
       workspaceDisplayName: slackInstallation.slackTeamName,
-    });
+    })
 
     return {
       error,
       refreshed: false,
-    };
+    }
   }
 
   try {
@@ -10024,37 +10019,37 @@ async function refreshTenantSlackDirectoryForTenant(input: {
       externalWorkspaceId: slackInstallation.slackTeamId,
       tenantIntegrationId: slackInstallation.tenantIntegrationId,
       workspaceDisplayName: slackInstallation.slackTeamName,
-    });
+    })
 
     return {
       error: null,
       refreshed: true,
-    };
+    }
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "Unknown Slack refresh failure";
+      error instanceof Error ? error.message : "Unknown Slack refresh failure"
 
     await recordMessagingWorkspaceSyncFailure({
       error: message,
       externalWorkspaceId: slackInstallation.slackTeamId,
       tenantIntegrationId: slackInstallation.tenantIntegrationId,
       workspaceDisplayName: slackInstallation.slackTeamName,
-    });
+    })
 
     return {
       error: message,
       refreshed: false,
-    };
+    }
   }
 }
 
 async function refreshSlackDirectoryForInstallation(input: {
-  botToken: string;
-  externalWorkspaceId: string;
-  tenantIntegrationId: string;
-  workspaceDisplayName: string | null;
+  botToken: string
+  externalWorkspaceId: string
+  tenantIntegrationId: string
+  workspaceDisplayName: string | null
 }) {
-  const directory = await fetchSlackMessagingDirectory(input.botToken);
+  const directory = await fetchSlackMessagingDirectory(input.botToken)
 
   await syncMessagingDirectoryForTenantIntegration({
     conversations: directory.conversations,
@@ -10062,14 +10057,14 @@ async function refreshSlackDirectoryForInstallation(input: {
     members: directory.members,
     tenantIntegrationId: input.tenantIntegrationId,
     workspaceDisplayName: input.workspaceDisplayName,
-  });
+  })
 }
 
 async function validateSlackRuntimeConfigSemantics(
   tx: DbTransaction,
   input: {
-    config: SlackRuntimeConfig;
-    tenantId: string;
+    config: SlackRuntimeConfig
+    tenantId: string
   },
 ) {
   const [workspace] = await tx
@@ -10090,19 +10085,19 @@ async function validateSlackRuntimeConfigSemantics(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!workspace) {
     if (
       input.config.allowedChannelIds.length === 0 &&
       input.config.allowedUserIds.length === 0
     ) {
-      return;
+      return
     }
 
     throw new Error(
       "Slack directory is unavailable, so Slack allowlists cannot be updated yet",
-    );
+    )
   }
 
   const [members, conversations] = await Promise.all([
@@ -10130,57 +10125,55 @@ async function validateSlackRuntimeConfigSemantics(
           workspace.id,
         ),
       ),
-  ]);
+  ])
 
-  const validUserIds = new Set(
-    members.map((member) => member.externalMemberId),
-  );
+  const validUserIds = new Set(members.map((member) => member.externalMemberId))
   const conversationsById = new Map(
     conversations.map((conversation) => [
       conversation.externalConversationId,
       conversation,
     ]),
-  );
+  )
 
   const missingUserIds = input.config.allowedUserIds.filter(
     (userId) => !validUserIds.has(userId),
-  );
+  )
 
   if (missingUserIds.length > 0) {
     throw new Error(
       `Unknown Slack user IDs in allowlist: ${missingUserIds.join(", ")}`,
-    );
+    )
   }
 
   if (input.config.channelAccessMode === "member_of_channels") {
-    return;
+    return
   }
 
   const missingChannelIds = input.config.allowedChannelIds.filter(
     (channelId) => !conversationsById.has(channelId),
-  );
+  )
 
   if (missingChannelIds.length > 0) {
     throw new Error(
       `Unknown Slack channel IDs in allowlist: ${missingChannelIds.join(", ")}`,
-    );
+    )
   }
 
   const archivedChannelIds = input.config.allowedChannelIds.filter(
     (channelId) => conversationsById.get(channelId)?.isArchived,
-  );
+  )
 
   if (archivedChannelIds.length > 0) {
     throw new Error(
       `Archived Slack channels cannot be allowlisted: ${archivedChannelIds.join(", ")}`,
-    );
+    )
   }
 }
 
 async function getSlackDirectoryOptions(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [workspace] = await tx
@@ -10201,13 +10194,13 @@ async function getSlackDirectoryOptions(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!workspace) {
     return {
       channels: [] as SlackRuntimeConfigDirectoryOption[],
       users: [] as SlackRuntimeConfigDirectoryOption[],
-    };
+    }
   }
 
   const [members, conversations] = await Promise.all([
@@ -10249,7 +10242,7 @@ async function getSlackDirectoryOptions(
         ),
       )
       .orderBy(integrationMessagingConversations.name),
-  ]);
+  ])
 
   return {
     channels: conversations.map((conversation) => ({
@@ -10276,13 +10269,13 @@ async function getSlackDirectoryOptions(
           member.externalMemberId,
         secondaryLabel: member.username ? `@${member.username}` : null,
       })),
-  };
+  }
 }
 
 async function getSlackMemberChannelIds(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [workspace] = await tx
@@ -10303,10 +10296,10 @@ async function getSlackMemberChannelIds(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!workspace) {
-    return [];
+    return []
   }
 
   const conversations = await tx
@@ -10320,7 +10313,7 @@ async function getSlackMemberChannelIds(
     .where(
       eq(integrationMessagingConversations.messagingWorkspaceId, workspace.id),
     )
-    .orderBy(integrationMessagingConversations.name);
+    .orderBy(integrationMessagingConversations.name)
 
   return conversations
     .filter(
@@ -10328,45 +10321,45 @@ async function getSlackMemberChannelIds(
         !conversation.isArchived &&
         getSlackChannelMembership(conversation.metadataJson),
     )
-    .map((conversation) => conversation.externalConversationId);
+    .map((conversation) => conversation.externalConversationId)
 }
 
 function getSlackChannelVisibility(conversationType: string) {
   if (conversationType === "private_channel") {
-    return "private" as const;
+    return "private" as const
   }
 
   if (conversationType === "channel") {
-    return "public" as const;
+    return "public" as const
   }
 
-  return null;
+  return null
 }
 
 function getSlackChannelMemberCount(metadataJson: unknown) {
   if (!metadataJson || typeof metadataJson !== "object") {
-    return null;
+    return null
   }
 
-  const numMembers = (metadataJson as { num_members?: unknown }).num_members;
+  const numMembers = (metadataJson as { num_members?: unknown }).num_members
 
-  return typeof numMembers === "number" ? numMembers : null;
+  return typeof numMembers === "number" ? numMembers : null
 }
 
 function getSlackChannelMembership(metadataJson: unknown) {
   if (!metadataJson || typeof metadataJson !== "object") {
-    return false;
+    return false
   }
 
-  return Boolean((metadataJson as { is_member?: unknown }).is_member);
+  return Boolean((metadataJson as { is_member?: unknown }).is_member)
 }
 
 function buildTenantSlackRuntimeConfig(input: {
-  config: SlackRuntimeConfig;
-  enabled: boolean;
-  entryVersion: number;
-  installState: ToolInstallState;
-  schemaVersion: string;
+  config: SlackRuntimeConfig
+  enabled: boolean
+  entryVersion: number
+  installState: ToolInstallState
+  schemaVersion: string
 }): TenantSlackRuntimeConfig {
   return {
     ...input.config,
@@ -10374,15 +10367,15 @@ function buildTenantSlackRuntimeConfig(input: {
     entryVersion: input.entryVersion,
     installState: input.installState,
     schemaVersion: input.schemaVersion,
-  };
+  }
 }
 
 function buildTenantWhatsAppRuntimeConfig(input: {
-  config: WhatsAppRuntimeConfig;
-  enabled: boolean;
-  entryVersion: number;
-  installState: ToolInstallState;
-  schemaVersion: string;
+  config: WhatsAppRuntimeConfig
+  enabled: boolean
+  entryVersion: number
+  installState: ToolInstallState
+  schemaVersion: string
 }): TenantWhatsAppRuntimeConfig {
   return {
     ...input.config,
@@ -10390,24 +10383,24 @@ function buildTenantWhatsAppRuntimeConfig(input: {
     entryVersion: input.entryVersion,
     installState: input.installState,
     schemaVersion: input.schemaVersion,
-  };
+  }
 }
 
 function buildTenantWhatsAppLinkSession(
   session: {
-    completedAt: Date | null;
-    createdAt: Date;
-    expiresAt: Date | null;
-    forceRelink: boolean;
-    id: string;
-    lastError: string | null;
-    qrDataUrl: string | null;
-    status: string;
-    updatedAt: Date;
+    completedAt: Date | null
+    createdAt: Date
+    expiresAt: Date | null
+    forceRelink: boolean
+    id: string
+    lastError: string | null
+    qrDataUrl: string | null
+    status: string
+    updatedAt: Date
   } | null,
 ): TenantWhatsAppLinkSession | null {
   if (!session) {
-    return null;
+    return null
   }
 
   return {
@@ -10420,13 +10413,13 @@ function buildTenantWhatsAppLinkSession(
     qrDataUrl: session.qrDataUrl,
     status: session.status,
     updatedAt: session.updatedAt,
-  };
+  }
 }
 
 async function ensureLatestTenantManagedConfigVersion(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [existingVersion] = await tx
@@ -10437,21 +10430,21 @@ async function ensureLatestTenantManagedConfigVersion(
     .from(tenantManagedConfigVersions)
     .where(eq(tenantManagedConfigVersions.tenantId, input.tenantId))
     .orderBy(desc(tenantManagedConfigVersions.version))
-    .limit(1);
+    .limit(1)
 
   if (existingVersion) {
-    return existingVersion;
+    return existingVersion
   }
 
   return createInitialTenantManagedConfigVersion(tx, {
     tenantId: input.tenantId,
-  });
+  })
 }
 
 async function createInitialTenantManagedConfigVersion(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [createdVersion] = await tx
@@ -10465,7 +10458,7 @@ async function createInitialTenantManagedConfigVersion(
     .returning({
       id: tenantManagedConfigVersions.id,
       version: tenantManagedConfigVersions.version,
-    });
+    })
 
   await tx.insert(tenantManagedFileVersions).values(
     getManagedBootstrapFileDefinitions().map((definition) => ({
@@ -10479,16 +10472,16 @@ async function createInitialTenantManagedConfigVersion(
       systemContent: definition.systemContent,
       tenantManagedConfigVersionId: createdVersion.id,
     })),
-  );
+  )
 
-  return createdVersion;
+  return createdVersion
 }
 
 async function getAuthorizedLatestTenantForOrganization(input: {
-  orgSlug: string;
-  userExternalId: string;
+  orgSlug: string
+  userExternalId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [tenantRow] = await db
     .select({
       serverStatus: tenantServers.status,
@@ -10508,20 +10501,20 @@ async function getAuthorizedLatestTenantForOrganization(input: {
       ),
     )
     .orderBy(desc(tenants.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!tenantRow) {
-    return null;
+    return null
   }
 
-  return buildTenantRuntimeState(tenantRow);
+  return buildTenantRuntimeState(tenantRow)
 }
 
 async function markSlackIntegrationPendingApply(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   await tx
@@ -10537,14 +10530,14 @@ async function markSlackIntegrationPendingApply(
         eq(tenantIntegrations.tenantId, input.tenantId),
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
-    );
+    )
 }
 
 async function markWhatsAppIntegrationPendingApply(
   tx: DbTransaction,
   input: {
-    now: Date;
-    tenantId: string;
+    now: Date
+    tenantId: string
   },
 ) {
   await tx
@@ -10561,14 +10554,14 @@ async function markWhatsAppIntegrationPendingApply(
         eq(tenantIntegrations.tenantId, input.tenantId),
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
-    );
+    )
 }
 
 async function getTenantRuntimeSecretValue(input: {
-  secretType: string;
-  tenantId: string;
+  secretType: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
   const [secret] = await db
     .select({
       ciphertext: tenantRuntimeSecrets.ciphertext,
@@ -10580,24 +10573,24 @@ async function getTenantRuntimeSecretValue(input: {
         eq(tenantRuntimeSecrets.secretType, input.secretType),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!secret?.ciphertext) {
-    return null;
+    return null
   }
 
-  return decryptControlPlaneSecret(secret.ciphertext);
+  return decryptControlPlaneSecret(secret.ciphertext)
 }
 
 async function storeTenantRuntimeSecretValue(input: {
-  tenantId: string;
-  secretType: string;
-  plaintext: string;
-  lookupHash?: string | null;
+  tenantId: string
+  secretType: string
+  plaintext: string
+  lookupHash?: string | null
 }) {
-  const db = getDb();
-  const now = new Date();
-  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+  const db = getDb()
+  const now = new Date()
+  const ciphertext = encryptControlPlaneSecret(input.plaintext)
 
   const [existingSecret] = await db
     .select({
@@ -10610,7 +10603,7 @@ async function storeTenantRuntimeSecretValue(input: {
         eq(tenantRuntimeSecrets.secretType, input.secretType),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (existingSecret) {
     await db
@@ -10620,9 +10613,9 @@ async function storeTenantRuntimeSecretValue(input: {
         lookupHash: input.lookupHash ?? null,
         rotatedAt: now,
       })
-      .where(eq(tenantRuntimeSecrets.id, existingSecret.id));
+      .where(eq(tenantRuntimeSecrets.id, existingSecret.id))
 
-    return;
+    return
   }
 
   await db.insert(tenantRuntimeSecrets).values({
@@ -10630,19 +10623,19 @@ async function storeTenantRuntimeSecretValue(input: {
     lookupHash: input.lookupHash ?? null,
     secretType: input.secretType,
     tenantId: input.tenantId,
-  });
+  })
 }
 
 function buildGatewayToken() {
-  return randomBytes(24).toString("base64url");
+  return randomBytes(24).toString("base64url")
 }
 
 function buildTenantToken() {
-  return randomBytes(24).toString("base64url");
+  return randomBytes(24).toString("base64url")
 }
 
 function createTokenLookupHash(token: string) {
-  return createHash("sha256").update(token).digest("hex");
+  return createHash("sha256").update(token).digest("hex")
 }
 
 async function getTenantRuntimeState(tx: DbTransaction, tenantId: string) {
@@ -10655,78 +10648,78 @@ async function getTenantRuntimeState(tx: DbTransaction, tenantId: string) {
     .from(tenants)
     .leftJoin(tenantServers, eq(tenantServers.tenantId, tenants.id))
     .where(eq(tenants.id, tenantId))
-    .limit(1);
+    .limit(1)
 
   if (!tenantRow) {
-    throw new Error(`Tenant ${tenantId} not found`);
+    throw new Error(`Tenant ${tenantId} not found`)
   }
 
-  return buildTenantRuntimeState(tenantRow);
+  return buildTenantRuntimeState(tenantRow)
 }
 
 function buildTenantRuntimeState(tenantRow: {
-  serverStatus: string | null;
-  tenantId: string;
-  tenantStatus: string;
+  serverStatus: string | null
+  tenantId: string
+  tenantStatus: string
 }) {
   return {
     isRuntimeReady:
       tenantRow.tenantStatus === "ready" && tenantRow.serverStatus === "ready",
     tenantId: tenantRow.tenantId,
-  };
+  }
 }
 
 export function getManagedConfigVersionFromConfigJson(configJson: unknown) {
-  const config = parseRecord(configJson);
-  const managedConfigVersion = config.managedConfigVersion;
+  const config = parseRecord(configJson)
+  const managedConfigVersion = config.managedConfigVersion
 
   if (
     typeof managedConfigVersion !== "number" ||
     !Number.isInteger(managedConfigVersion) ||
     managedConfigVersion < 1
   ) {
-    return null;
+    return null
   }
 
-  return managedConfigVersion;
+  return managedConfigVersion
 }
 
 export function getManagedSkillVersionMapFromConfigJson(configJson: unknown) {
-  const config = parseRecord(configJson);
+  const config = parseRecord(configJson)
   const managedSkills =
     config.managedSkills &&
     typeof config.managedSkills === "object" &&
     !Array.isArray(config.managedSkills)
       ? (config.managedSkills as Record<string, unknown>)
-      : null;
+      : null
   const versions =
     managedSkills?.versions &&
     typeof managedSkills.versions === "object" &&
     !Array.isArray(managedSkills.versions)
       ? (managedSkills.versions as Record<string, unknown>)
-      : null;
+      : null
 
   if (!versions) {
-    return null;
+    return null
   }
 
-  const parsedVersions: Record<string, number> = {};
+  const parsedVersions: Record<string, number> = {}
 
   for (const [skillKey, value] of Object.entries(versions)) {
     if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
-      continue;
+      continue
     }
 
-    parsedVersions[skillKey] = value;
+    parsedVersions[skillKey] = value
   }
 
-  return parsedVersions;
+  return parsedVersions
 }
 
 function createManagedFileChecksum(input: {
-  path: ManagedBootstrapFilePath;
-  sharedContent: string;
-  systemContent: string;
+  path: ManagedBootstrapFilePath
+  sharedContent: string
+  systemContent: string
 }) {
   return createHash("sha256")
     .update(
@@ -10736,108 +10729,108 @@ function createManagedFileChecksum(input: {
         systemContent: input.systemContent,
       }),
     )
-    .digest("hex");
+    .digest("hex")
 }
 
 function assertManagedBootstrapFilePath(
   value: string,
 ): ManagedBootstrapFilePath {
-  const normalizedValue = normalizeManagedBootstrapFilePath(value);
+  const normalizedValue = normalizeManagedBootstrapFilePath(value)
 
   if (!normalizedValue) {
-    throw new Error(`Unsupported managed bootstrap file path: ${value}`);
+    throw new Error(`Unsupported managed bootstrap file path: ${value}`)
   }
 
-  return normalizedValue;
+  return normalizedValue
 }
 
 function normalizeManagedFileRows<
   T extends {
-    path: string;
-    sharedContent: string;
-    systemContent: string;
+    path: string
+    sharedContent: string
+    systemContent: string
   },
 >(rows: T[]) {
   const normalizedRows = new Map<
     ManagedBootstrapFilePath,
     {
-      path: ManagedBootstrapFilePath;
-      sharedContent: string;
-      systemContent: string;
+      path: ManagedBootstrapFilePath
+      sharedContent: string
+      systemContent: string
     }
-  >();
+  >()
 
   for (const row of rows) {
-    const normalizedPath = normalizeManagedBootstrapFilePath(row.path);
+    const normalizedPath = normalizeManagedBootstrapFilePath(row.path)
 
     if (!normalizedPath) {
-      continue;
+      continue
     }
 
-    const existingRow = normalizedRows.get(normalizedPath);
+    const existingRow = normalizedRows.get(normalizedPath)
 
     if (!existingRow || row.path === normalizedPath) {
       normalizedRows.set(normalizedPath, {
         path: normalizedPath,
         sharedContent: row.sharedContent,
         systemContent: row.systemContent,
-      });
+      })
     }
   }
 
-  return normalizedRows;
+  return normalizedRows
 }
 
 function tokensMatch(left: string, right: string) {
-  const leftBuffer = Buffer.from(left);
-  const rightBuffer = Buffer.from(right);
+  const leftBuffer = Buffer.from(left)
+  const rightBuffer = Buffer.from(right)
 
   if (leftBuffer.length !== rightBuffer.length) {
-    return false;
+    return false
   }
 
-  return timingSafeEqual(leftBuffer, rightBuffer);
+  return timingSafeEqual(leftBuffer, rightBuffer)
 }
 
 function normalizeJsonValue(value: unknown) {
   if (value === undefined) {
-    return null;
+    return null
   }
 
-  return value;
+  return value
 }
 
-function deriveTenantName(name: string) {
+function _deriveTenantName(name: string) {
   const slug = name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
+    .replace(/^-+|-+$/g, "")
 
-  return slug || "tenant";
+  return slug || "tenant"
 }
 
 function normalizeOrganizationSlug(value: string) {
-  return normalizeWorkspaceSlug(value);
+  return normalizeWorkspaceSlug(value)
 }
 
 async function generateOrganizationSlugFromWorkOS(
   organizationName: string,
   organizationExternalId: string,
 ) {
-  const db = getDb();
-  const baseSlug = normalizeOrganizationSlug(organizationName) || "workspace";
+  const db = getDb()
+  const baseSlug = normalizeOrganizationSlug(organizationName) || "workspace"
   const externalIdSuffix = organizationExternalId
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "")
-    .slice(-8);
+    .slice(-8)
   const fallbackSlug = externalIdSuffix
     ? `${baseSlug}-${externalIdSuffix}`
-    : `${baseSlug}-workspace`;
-  const candidates = [baseSlug, fallbackSlug];
+    : `${baseSlug}-workspace`
+  const candidates = [baseSlug, fallbackSlug]
 
   for (const candidate of candidates) {
     if (isReservedWorkspaceSlug(candidate)) {
-      continue;
+      continue
     }
 
     const [existingOrganization] = await db
@@ -10846,21 +10839,21 @@ async function generateOrganizationSlugFromWorkOS(
       })
       .from(organizations)
       .where(eq(organizations.slug, candidate))
-      .limit(1);
+      .limit(1)
 
     if (
       !existingOrganization ||
       existingOrganization.externalId === organizationExternalId
     ) {
-      return candidate;
+      return candidate
     }
   }
 
   for (let index = 2; ; index += 1) {
-    const candidate = `${fallbackSlug}-${index}`;
+    const candidate = `${fallbackSlug}-${index}`
 
     if (isReservedWorkspaceSlug(candidate)) {
-      continue;
+      continue
     }
 
     const [existingOrganization] = await db
@@ -10869,23 +10862,23 @@ async function generateOrganizationSlugFromWorkOS(
       })
       .from(organizations)
       .where(eq(organizations.slug, candidate))
-      .limit(1);
+      .limit(1)
 
     if (
       !existingOrganization ||
       existingOrganization.externalId === organizationExternalId
     ) {
-      return candidate;
+      return candidate
     }
   }
 }
 
 export async function createTenantForOrganization(input: {
-  organizationId: string;
-  tenantName: string;
-  userExternalId: string;
+  organizationId: string
+  tenantName: string
+  userExternalId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   const authorizedMembership = await db
     .select({
@@ -10899,10 +10892,10 @@ export async function createTenantForOrganization(input: {
         eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
         eq(users.externalId, input.userExternalId),
       ),
-    );
+    )
 
   if (authorizedMembership.length === 0) {
-    throw new Error("You do not have access to this organization");
+    throw new Error("You do not have access to this organization")
   }
 
   const createdTenant = await db.transaction(async (tx) => {
@@ -10915,21 +10908,21 @@ export async function createTenantForOrganization(input: {
       })
       .returning({
         id: tenants.id,
-      });
+      })
 
     await tx.insert(tenantServers).values({
       tenantId: tenant.id,
       provider: "hetzner",
       sshUsername: "openclaw",
       status: "creating",
-    });
+    })
 
     await createNextDesiredStateVersion(tx, {
       tenantId: tenant.id,
-    });
+    })
 
-    return tenant;
-  });
+    return tenant
+  })
 
   await enqueueJob({
     jobType: JOB_TYPES.provisionTenantServer,
@@ -10937,7 +10930,7 @@ export async function createTenantForOrganization(input: {
       tenantId: createdTenant.id,
       step: "create_server",
     },
-  });
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -10945,40 +10938,40 @@ export async function createTenantForOrganization(input: {
 // ---------------------------------------------------------------------------
 
 export type TenantSessionUpsertInput = {
-  sessionKey: string;
-  externalSessionId?: string | null;
-  displayName?: string | null;
-  label?: string | null;
-  subject?: string | null;
-  channel?: string | null;
-  channelProvider?: string | null;
-  chatType?: string | null;
-  originFrom?: string | null;
-  originTo?: string | null;
-  originAccountId?: string | null;
-  originThreadId?: string | null;
-  status: string;
-  startedAt?: number | null;
-  endedAt?: number | null;
-  runtimeMs?: number | null;
-  model?: string | null;
-  modelProvider?: string | null;
-  inputTokens?: number | null;
-  outputTokens?: number | null;
-  cacheReadTokens?: number | null;
-  cacheWriteTokens?: number | null;
-  totalTokens?: number | null;
-  estimatedCostUsd?: string | null;
-  transcriptJsonl?: string | null;
-  transcriptHash?: string | null;
-  messageCount?: number | null;
-  lastMessageAt?: number | null;
-  parentSessionKey?: string | null;
-  spawnDepth?: number | null;
-  subagentRole?: string | null;
-  sessionUpdatedAt?: number | null;
-  syncSource: string;
-};
+  sessionKey: string
+  externalSessionId?: string | null
+  displayName?: string | null
+  label?: string | null
+  subject?: string | null
+  channel?: string | null
+  channelProvider?: string | null
+  chatType?: string | null
+  originFrom?: string | null
+  originTo?: string | null
+  originAccountId?: string | null
+  originThreadId?: string | null
+  status: string
+  startedAt?: number | null
+  endedAt?: number | null
+  runtimeMs?: number | null
+  model?: string | null
+  modelProvider?: string | null
+  inputTokens?: number | null
+  outputTokens?: number | null
+  cacheReadTokens?: number | null
+  cacheWriteTokens?: number | null
+  totalTokens?: number | null
+  estimatedCostUsd?: string | null
+  transcriptJsonl?: string | null
+  transcriptHash?: string | null
+  messageCount?: number | null
+  lastMessageAt?: number | null
+  parentSessionKey?: string | null
+  spawnDepth?: number | null
+  subagentRole?: string | null
+  sessionUpdatedAt?: number | null
+  syncSource: string
+}
 
 /**
  * Extract the session start timestamp from the transcript JSONL.
@@ -10987,42 +10980,42 @@ export type TenantSessionUpsertInput = {
 function extractStartedAtFromTranscript(
   transcriptJsonl: string | null | undefined,
 ): number | null {
-  if (!transcriptJsonl) return null;
+  if (!transcriptJsonl) return null
 
-  const lines = transcriptJsonl.split("\n");
+  const lines = transcriptJsonl.split("\n")
   for (const line of lines) {
-    if (!line.trim()) continue;
+    if (!line.trim()) continue
     try {
-      const parsed = JSON.parse(line);
+      const parsed = JSON.parse(line)
       // Session header has ISO timestamp
       if (parsed.type === "session" && parsed.timestamp) {
-        const ts = new Date(parsed.timestamp).getTime();
-        if (Number.isFinite(ts)) return ts;
+        const ts = new Date(parsed.timestamp).getTime()
+        if (Number.isFinite(ts)) return ts
       }
       // Message lines have epoch ms timestamp
       if (parsed.type === "message" && parsed.message?.timestamp) {
-        const ts = parsed.message.timestamp;
-        if (typeof ts === "number" && Number.isFinite(ts)) return ts;
+        const ts = parsed.message.timestamp
+        if (typeof ts === "number" && Number.isFinite(ts)) return ts
       }
     } catch {}
   }
-  return null;
+  return null
 }
 
 export async function upsertTenantSessionBatch(
   tenantId: string,
   sessions: TenantSessionUpsertInput[],
 ) {
-  if (sessions.length === 0) return;
+  if (sessions.length === 0) return
 
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   for (const session of sessions) {
     // When startedAt is missing, derive it from the transcript
     const effectiveStartedAt =
       session.startedAt ??
-      extractStartedAtFromTranscript(session.transcriptJsonl);
+      extractStartedAtFromTranscript(session.transcriptJsonl)
 
     await db
       .insert(tenantSessions)
@@ -11108,18 +11101,18 @@ export async function upsertTenantSessionBatch(
           syncSource: session.syncSource,
           updatedAt: now,
         },
-      });
+      })
   }
 }
 
 export async function listTenantSessions(input: {
-  tenantId: string;
-  limit?: number;
-  offset?: number;
+  tenantId: string
+  limit?: number
+  offset?: number
 }) {
-  const db = getDb();
-  const limit = input.limit ?? 100;
-  const offset = input.offset ?? 0;
+  const db = getDb()
+  const limit = input.limit ?? 100
+  const offset = input.offset ?? 0
 
   return db
     .select({
@@ -11156,14 +11149,14 @@ export async function listTenantSessions(input: {
     .where(eq(tenantSessions.tenantId, input.tenantId))
     .orderBy(desc(tenantSessions.lastMessageAt))
     .limit(limit)
-    .offset(offset);
+    .offset(offset)
 }
 
 export async function getTenantSession(input: {
-  tenantId: string;
-  sessionKey: string;
+  tenantId: string
+  sessionKey: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   const [session] = await db
     .select()
@@ -11175,18 +11168,18 @@ export async function getTenantSession(input: {
       ),
     )
     .orderBy(desc(tenantSessions.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return session ?? null;
+  return session ?? null
 }
 
 export async function deleteStaleTenantSessions(
   tenantId: string,
   activeSessionKeys: string[],
 ) {
-  if (activeSessionKeys.length === 0) return 0;
+  if (activeSessionKeys.length === 0) return 0
 
-  const db = getDb();
+  const db = getDb()
   const result = await db
     .delete(tenantSessions)
     .where(
@@ -11195,9 +11188,9 @@ export async function deleteStaleTenantSessions(
         notInArray(tenantSessions.sessionKey, activeSessionKeys),
       ),
     )
-    .returning({ id: tenantSessions.id });
+    .returning({ id: tenantSessions.id })
 
-  return result.length;
+  return result.length
 }
 
 // ---------------------------------------------------------------------------
@@ -11205,10 +11198,10 @@ export async function deleteStaleTenantSessions(
 // ---------------------------------------------------------------------------
 
 export async function getUserChannelIdentities(input: {
-  userExternalId: string;
-  organizationId: string;
+  userExternalId: string
+  organizationId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   return db
     .select({
@@ -11230,14 +11223,14 @@ export async function getUserChannelIdentities(input: {
         eq(userChannelIdentities.organizationId, input.organizationId),
       ),
     )
-    .orderBy(asc(userChannelIdentities.provider));
+    .orderBy(asc(userChannelIdentities.provider))
 }
 
 export async function getUserExternalIds(input: {
-  userExternalId: string;
-  organizationId: string;
+  userExternalId: string
+  organizationId: string
 }): Promise<string[]> {
-  const db = getDb();
+  const db = getDb()
 
   const rows = await db
     .select({ externalId: userChannelIdentities.externalId })
@@ -11248,24 +11241,24 @@ export async function getUserExternalIds(input: {
         eq(users.externalId, input.userExternalId),
         eq(userChannelIdentities.organizationId, input.organizationId),
       ),
-    );
+    )
 
-  return rows.map((r) => r.externalId);
+  return rows.map((r) => r.externalId)
 }
 
 export async function upsertUserChannelIdentity(input: {
-  userId: string;
-  organizationId: string;
-  provider: string;
-  externalId: string;
-  displayName?: string | null;
-  fullName?: string | null;
-  username?: string | null;
-  avatarUrl?: string | null;
-  resolutionSource: string;
+  userId: string
+  organizationId: string
+  provider: string
+  externalId: string
+  displayName?: string | null
+  fullName?: string | null
+  username?: string | null
+  avatarUrl?: string | null
+  resolutionSource: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .insert(userChannelIdentities)
@@ -11297,13 +11290,13 @@ export async function upsertUserChannelIdentity(input: {
         resolutionSource: input.resolutionSource,
         updatedAt: now,
       },
-    });
+    })
 }
 
 export async function resolveUserChannelIdentitiesFromDirectory(input: {
-  organizationId: string;
+  organizationId: string
 }): Promise<{ resolved: number; skipped: number }> {
-  const db = getDb();
+  const db = getDb()
 
   // Get all Otto users in this org
   const orgMembers = await db
@@ -11318,10 +11311,10 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
         eq(memberships.organizationId, input.organizationId),
         eq(memberships.status, ACTIVE_WORKSPACE_MEMBERSHIP_STATUS),
       ),
-    );
+    )
 
   if (orgMembers.length === 0) {
-    return { resolved: 0, skipped: 0 };
+    return { resolved: 0, skipped: 0 }
   }
 
   // Get all messaging workspace members for this org's integrations
@@ -11351,26 +11344,26 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
       ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
-    .where(eq(tenants.organizationId, input.organizationId));
+    .where(eq(tenants.organizationId, input.organizationId))
 
   // Build email → workspace member lookup
-  const membersByEmail = new Map<string, (typeof workspaceMembers)[number][]>();
+  const membersByEmail = new Map<string, (typeof workspaceMembers)[number][]>()
   for (const member of workspaceMembers) {
-    if (!member.email) continue;
-    const key = member.email.toLowerCase();
-    const existing = membersByEmail.get(key) ?? [];
-    existing.push(member);
-    membersByEmail.set(key, existing);
+    if (!member.email) continue
+    const key = member.email.toLowerCase()
+    const existing = membersByEmail.get(key) ?? []
+    existing.push(member)
+    membersByEmail.set(key, existing)
   }
 
-  let resolved = 0;
-  let skipped = 0;
+  let resolved = 0
+  let skipped = 0
 
   for (const orgMember of orgMembers) {
-    const matches = membersByEmail.get(orgMember.email.toLowerCase()) ?? [];
+    const matches = membersByEmail.get(orgMember.email.toLowerCase()) ?? []
     if (matches.length === 0) {
-      skipped++;
-      continue;
+      skipped++
+      continue
     }
 
     for (const match of matches) {
@@ -11384,12 +11377,12 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
         username: match.username,
         avatarUrl: match.avatarUrl,
         resolutionSource: "directory_sync",
-      });
-      resolved++;
+      })
+      resolved++
     }
   }
 
-  return { resolved, skipped };
+  return { resolved, skipped }
 }
 
 // ---------------------------------------------------------------------------
@@ -11397,9 +11390,9 @@ export async function resolveUserChannelIdentitiesFromDirectory(input: {
 // ---------------------------------------------------------------------------
 
 export async function getConversationNameMap(input: {
-  organizationId: string;
+  organizationId: string
 }): Promise<Map<string, string>> {
-  const db = getDb();
+  const db = getDb()
 
   const rows = await db
     .select({
@@ -11422,22 +11415,22 @@ export async function getConversationNameMap(input: {
       ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
-    .where(eq(tenants.organizationId, input.organizationId));
+    .where(eq(tenants.organizationId, input.organizationId))
 
-  const map = new Map<string, string>();
+  const map = new Map<string, string>()
   for (const row of rows) {
     if (row.name) {
-      map.set(row.externalId, row.name);
-      map.set(row.externalId.toLowerCase(), row.name);
+      map.set(row.externalId, row.name)
+      map.set(row.externalId.toLowerCase(), row.name)
     }
   }
-  return map;
+  return map
 }
 
 export async function getMemberNameMap(input: {
-  organizationId: string;
+  organizationId: string
 }): Promise<Map<string, string>> {
-  const db = getDb();
+  const db = getDb()
 
   const rows = await db
     .select({
@@ -11461,30 +11454,30 @@ export async function getMemberNameMap(input: {
       ),
     )
     .innerJoin(tenants, eq(tenantIntegrations.tenantId, tenants.id))
-    .where(eq(tenants.organizationId, input.organizationId));
+    .where(eq(tenants.organizationId, input.organizationId))
 
-  const map = new Map<string, string>();
+  const map = new Map<string, string>()
   for (const row of rows) {
-    const name = row.displayName ?? row.fullName;
+    const name = row.displayName ?? row.fullName
     if (name) {
-      map.set(row.externalId, name);
-      map.set(row.externalId.toLowerCase(), name);
+      map.set(row.externalId, name)
+      map.set(row.externalId.toLowerCase(), name)
     }
   }
-  return map;
+  return map
 }
 
 function getUnknownErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown error";
+  return error instanceof Error ? error.message : "Unknown error"
 }
 
-function buildSlackOnboardingTokenResult(input: {
-  botToken: string;
-  installerUserId: string | null;
-  scopeCsv: string;
-  slackBotUserId: string | null;
-  slackTeamId: string;
-  slackTeamName: string | null;
+function _buildSlackOnboardingTokenResult(input: {
+  botToken: string
+  installerUserId: string | null
+  scopeCsv: string
+  slackBotUserId: string | null
+  slackTeamId: string
+  slackTeamName: string | null
 }): OAuthTokenExchangeResult {
   return {
     accessToken: input.botToken,
@@ -11505,30 +11498,30 @@ function buildSlackOnboardingTokenResult(input: {
     refreshToken: null,
     refreshTokenExpiresAt: null,
     tokenType: "bot",
-  };
+  }
 }
 
 function splitScopeCsvValue(csv: string | null) {
   return (csv ?? "")
     .split(",")
     .map((scope) => scope.trim())
-    .filter(Boolean);
+    .filter(Boolean)
 }
 
 function getStringMetadataValue(
   metadata: Record<string, unknown>,
   key: string,
 ) {
-  const value = metadata[key];
+  const value = metadata[key]
 
-  return typeof value === "string" && value.trim() ? value : null;
+  return typeof value === "string" && value.trim() ? value : null
 }
 
 function getNullableStringMetadataValue(
   metadata: Record<string, unknown>,
   key: string,
 ) {
-  const value = metadata[key];
+  const value = metadata[key]
 
-  return typeof value === "string" ? value : null;
+  return typeof value === "string" ? value : null
 }

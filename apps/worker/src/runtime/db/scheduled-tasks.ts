@@ -1,125 +1,124 @@
-import { and, desc, eq, inArray, not } from "drizzle-orm";
-
-import { getDb } from "./client";
+import { and, desc, eq, inArray, not } from "drizzle-orm"
+import { JOB_TYPES } from "../lib/jobs/types"
+import { getDb } from "./client"
 import {
   jobRuns,
   tenantScheduledTaskSessions,
   tenantScheduledTasks,
   tenantSessions,
-} from "./schema";
-import { JOB_TYPES } from "../lib/jobs/types";
+} from "./schema"
 
-export const SCHEDULED_TASKS_STALE_AFTER_MS = 15 * 60 * 1000;
+export const SCHEDULED_TASKS_STALE_AFTER_MS = 15 * 60 * 1000
 
 export type ScheduledTaskSnapshotRow = {
-  agentId: string | null;
-  description: string | null;
-  deleteAfterRun: boolean;
-  deliveryJson: Record<string, unknown> | null;
-  enabled: boolean;
-  failureAlertJson: Record<string, unknown> | null;
-  lastError: string | null;
-  lastRunAt: Date | null;
-  lastRunStatus: string | null;
-  name: string;
-  nextRunAt: Date | null;
-  payloadJson: Record<string, unknown> | null;
-  runtimeUpdatedAt: number | null;
-  scheduleExpression: string;
-  scheduleKind: string;
-  scheduleJson: Record<string, unknown> | null;
-  sessionKey: string | null;
-  sessionTarget: string | null;
-  status: string;
-  taskKey: string;
-  timezone: string | null;
-  wakeMode: string | null;
-};
+  agentId: string | null
+  description: string | null
+  deleteAfterRun: boolean
+  deliveryJson: Record<string, unknown> | null
+  enabled: boolean
+  failureAlertJson: Record<string, unknown> | null
+  lastError: string | null
+  lastRunAt: Date | null
+  lastRunStatus: string | null
+  name: string
+  nextRunAt: Date | null
+  payloadJson: Record<string, unknown> | null
+  runtimeUpdatedAt: number | null
+  scheduleExpression: string
+  scheduleKind: string
+  scheduleJson: Record<string, unknown> | null
+  sessionKey: string | null
+  sessionTarget: string | null
+  status: string
+  taskKey: string
+  timezone: string | null
+  wakeMode: string | null
+}
 
 export type ScheduledTaskSessionSnapshotRow = {
-  error: string | null;
-  externalRunKey: string;
-  externalSessionId: string | null;
-  finishedAt: Date | null;
-  runtimeSessionKey: string | null;
-  scheduledFor: Date | null;
-  startedAt: Date | null;
-  status: string;
-  summary: string | null;
-  taskKey: string;
-  taskName: string;
-  triggerType: string;
-};
+  error: string | null
+  externalRunKey: string
+  externalSessionId: string | null
+  finishedAt: Date | null
+  runtimeSessionKey: string | null
+  scheduledFor: Date | null
+  startedAt: Date | null
+  status: string
+  summary: string | null
+  taskKey: string
+  taskName: string
+  triggerType: string
+}
 
-type DbClient = ReturnType<typeof getDb>;
-type DbTransaction = Parameters<Parameters<DbClient["transaction"]>[0]>[0];
+type DbClient = ReturnType<typeof getDb>
+type DbTransaction = Parameters<Parameters<DbClient["transaction"]>[0]>[0]
 
 export async function replaceTenantScheduledTasksSnapshot(input: {
-  tasks: ScheduledTaskSnapshotRow[];
-  tenantId: string;
+  tasks: ScheduledTaskSnapshotRow[]
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await db.transaction(async (tx) => {
-    await replaceTenantScheduledTasksSnapshotTx(tx, input);
-  });
+    await replaceTenantScheduledTasksSnapshotTx(tx, input)
+  })
 }
 
 export async function upsertTenantScheduledTaskRuns(input: {
-  runs: ScheduledTaskSessionSnapshotRow[];
-  tenantId: string;
+  runs: ScheduledTaskSessionSnapshotRow[]
+  tenantId: string
 }) {
   if (input.runs.length === 0) {
-    return;
+    return
   }
 
-  const db = getDb();
+  const db = getDb()
 
   await db.transaction(async (tx) => {
-    await upsertTenantScheduledTaskRunsTx(tx, input);
-  });
+    await upsertTenantScheduledTaskRunsTx(tx, input)
+  })
 }
 
 export async function upsertTenantScheduledTasksSnapshot(input: {
-  runs: ScheduledTaskSessionSnapshotRow[];
-  tasks: ScheduledTaskSnapshotRow[];
-  tenantId: string;
+  runs: ScheduledTaskSessionSnapshotRow[]
+  tasks: ScheduledTaskSnapshotRow[]
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   await db.transaction(async (tx) => {
     await replaceTenantScheduledTasksSnapshotTx(tx, {
       tasks: input.tasks,
       tenantId: input.tenantId,
-    });
+    })
     await upsertTenantScheduledTaskRunsTx(tx, {
       runs: input.runs,
       tenantId: input.tenantId,
-    });
-  });
+    })
+  })
 }
 
 async function replaceTenantScheduledTasksSnapshotTx(
   tx: DbClient | DbTransaction,
   input: {
-    tasks: ScheduledTaskSnapshotRow[];
-    tenantId: string;
+    tasks: ScheduledTaskSnapshotRow[]
+    tenantId: string
   },
 ) {
-  const now = new Date();
-  const currentTaskKeys = input.tasks.map((task) => task.taskKey);
+  const now = new Date()
+  const currentTaskKeys = input.tasks.map((task) => task.taskKey)
 
   if (currentTaskKeys.length === 0) {
     await markMissingTenantScheduledTasksDeletedTx(tx, {
       now,
       tenantId: input.tenantId,
-    });
+    })
   } else {
     await markMissingTenantScheduledTasksDeletedTx(tx, {
       excludeTaskKeys: currentTaskKeys,
       now,
       tenantId: input.tenantId,
-    });
+    })
   }
 
   for (const task of input.tasks) {
@@ -181,23 +180,23 @@ async function replaceTenantScheduledTasksSnapshotTx(
           lastSyncError: null,
           updatedAt: now,
         },
-      });
+      })
   }
 }
 
 async function upsertTenantScheduledTaskRunsTx(
   tx: DbClient | DbTransaction,
   input: {
-    runs: ScheduledTaskSessionSnapshotRow[];
-    tenantId: string;
+    runs: ScheduledTaskSessionSnapshotRow[]
+    tenantId: string
   },
 ) {
   if (input.runs.length === 0) {
-    return;
+    return
   }
 
-  const now = new Date();
-  const placeholderTaskRows = buildDeletedPlaceholderTasks(input.runs);
+  const now = new Date()
+  const placeholderTaskRows = buildDeletedPlaceholderTasks(input.runs)
 
   for (const task of placeholderTaskRows) {
     await tx
@@ -232,7 +231,7 @@ async function upsertTenantScheduledTaskRunsTx(
       })
       .onConflictDoNothing({
         target: [tenantScheduledTasks.tenantId, tenantScheduledTasks.taskKey],
-      });
+      })
   }
 
   const taskRows = await tx
@@ -241,11 +240,11 @@ async function upsertTenantScheduledTaskRunsTx(
       taskKey: tenantScheduledTasks.taskKey,
     })
     .from(tenantScheduledTasks)
-    .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
+    .where(eq(tenantScheduledTasks.tenantId, input.tenantId))
 
   const taskIdByKey = new Map(
     taskRows.map((row) => [row.taskKey, row.id] as const),
-  );
+  )
 
   for (const run of input.runs) {
     await tx
@@ -287,17 +286,17 @@ async function upsertTenantScheduledTaskRunsTx(
           error: run.error,
           updatedAt: now,
         },
-      });
+      })
   }
 
-  const latestRunByTaskKey = new Map<string, ScheduledTaskSessionSnapshotRow>();
+  const latestRunByTaskKey = new Map<string, ScheduledTaskSessionSnapshotRow>()
   for (const run of input.runs) {
-    const nextSortMs = getTaskRunSortMs(run);
-    const current = latestRunByTaskKey.get(run.taskKey);
-    const currentSortMs = current ? getTaskRunSortMs(current) : null;
+    const nextSortMs = getTaskRunSortMs(run)
+    const current = latestRunByTaskKey.get(run.taskKey)
+    const currentSortMs = current ? getTaskRunSortMs(current) : null
 
     if (currentSortMs === null || nextSortMs > currentSortMs) {
-      latestRunByTaskKey.set(run.taskKey, run);
+      latestRunByTaskKey.set(run.taskKey, run)
     }
   }
 
@@ -317,16 +316,16 @@ async function upsertTenantScheduledTaskRunsTx(
           eq(tenantScheduledTasks.tenantId, input.tenantId),
           eq(tenantScheduledTasks.taskKey, taskKey),
         ),
-      );
+      )
   }
 }
 
 export async function markTenantScheduledTasksSyncFailed(input: {
-  error: string;
-  tenantId: string;
+  error: string
+  tenantId: string
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(tenantScheduledTasks)
@@ -334,11 +333,11 @@ export async function markTenantScheduledTasksSyncFailed(input: {
       lastSyncError: input.error,
       updatedAt: now,
     })
-    .where(eq(tenantScheduledTasks.tenantId, input.tenantId));
+    .where(eq(tenantScheduledTasks.tenantId, input.tenantId))
 }
 
 export async function listTenantScheduledTasks(input: { tenantId: string }) {
-  const db = getDb();
+  const db = getDb()
 
   return db
     .select({
@@ -371,14 +370,14 @@ export async function listTenantScheduledTasks(input: { tenantId: string }) {
     .from(tenantScheduledTasks)
     .where(eq(tenantScheduledTasks.tenantId, input.tenantId))
     .orderBy(tenantScheduledTasks.name)
-    .then((rows) => rows.map(normalizeScheduledTaskRow));
+    .then((rows) => rows.map(normalizeScheduledTaskRow))
 }
 
 export async function getTenantScheduledTask(input: {
-  taskKey: string;
-  tenantId: string;
+  taskKey: string
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   const [task] = await db
     .select({
@@ -415,18 +414,18 @@ export async function getTenantScheduledTask(input: {
         eq(tenantScheduledTasks.taskKey, input.taskKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return task ? normalizeScheduledTaskRow(task) : null;
+  return task ? normalizeScheduledTaskRow(task) : null
 }
 
 export async function listTenantScheduledTaskSessions(input: {
-  limit?: number;
-  taskKey?: string;
-  tenantId: string;
+  limit?: number
+  taskKey?: string
+  tenantId: string
 }) {
-  const db = getDb();
-  const limit = input.limit ?? 50;
+  const db = getDb()
+  const limit = input.limit ?? 50
 
   return db
     .select({
@@ -473,13 +472,13 @@ export async function listTenantScheduledTaskSessions(input: {
         ...row,
         hasSyncedSession: Boolean(row.hasSyncedSession),
       })),
-    );
+    )
 }
 
 export async function getLatestTenantScheduledTasksRefreshJob(input: {
-  tenantId: string;
+  tenantId: string
 }) {
-  const db = getDb();
+  const db = getDb()
 
   const [job] = await db
     .select({
@@ -498,17 +497,17 @@ export async function getLatestTenantScheduledTasksRefreshJob(input: {
       ),
     )
     .orderBy(desc(jobRuns.createdAt))
-    .limit(1);
+    .limit(1)
 
-  return job ?? null;
+  return job ?? null
 }
 
 export function isScheduledTaskStale(lastSyncedAt: Date | null) {
   if (!lastSyncedAt) {
-    return true;
+    return true
   }
 
-  return Date.now() - lastSyncedAt.getTime() > SCHEDULED_TASKS_STALE_AFTER_MS;
+  return Date.now() - lastSyncedAt.getTime() > SCHEDULED_TASKS_STALE_AFTER_MS
 }
 
 function getTaskRunSortMs(run: ScheduledTaskSessionSnapshotRow) {
@@ -517,15 +516,15 @@ function getTaskRunSortMs(run: ScheduledTaskSessionSnapshotRow) {
     run.startedAt?.getTime() ??
     run.scheduledFor?.getTime() ??
     0
-  );
+  )
 }
 
 async function markMissingTenantScheduledTasksDeletedTx(
   tx: DbClient | DbTransaction,
   input: {
-    excludeTaskKeys?: string[];
-    now: Date;
-    tenantId: string;
+    excludeTaskKeys?: string[]
+    now: Date
+    tenantId: string
   },
 ) {
   await tx
@@ -545,15 +544,15 @@ async function markMissingTenantScheduledTasksDeletedTx(
           ? not(inArray(tenantScheduledTasks.taskKey, input.excludeTaskKeys))
           : undefined,
       ),
-    );
+    )
 }
 
 function buildDeletedPlaceholderTasks(runs: ScheduledTaskSessionSnapshotRow[]) {
-  const placeholderTasks = new Map<string, ScheduledTaskSnapshotRow>();
+  const placeholderTasks = new Map<string, ScheduledTaskSnapshotRow>()
 
   for (const run of runs) {
     if (placeholderTasks.has(run.taskKey)) {
-      continue;
+      continue
     }
 
     placeholderTasks.set(run.taskKey, {
@@ -580,18 +579,18 @@ function buildDeletedPlaceholderTasks(runs: ScheduledTaskSessionSnapshotRow[]) {
       taskKey: run.taskKey,
       timezone: null,
       wakeMode: null,
-    });
+    })
   }
 
-  return [...placeholderTasks.values()];
+  return [...placeholderTasks.values()]
 }
 
 function normalizeScheduledTaskRow<
   TRow extends {
-    deliveryJson: unknown;
-    failureAlertJson: unknown;
-    payloadJson: unknown;
-    scheduleJson: unknown;
+    deliveryJson: unknown
+    failureAlertJson: unknown
+    payloadJson: unknown
+    scheduleJson: unknown
   },
 >(row: TRow) {
   return {
@@ -600,7 +599,7 @@ function normalizeScheduledTaskRow<
     failureAlertJson: asRecord(row.failureAlertJson),
     payloadJson: asRecord(row.payloadJson),
     scheduleJson: asRecord(row.scheduleJson),
-  };
+  }
 }
 
 /**
@@ -609,9 +608,9 @@ function normalizeScheduledTaskRow<
  * scheduled task detail page.
  */
 export async function getCronSessionTaskKeyMap(input: {
-  tenantId: string;
+  tenantId: string
 }): Promise<Map<string, string>> {
-  const db = getDb();
+  const db = getDb()
 
   const rows = await db
     .select({
@@ -624,21 +623,21 @@ export async function getCronSessionTaskKeyMap(input: {
         eq(tenantScheduledTaskSessions.tenantId, input.tenantId),
         not(eq(tenantScheduledTaskSessions.runtimeSessionKey, "")),
       ),
-    );
+    )
 
-  const map = new Map<string, string>();
+  const map = new Map<string, string>()
   for (const row of rows) {
     if (row.runtimeSessionKey) {
-      map.set(row.runtimeSessionKey, row.taskKey);
+      map.set(row.runtimeSessionKey, row.taskKey)
     }
   }
-  return map;
+  return map
 }
 
 function asRecord(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return null;
+    return null
   }
 
-  return value as Record<string, unknown>;
+  return value as Record<string, unknown>
 }

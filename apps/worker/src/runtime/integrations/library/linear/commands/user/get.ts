@@ -1,11 +1,11 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
 import {
   buildLinearUserCommandResult,
   executeLinearGraphql,
   getLinearUserFields,
   type LinearUserNode,
-} from "../../client";
+} from "../../client"
 
 const GET_USER_QUERY = `
   query OttoLinearUserGet($id: String!) {
@@ -13,31 +13,31 @@ const GET_USER_QUERY = `
       ${getLinearUserFields()}
     }
   }
-`;
+`
 
 export const executeLinearUserGet: IntegrationCommandExecute = async ({
   arguments: args,
   context,
 }) => {
   if (!context.auth) {
-    throw new Error("Linear requires an authenticated execution context.");
+    throw new Error("Linear requires an authenticated execution context.")
   }
 
-  const userId = typeof args.userId === "string" ? args.userId.trim() : "";
+  const userId = typeof args.userId === "string" ? args.userId.trim() : ""
 
   if (!userId) {
-    throw new Error("linear user.get requires userId.");
+    throw new Error("linear user.get requires userId.")
   }
 
   const data = await executeLinearGraphql<{
-    user?: LinearUserNode | null;
+    user?: LinearUserNode | null
   }>({
     accessToken: context.auth.accessToken,
     query: GET_USER_QUERY,
     variables: {
       id: userId,
     },
-  });
+  })
 
   return {
     ...buildLinearUserCommandResult({
@@ -45,5 +45,5 @@ export const executeLinearUserGet: IntegrationCommandExecute = async ({
       user: data.user,
     }),
     lookup: userId,
-  };
-};
+  }
+}

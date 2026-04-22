@@ -60,8 +60,6 @@ describe("landing prompt composer input", () => {
         "I want to run onboarding better.",
         "Help me set up support too.",
       ),
-    ).toBe(
-      "I want to run onboarding better.\nHelp me set up support too.",
-    )
+    ).toBe("I want to run onboarding better.\nHelp me set up support too.")
   })
 })

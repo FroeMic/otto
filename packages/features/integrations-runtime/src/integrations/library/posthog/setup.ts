@@ -1,8 +1,5 @@
 import { collectCommands } from "../../framework/search"
-import {
-  buildPostHogOrganizationPath,
-  normalizePostHogHost,
-} from "./client"
+import { buildPostHogOrganizationPath, normalizePostHogHost } from "./client"
 import { posthogIntegrationDefinition } from "./definition"
 
 export type IntegrationSetupCapabilityRecommendation = {

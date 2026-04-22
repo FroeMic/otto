@@ -4,20 +4,20 @@ import { logger } from "hono/logger"
 import { createAgentRouter } from "./agent/routes"
 import { registerAuthRoutes } from "./auth"
 import {
-  createBillingRouter,
   type BillingRouteDependencies,
+  createBillingRouter,
 } from "./billing/routes"
 import { createFilesRouter } from "./files/routes"
-import { createIntegrationsRouter } from "./integrations/routes"
 import { createIntegrationsOauthRouter } from "./integrations/oauth-routes"
-import {
-  createPlatformRouter,
-  type PlatformRouteDependencies,
-} from "./platform/routes"
+import { createIntegrationsRouter } from "./integrations/routes"
 import {
   createWorkspaceOnboardingRouter,
   type WorkspaceOnboardingRouteDependencies,
 } from "./onboarding/routes"
+import {
+  createPlatformRouter,
+  type PlatformRouteDependencies,
+} from "./platform/routes"
 import {
   createPublicIntakeRouter,
   type PublicIntakeRouteDependencies,
@@ -26,13 +26,8 @@ import { registerRuntimeRoutes } from "./runtime/routes"
 import { createScheduledTasksRouter } from "./scheduled-tasks/routes"
 import { createSessionsRouter } from "./sessions/routes"
 import { createSkillsRouter } from "./skills/routes"
-import {
-  createUserRouter,
-  type UserRouteDependencies,
-} from "./user/routes"
-import {
-  createWorkspaceRouter,
-} from "./workspace/routes"
+import { createUserRouter, type UserRouteDependencies } from "./user/routes"
+import { createWorkspaceRouter } from "./workspace/routes"
 import {
   createWorkspaceMembersRouter,
   type WorkspaceMembersRouteDependencies,
@@ -72,7 +67,10 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createBillingRouter(options.billingRoutes))
     .route("/", createPlatformRouter(options.platformRoutes))
     .route("/", createPublicIntakeRouter(options.publicIntakeRoutes))
-    .route("/", createWorkspaceOnboardingRouter(options.workspaceOnboardingRoutes))
+    .route(
+      "/",
+      createWorkspaceOnboardingRouter(options.workspaceOnboardingRoutes),
+    )
     .route("/", createUserRouter(options.userRoutes))
     .route("/", createWorkspaceMembersRouter(options.workspaceMembersRoutes))
 

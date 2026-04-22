@@ -5,22 +5,22 @@ import {
   jsonNoStore,
 } from "@otto/auth"
 import {
-  workspaceJobStatusResponseSchema,
-  workspaceIntegrationCapabilityPolicyResponseSchema,
-  workspaceIntegrationCapabilityPolicyUpdateSchema,
   workspaceApiKeyIntegrationSetupResponseSchema,
   workspaceApiKeyIntegrationSetupSchema,
+  workspaceIntegrationCapabilityPolicyResponseSchema,
+  workspaceIntegrationCapabilityPolicyUpdateSchema,
   workspaceIntegrationDetailSchema,
   workspaceIntegrationDisconnectResponseSchema,
-  workspaceIntegrationsResponseSchema,
   workspaceIntegrationSetupApplyResponseSchema,
   workspaceIntegrationSetupApplySchema,
   workspaceIntegrationSetupDiscoverResponseSchema,
   workspaceIntegrationSetupDiscoverSchema,
-  workspaceSlackDirectoryResyncResponseSchema,
-  workspaceSlackDirectoryResyncSchema,
+  workspaceIntegrationsResponseSchema,
+  workspaceJobStatusResponseSchema,
   workspaceSlackChannelMembershipResponseSchema,
   workspaceSlackChannelMembershipUpdateSchema,
+  workspaceSlackDirectoryResyncResponseSchema,
+  workspaceSlackDirectoryResyncSchema,
   workspaceSlackSettingsPatchSchema,
   workspaceSlackSettingsUpdateResponseSchema,
 } from "@otto/feature-integrations-runtime/workspace"
@@ -28,19 +28,19 @@ import { Hono } from "hono"
 import { z } from "zod"
 
 import {
+  applyWorkspaceIntegrationSetup,
+  connectWorkspaceApiKeyIntegration,
   disconnectWorkspaceIntegration,
+  discoverWorkspaceIntegrationSetup,
   enableWorkspaceIntegration,
   enqueueWorkspaceSlackDirectoryResync,
   updateWorkspaceIntegrationCapabilityPolicy,
   updateWorkspaceSlackChannelMembership,
   updateWorkspaceSlackSettings,
-  connectWorkspaceApiKeyIntegration,
-  applyWorkspaceIntegrationSetup,
-  discoverWorkspaceIntegrationSetup,
 } from "./actions"
 import {
-  getWorkspaceJobStatus,
   getWorkspaceIntegrationDetail,
+  getWorkspaceJobStatus,
   listWorkspaceIntegrations,
 } from "./data"
 
@@ -48,9 +48,10 @@ const workspaceIntegrationsParamsSchema = z.object({
   orgSlug: z.string().min(1),
 })
 
-const workspaceIntegrationDetailParamsSchema = workspaceIntegrationsParamsSchema.extend({
-  integrationKey: z.string().min(1),
-})
+const workspaceIntegrationDetailParamsSchema =
+  workspaceIntegrationsParamsSchema.extend({
+    integrationKey: z.string().min(1),
+  })
 
 const workspaceIntegrationCapabilityPolicyParamsSchema =
   workspaceIntegrationDetailParamsSchema.extend({
@@ -264,13 +265,16 @@ export function createIntegrationsRouter(
           return authResult.response
         }
 
-        const row = await dependencies.updateWorkspaceIntegrationCapabilityPolicy({
-          capabilityKey: decodeURIComponent(context.req.valid("param").capabilityKey),
-          orgSlug: context.req.valid("param").orgSlug,
-          policy: context.req.valid("json"),
-          providerKey: context.req.valid("param").integrationKey,
-          userExternalId: authResult.user.id,
-        })
+        const row =
+          await dependencies.updateWorkspaceIntegrationCapabilityPolicy({
+            capabilityKey: decodeURIComponent(
+              context.req.valid("param").capabilityKey,
+            ),
+            orgSlug: context.req.valid("param").orgSlug,
+            policy: context.req.valid("json"),
+            providerKey: context.req.valid("param").integrationKey,
+            userExternalId: authResult.user.id,
+          })
 
         return jsonNoStore(
           workspaceIntegrationCapabilityPolicyResponseSchema.parse({
@@ -381,12 +385,14 @@ export function createIntegrationsRouter(
           return authResult.response
         }
 
-        const result = await dependencies.updateWorkspaceSlackChannelMembership({
-          action: context.req.valid("json").action,
-          channelId: context.req.valid("param").channelId,
-          orgSlug: context.req.valid("param").orgSlug,
-          userExternalId: authResult.user.id,
-        })
+        const result = await dependencies.updateWorkspaceSlackChannelMembership(
+          {
+            action: context.req.valid("json").action,
+            channelId: context.req.valid("param").channelId,
+            orgSlug: context.req.valid("param").orgSlug,
+            userExternalId: authResult.user.id,
+          },
+        )
 
         return jsonNoStore(
           workspaceSlackChannelMembershipResponseSchema.parse(result),

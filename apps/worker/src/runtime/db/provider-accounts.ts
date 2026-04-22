@@ -1,25 +1,24 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
-
-import { getDb } from "./client";
-import { providerAccounts, providerCredentials } from "./schema";
+import { and, desc, eq, isNull } from "drizzle-orm"
 import {
   decryptControlPlaneSecret,
   encryptControlPlaneSecret,
-} from "../lib/crypto";
-import type { ProviderKey } from "../lib/providers/types";
+} from "../lib/crypto"
+import type { ProviderKey } from "../lib/providers/types"
+import { getDb } from "./client"
+import { providerAccounts, providerCredentials } from "./schema"
 
 export const PROVIDER_CREDENTIAL_TYPES = {
   apiKey: "api_key",
-} as const;
+} as const
 
 export type ProviderCredentialType =
-  (typeof PROVIDER_CREDENTIAL_TYPES)[keyof typeof PROVIDER_CREDENTIAL_TYPES];
+  (typeof PROVIDER_CREDENTIAL_TYPES)[keyof typeof PROVIDER_CREDENTIAL_TYPES]
 
 export async function getProviderAccountByTenantAndKey(
   tenantId: string,
   providerKey: ProviderKey,
 ) {
-  const db = getDb();
+  const db = getDb()
   const [account] = await db
     .select()
     .from(providerAccounts)
@@ -29,28 +28,28 @@ export async function getProviderAccountByTenantAndKey(
         eq(providerAccounts.providerKey, providerKey),
       ),
     )
-    .limit(1);
+    .limit(1)
 
-  return account ?? null;
+  return account ?? null
 }
 
 export async function upsertProviderAccount(input: {
-  tenantId: string;
-  providerKey: ProviderKey;
-  displayName?: string | null;
-  externalProjectId?: string | null;
-  externalServiceAccountId?: string | null;
-  externalApiKeyId?: string | null;
-  status: string;
-  provisionedAt?: Date | null;
-  revokedAt?: Date | null;
+  tenantId: string
+  providerKey: ProviderKey
+  displayName?: string | null
+  externalProjectId?: string | null
+  externalServiceAccountId?: string | null
+  externalApiKeyId?: string | null
+  status: string
+  provisionedAt?: Date | null
+  revokedAt?: Date | null
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
   const existingAccount = await getProviderAccountByTenantAndKey(
     input.tenantId,
     input.providerKey,
-  );
+  )
 
   if (existingAccount) {
     const [updatedAccount] = await db
@@ -70,9 +69,9 @@ export async function upsertProviderAccount(input: {
         updatedAt: now,
       })
       .where(eq(providerAccounts.id, existingAccount.id))
-      .returning();
+      .returning()
 
-    return updatedAccount;
+    return updatedAccount
   }
 
   const [createdAccount] = await db
@@ -88,20 +87,20 @@ export async function upsertProviderAccount(input: {
       status: input.status,
       tenantId: input.tenantId,
     })
-    .returning();
+    .returning()
 
-  return createdAccount;
+  return createdAccount
 }
 
 export async function storeProviderCredential(input: {
-  providerAccountId: string;
-  credentialType: ProviderCredentialType;
-  externalApiKeyId?: string | null;
-  externalServiceAccountId?: string | null;
-  plaintext: string;
+  providerAccountId: string
+  credentialType: ProviderCredentialType
+  externalApiKeyId?: string | null
+  externalServiceAccountId?: string | null
+  plaintext: string
 }) {
-  const db = getDb();
-  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+  const db = getDb()
+  const ciphertext = encryptControlPlaneSecret(input.plaintext)
 
   const [createdCredential] = await db
     .insert(providerCredentials)
@@ -112,17 +111,17 @@ export async function storeProviderCredential(input: {
       externalServiceAccountId: input.externalServiceAccountId ?? null,
       providerAccountId: input.providerAccountId,
     })
-    .returning();
+    .returning()
 
-  return createdCredential;
+  return createdCredential
 }
 
 export async function revokeActiveProviderCredentials(input: {
-  providerAccountId: string;
-  credentialType: ProviderCredentialType;
+  providerAccountId: string
+  credentialType: ProviderCredentialType
 }) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(providerCredentials)
@@ -136,15 +135,15 @@ export async function revokeActiveProviderCredentials(input: {
         eq(providerCredentials.credentialType, input.credentialType),
         isNull(providerCredentials.revokedAt),
       ),
-    );
+    )
 }
 
 export async function getProviderCredentialPlaintext(input: {
-  providerKey: ProviderKey;
-  tenantId: string;
-  credentialType: ProviderCredentialType;
+  providerKey: ProviderKey
+  tenantId: string
+  credentialType: ProviderCredentialType
 }) {
-  const db = getDb();
+  const db = getDb()
   const [credential] = await db
     .select({
       ciphertext: providerCredentials.ciphertext,
@@ -164,13 +163,13 @@ export async function getProviderCredentialPlaintext(input: {
       ),
     )
     .orderBy(desc(providerCredentials.createdAt))
-    .limit(1);
+    .limit(1)
 
   if (!credential?.ciphertext) {
-    return null;
+    return null
   }
 
-  return decryptControlPlaneSecret(credential.ciphertext);
+  return decryptControlPlaneSecret(credential.ciphertext)
 }
 
 export async function getTenantOpenAiApiKey(tenantId: string) {
@@ -178,18 +177,18 @@ export async function getTenantOpenAiApiKey(tenantId: string) {
     credentialType: PROVIDER_CREDENTIAL_TYPES.apiKey,
     providerKey: "openai",
     tenantId,
-  });
+  })
 }
 
 export async function getTenantOpenAiProviderSummary(tenantId: string) {
-  const db = getDb();
+  const db = getDb()
   const providerAccount = await getProviderAccountByTenantAndKey(
     tenantId,
     "openai",
-  );
+  )
 
   if (!providerAccount) {
-    return null;
+    return null
   }
 
   const credentialRows = await db
@@ -201,10 +200,10 @@ export async function getTenantOpenAiProviderSummary(tenantId: string) {
     })
     .from(providerCredentials)
     .where(eq(providerCredentials.providerAccountId, providerAccount.id))
-    .orderBy(desc(providerCredentials.createdAt));
+    .orderBy(desc(providerCredentials.createdAt))
 
   const activeCredential =
-    credentialRows.find((credential) => credential.revokedAt === null) ?? null;
+    credentialRows.find((credential) => credential.revokedAt === null) ?? null
 
   return {
     activeApiKeyId: activeCredential?.externalApiKeyId ?? null,
@@ -216,25 +215,25 @@ export async function getTenantOpenAiProviderSummary(tenantId: string) {
     projectId: providerAccount.externalProjectId,
     status: providerAccount.status,
     totalCredentialCount: credentialRows.length,
-  };
+  }
 }
 
 export async function persistProvisionedProviderCredential(input: {
-  tenantId: string;
-  providerKey: ProviderKey;
-  displayName?: string | null;
-  externalProjectId?: string | null;
-  externalServiceAccountId?: string | null;
-  externalApiKeyId?: string | null;
-  status: string;
-  provisionedAt?: Date | null;
-  revokedAt?: Date | null;
-  credentialType: ProviderCredentialType;
-  plaintext: string;
+  tenantId: string
+  providerKey: ProviderKey
+  displayName?: string | null
+  externalProjectId?: string | null
+  externalServiceAccountId?: string | null
+  externalApiKeyId?: string | null
+  status: string
+  provisionedAt?: Date | null
+  revokedAt?: Date | null
+  credentialType: ProviderCredentialType
+  plaintext: string
 }) {
-  const db = getDb();
-  const now = new Date();
-  const ciphertext = encryptControlPlaneSecret(input.plaintext);
+  const db = getDb()
+  const now = new Date()
+  const ciphertext = encryptControlPlaneSecret(input.plaintext)
 
   return db.transaction(async (tx) => {
     const [existingAccount] = await tx
@@ -246,7 +245,7 @@ export async function persistProvisionedProviderCredential(input: {
           eq(providerAccounts.providerKey, input.providerKey),
         ),
       )
-      .limit(1);
+      .limit(1)
 
     const providerAccount = existingAccount
       ? (
@@ -285,7 +284,7 @@ export async function persistProvisionedProviderCredential(input: {
               tenantId: input.tenantId,
             })
             .returning()
-        )[0];
+        )[0]
 
     await tx
       .update(providerCredentials)
@@ -299,7 +298,7 @@ export async function persistProvisionedProviderCredential(input: {
           eq(providerCredentials.credentialType, input.credentialType),
           isNull(providerCredentials.revokedAt),
         ),
-      );
+      )
 
     const [providerCredential] = await tx
       .insert(providerCredentials)
@@ -310,11 +309,11 @@ export async function persistProvisionedProviderCredential(input: {
         externalServiceAccountId: input.externalServiceAccountId ?? null,
         providerAccountId: providerAccount.id,
       })
-      .returning();
+      .returning()
 
     return {
       providerAccount,
       providerCredential,
-    };
-  });
+    }
+  })
 }

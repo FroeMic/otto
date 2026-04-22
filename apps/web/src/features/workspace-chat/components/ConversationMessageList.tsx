@@ -12,14 +12,13 @@ import {
   EmptyTitle,
 } from "@/components/ui/empty"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
+import { getWorkspaceConversationTurnGroupKey } from "../presentation"
 import { ConversationMessageBubble } from "./ConversationMessageBubble"
 import { ConversationPendingState } from "./ConversationPendingState"
 import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
-import { getWorkspaceConversationTurnGroupKey } from "../presentation"
 import { WorkspaceChatPromptSuggestions } from "./WorkspaceChatPromptSuggestions"
 
 export interface ConversationMessageListProps {
@@ -145,20 +144,14 @@ export function ConversationMessageList({
               />
               <div className="pl-10">
                 <ConversationPendingState
-                  startedAt={
-                    lastMessage?.createdAt ?? new Date().toISOString()
-                  }
+                  startedAt={lastMessage?.createdAt ?? new Date().toISOString()}
                   status="pending"
                 />
               </div>
             </div>
           </ConversationTurnShell>
         ) : null}
-        <div
-          aria-hidden
-          className="h-px"
-          ref={endRef}
-        />
+        <div aria-hidden className="h-px" ref={endRef} />
       </div>
     </ScrollArea>
   )

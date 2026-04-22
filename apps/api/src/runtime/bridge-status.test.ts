@@ -37,7 +37,10 @@ describe("tenant runtime bridge status routes", () => {
           runtime: {
             controlPlaneBaseUrl: "https://getyourotto.com",
             enabledPluginIds: ["otto-session-reporter", "otto-workspace-chat"],
-            installedPluginIds: ["otto-session-reporter", "otto-workspace-chat"],
+            installedPluginIds: [
+              "otto-session-reporter",
+              "otto-workspace-chat",
+            ],
             sessionReporterEnabled: true,
             workspaceChatEnabled: true,
           },

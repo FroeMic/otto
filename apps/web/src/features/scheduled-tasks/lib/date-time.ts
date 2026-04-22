@@ -29,4 +29,3 @@ export function formatShortDateTime(
     timeZone: preferences.timeZone,
   }).format(value)
 }
-

@@ -110,7 +110,11 @@ export function WorkspaceUserMenu({
 
             <DropdownMenuSeparator />
             <DropdownMenuItem
-              render={<a href="/auth/sign-out" />}
+              render={
+                <a href="/auth/sign-out">
+                  <span className="sr-only">Sign out</span>
+                </a>
+              }
             >
               <SignOutIcon />
               <span>Sign out</span>

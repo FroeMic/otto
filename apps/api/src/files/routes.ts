@@ -1,19 +1,17 @@
+import { zValidator } from "@hono/zod-validator"
 import {
   authenticateWorkspaceSessionRequest,
   isWorkspaceSessionAuthError,
   jsonNoStore,
 } from "@otto/auth"
+import { RuntimePathValidationError } from "@otto/feature-runtime-core/runtime-files/download"
 import {
-  RuntimePathValidationError,
-} from "@otto/feature-runtime-core/runtime-files/download"
-import {
-  runtimeDirectoryListingResponseSchema,
-  runtimeDownloadKindSchema,
   type RuntimeDirectoryListingResponse,
   type RuntimeDownloadKind,
   type RuntimeDownloadResult,
+  runtimeDirectoryListingResponseSchema,
+  runtimeDownloadKindSchema,
 } from "@otto/feature-runtime-core/runtime-files/types"
-import { zValidator } from "@hono/zod-validator"
 import { Hono } from "hono"
 import { z } from "zod"
 
@@ -101,12 +99,16 @@ export function createFilesRouter(
         }
 
         try {
-          const response = await dependencies.getWorkspaceFilesDirectoryListing({
-            orgSlug: context.req.valid("param").orgSlug,
-            userExternalId: authResult.user.id,
-          })
+          const response = await dependencies.getWorkspaceFilesDirectoryListing(
+            {
+              orgSlug: context.req.valid("param").orgSlug,
+              userExternalId: authResult.user.id,
+            },
+          )
 
-          return jsonNoStore(runtimeDirectoryListingResponseSchema.parse(response))
+          return jsonNoStore(
+            runtimeDirectoryListingResponseSchema.parse(response),
+          )
         } catch (error) {
           return jsonNoStore(
             {

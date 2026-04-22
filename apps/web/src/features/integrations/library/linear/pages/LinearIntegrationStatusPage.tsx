@@ -15,9 +15,9 @@ import {
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
+import { disconnectWorkspaceIntegration } from "@/features/integrations/api/integrations"
 import { IntegrationCapabilitiesTable } from "@/features/integrations/components/IntegrationCapabilitiesTable"
 import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
-import { disconnectWorkspaceIntegration } from "@/features/integrations/api/integrations"
 import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
 
 export interface LinearIntegrationStatusPageProps {
@@ -33,7 +33,9 @@ type LinearIntegrationUiState =
   | "disconnected"
   | "needs_attention"
 
-function getUiState(detail: WorkspaceIntegrationDetail): LinearIntegrationUiState {
+function getUiState(
+  detail: WorkspaceIntegrationDetail,
+): LinearIntegrationUiState {
   if (detail.summary?.lastError || detail.summary?.status === "error") {
     return "needs_attention"
   }
@@ -135,7 +137,11 @@ export function LinearIntegrationStatusPage({
       queryKey: ["workspace-integrations", orgSlug],
     })
     void queryClient.invalidateQueries({
-      queryKey: ["workspace-integration-detail", orgSlug, detail.integration.key],
+      queryKey: [
+        "workspace-integration-detail",
+        orgSlug,
+        detail.integration.key,
+      ],
     })
   }
 
@@ -172,7 +178,11 @@ export function LinearIntegrationStatusPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <img alt="" className="size-8" src={detail.integration.iconSrc ?? ""} />
+              <img
+                alt=""
+                className="size-8"
+                src={detail.integration.iconSrc ?? ""}
+              />
               <h1 className="text-3xl font-semibold tracking-tight">
                 {detail.integration.label}
               </h1>
@@ -245,9 +255,7 @@ export function LinearIntegrationStatusPage({
                         The current workspace where this integration belongs.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
-                    <span className="text-sm font-medium">
-                      {orgSlug}
-                    </span>
+                    <span className="text-sm font-medium">{orgSlug}</span>
                   </SettingsRow>
                   <SettingsRow>
                     <SettingsRowLabel>
@@ -284,7 +292,8 @@ export function LinearIntegrationStatusPage({
                     <SettingsRowLabel>
                       <SettingsRowTitle>Connect Linear</SettingsRowTitle>
                       <SettingsRowDescription>
-                        Add Linear so Otto can search issues and help draft follow-up work.
+                        Add Linear so Otto can search issues and help draft
+                        follow-up work.
                       </SettingsRowDescription>
                     </SettingsRowLabel>
                     {detail.connection.connectUrl ? (
@@ -305,7 +314,8 @@ export function LinearIntegrationStatusPage({
                       <SettingsRowLabel>
                         <SettingsRowTitle>Disconnect Linear</SettingsRowTitle>
                         <SettingsRowDescription>
-                          Remove the current Linear connection from this workspace.
+                          Remove the current Linear connection from this
+                          workspace.
                         </SettingsRowDescription>
                       </SettingsRowLabel>
                       <Button

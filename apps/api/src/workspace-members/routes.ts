@@ -5,14 +5,14 @@ import {
   jsonNoStore,
 } from "@otto/auth"
 import {
+  type InviteWorkspaceMembersInput,
   inviteWorkspaceMembersResponseSchema,
   inviteWorkspaceMembersSchema,
   updateWorkspaceMemberRoleSchema,
-  workspaceMemberDirectorySchema,
-  workspaceMemberEntryResponseSchema,
-  type InviteWorkspaceMembersInput,
   type WorkspaceMemberDirectory,
   type WorkspaceMemberEntryResponse,
+  workspaceMemberDirectorySchema,
+  workspaceMemberEntryResponseSchema,
 } from "@otto/feature-workspace-members"
 import { Hono } from "hono"
 import { z } from "zod"
@@ -41,7 +41,9 @@ const workspaceInvitationParamsSchema = workspaceParamsSchema.extend({
 })
 
 export interface WorkspaceMembersRouteDependencies {
-  authenticateWorkspaceUser?: (request: Request) => Promise<WorkspaceMembersUser>
+  authenticateWorkspaceUser?: (
+    request: Request,
+  ) => Promise<WorkspaceMembersUser>
   inviteWorkspaceMembers: (input: {
     orgSlug: string
     payload: InviteWorkspaceMembersInput

@@ -67,9 +67,7 @@ export function WorkspaceConversationPage({
     },
   })
   const stopMessageMutation = useMutation({
-    mutationFn: async (input: {
-      assistantMessageId: string
-    }) =>
+    mutationFn: async (input: { assistantMessageId: string }) =>
       cancelWorkspaceChatAssistantMessage({
         assistantMessageId: input.assistantMessageId,
         conversationId,

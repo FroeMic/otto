@@ -1,11 +1,11 @@
-import { Link } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router"
 
-import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge"
 
-import type { WorkspaceIntegrationCatalogEntry } from "../../types";
+import type { WorkspaceIntegrationCatalogEntry } from "../../types"
 
 export interface GandiIntegrationOverviewItemProps {
-  entry: WorkspaceIntegrationCatalogEntry;
+  entry: WorkspaceIntegrationCatalogEntry
 }
 
 export function GandiIntegrationOverviewItem({
@@ -35,5 +35,5 @@ export function GandiIntegrationOverviewItem({
         Tools · Read access
       </span>
     </Link>
-  );
+  )
 }

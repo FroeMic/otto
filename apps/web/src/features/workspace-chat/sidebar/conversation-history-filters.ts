@@ -35,7 +35,6 @@ export function filterConversationHistory(
         return conversation.originKind === "trigger"
       case "scheduled":
         return conversation.originKind === "scheduled"
-      case "all":
       default:
         return true
     }

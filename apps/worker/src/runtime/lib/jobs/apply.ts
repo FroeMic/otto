@@ -1,6 +1,6 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm"
 
-import { getDb } from "../../db/client";
+import { getDb } from "../../db/client"
 import {
   ensureTenantRuntimeTenantToken,
   getLatestTenantManagedConfig,
@@ -11,61 +11,56 @@ import {
   getTenantRuntimeGatewayToken,
   getTenantSlackBotToken,
   storeTenantRuntimeGatewayToken,
-} from "../../db/control-plane";
+} from "../../db/control-plane"
 import {
   listLatestTenantManagedSkillVersionMapForTenant,
   listProjectedManagedSkillFilesForTenant,
-} from "../../db/managed-skills";
+} from "../../db/managed-skills"
 import {
   integrationWhatsAppInstallations,
   tenantApplyRuns,
   tenantIntegrations,
   tenantRuntimeConfigEntries,
-} from "../../db/schema";
-import { buildOpenClawTenantConfig } from "../openclaw/config";
-import { getTenantRuntimeConnection } from "../runtime/connection";
-import { RuntimeManager } from "../runtime/manager";
+} from "../../db/schema"
+import { buildOpenClawTenantConfig } from "../openclaw/config"
+import { getTenantRuntimeConnection } from "../runtime/connection"
+import { RuntimeManager } from "../runtime/manager"
 import {
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KEY,
   WHATSAPP_RUNTIME_CONFIG_SURFACE_KIND,
-} from "../whatsapp-config";
+} from "../whatsapp-config"
 
-import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue";
+import { appendJobEvent, markJobFailed, markJobSucceeded } from "./queue"
 import {
   APPLY_STEPS,
   type ApplyStep,
   type ApplyTenantConfigPayload,
   type ClaimedJob,
   JOB_TYPES,
-} from "./types";
+} from "./types"
 
-const runtimeManager = new RuntimeManager();
-const SLACK_PROVIDER_KEY = "slack";
-const WHATSAPP_PROVIDER_KEY = "whatsapp";
+const runtimeManager = new RuntimeManager()
+const SLACK_PROVIDER_KEY = "slack"
+const WHATSAPP_PROVIDER_KEY = "whatsapp"
 
 export async function processApplyTenantConfigJob(
   job: ClaimedJob,
 ): Promise<void> {
   if (job.jobType !== JOB_TYPES.applyTenantConfig) {
-    throw new Error(`Unsupported job type for apply handler: ${job.jobType}`);
+    throw new Error(`Unsupported job type for apply handler: ${job.jobType}`)
   }
 
-  const payload = parseApplyPayload(job.payload);
-  logStep(
-    job.id,
-    payload.tenantId,
-    APPLY_STEPS.loadingDesiredState,
-    "starting",
-  );
+  const payload = parseApplyPayload(job.payload)
+  logStep(job.id, payload.tenantId, APPLY_STEPS.loadingDesiredState, "starting")
 
-  let slackEnabledInDesiredState = false;
-  let whatsAppEnabledInDesiredState = false;
+  let slackEnabledInDesiredState = false
+  let whatsAppEnabledInDesiredState = false
 
   try {
     await markApplyRun(job.id, {
       startedAt: new Date(),
       status: APPLY_STEPS.loadingDesiredState,
-    });
+    })
     await appendJobEvent(
       job.id,
       APPLY_STEPS.loadingDesiredState,
@@ -73,7 +68,7 @@ export async function processApplyTenantConfigJob(
       {
         desiredStateVersion: payload.desiredStateVersion,
       },
-    );
+    )
 
     const [desiredState, runtimeConnection] = await Promise.all([
       getTenantDesiredStateByVersion({
@@ -81,18 +76,18 @@ export async function processApplyTenantConfigJob(
         version: payload.desiredStateVersion,
       }),
       getTenantRuntimeConnection(payload.tenantId, "runtime apply"),
-    ]);
-    slackEnabledInDesiredState = desiredStateUsesSlack(desiredState.configJson);
+    ])
+    slackEnabledInDesiredState = desiredStateUsesSlack(desiredState.configJson)
     whatsAppEnabledInDesiredState = desiredStateUsesWhatsApp(
       desiredState.configJson,
-    );
+    )
 
     if (slackEnabledInDesiredState) {
       await markIntegrationStatus(
         payload.tenantId,
         SLACK_PROVIDER_KEY,
         "applying",
-      );
+      )
     }
 
     if (whatsAppEnabledInDesiredState) {
@@ -100,12 +95,12 @@ export async function processApplyTenantConfigJob(
         payload.tenantId,
         WHATSAPP_PROVIDER_KEY,
         "applying",
-      );
+      )
     }
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.renderingFiles,
-    });
+    })
     await appendJobEvent(
       job.id,
       APPLY_STEPS.renderingFiles,
@@ -113,64 +108,64 @@ export async function processApplyTenantConfigJob(
       {
         desiredStateVersion: desiredState.version,
       },
-    );
+    )
 
-    let gatewayToken = await getTenantRuntimeGatewayToken(payload.tenantId);
-    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId);
+    let gatewayToken = await getTenantRuntimeGatewayToken(payload.tenantId)
+    const tenantToken = await ensureTenantRuntimeTenantToken(payload.tenantId)
 
     if (!gatewayToken) {
       gatewayToken = await runtimeManager.readRuntimeEnvValue(
         runtimeConnection,
         "OPENCLAW_GATEWAY_TOKEN",
-      );
+      )
 
       if (!gatewayToken) {
         throw new Error(
           "Gateway token is missing from both control-plane storage and the tenant runtime",
-        );
+        )
       }
 
       await storeTenantRuntimeGatewayToken({
         gatewayToken,
         tenantId: payload.tenantId,
-      });
+      })
     }
 
-    const slackBotToken = await getTenantSlackBotToken(payload.tenantId);
+    const slackBotToken = await getTenantSlackBotToken(payload.tenantId)
 
     if (desiredStateUsesSlack(desiredState.configJson) && !slackBotToken) {
       throw new Error(
         "Slack is enabled in desired state but the tenant Slack bot token is missing",
-      );
+      )
     }
 
     const openClawConfig = buildOpenClawTenantConfig({
       configJson: desiredState.configJson,
       slackBotToken,
       tenantId: payload.tenantId,
-    });
+    })
     const managedConfigVersion = getManagedConfigVersionFromConfigJson(
       desiredState.configJson,
-    );
+    )
     const managedConfig = managedConfigVersion
       ? await getTenantManagedConfigByVersion({
           tenantId: payload.tenantId,
           version: managedConfigVersion,
         })
-      : await getLatestTenantManagedConfig(payload.tenantId);
+      : await getLatestTenantManagedConfig(payload.tenantId)
     const managedSkillVersionMap =
       getManagedSkillVersionMapFromConfigJson(desiredState.configJson) ??
       (await listLatestTenantManagedSkillVersionMapForTenant({
         tenantId: payload.tenantId,
-      }));
+      }))
     const managedSkillFiles = await listProjectedManagedSkillFilesForTenant({
       tenantId: payload.tenantId,
       versionMap: managedSkillVersionMap,
-    });
+    })
 
     await markApplyRun(job.id, {
       status: APPLY_STEPS.writingFiles,
-    });
+    })
     await appendJobEvent(
       job.id,
       APPLY_STEPS.writingFiles,
@@ -180,9 +175,9 @@ export async function processApplyTenantConfigJob(
         managedSkillRenameOperations:
           payload.managedSkillRenameOperations?.length ?? 0,
       },
-    );
+    )
 
-    await runtimeManager.ensureRuntimeDirectories(runtimeConnection);
+    await runtimeManager.ensureRuntimeDirectories(runtimeConnection)
     await runtimeManager.writeTenantConfigFiles(runtimeConnection, {
       desiredStateVersion: desiredState.version,
       gatewayToken,
@@ -203,7 +198,7 @@ export async function processApplyTenantConfigJob(
       openClawConfig,
       slackBotToken,
       tenantId: payload.tenantId,
-    });
+    })
     await runtimeManager.verifyTenantConfigFiles(runtimeConnection, {
       managedSkillFiles: managedSkillFiles.map((file) => ({
         contents: file.contents,
@@ -212,15 +207,15 @@ export async function processApplyTenantConfigJob(
       })),
       metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
       openClawConfig,
-    });
+    })
 
     const restartStep = payload.pullImageFirst
       ? APPLY_STEPS.pullingRuntimeImage
-      : APPLY_STEPS.restartingRuntime;
+      : APPLY_STEPS.restartingRuntime
 
     await markApplyRun(job.id, {
       status: restartStep,
-    });
+    })
     await appendJobEvent(
       job.id,
       restartStep,
@@ -231,7 +226,7 @@ export async function processApplyTenantConfigJob(
         host: runtimeConnection.host,
         pullImageFirst: payload.pullImageFirst === true,
       },
-    );
+    )
 
     const restart = await runtimeManager.restartGatewayWithResult(
       runtimeConnection,
@@ -239,13 +234,13 @@ export async function processApplyTenantConfigJob(
         pullImage: payload.pullImageFirst ?? false,
         strategy: payload.pullImageFirst ? "recreate" : "restart-container",
       },
-    );
+    )
 
     await markApplyRun(job.id, {
       restartStderr: restart.stderr,
       restartStdout: restart.stdout,
       status: APPLY_STEPS.verifyingRuntime,
-    });
+    })
     await appendJobEvent(
       job.id,
       APPLY_STEPS.verifyingRuntime,
@@ -253,10 +248,10 @@ export async function processApplyTenantConfigJob(
       {
         host: runtimeConnection.host,
       },
-    );
+    )
 
     const verify =
-      await runtimeManager.checkGatewayHealthWithResult(runtimeConnection);
+      await runtimeManager.checkGatewayHealthWithResult(runtimeConnection)
 
     await markApplyRun(job.id, {
       finishedAt: new Date(),
@@ -265,17 +260,17 @@ export async function processApplyTenantConfigJob(
       status: APPLY_STEPS.succeeded,
       verifyStderr: verify.stderr,
       verifyStdout: verify.stdout,
-    });
+    })
     if (slackEnabledInDesiredState) {
       await markIntegrationStatus(
         payload.tenantId,
         SLACK_PROVIDER_KEY,
         "connected",
-      );
+      )
     }
 
     if (whatsAppEnabledInDesiredState) {
-      await markWhatsAppApplySuccessStatus(payload.tenantId);
+      await markWhatsAppApplySuccessStatus(payload.tenantId)
     }
 
     await appendJobEvent(
@@ -286,26 +281,26 @@ export async function processApplyTenantConfigJob(
         desiredStateVersion: desiredState.version,
         pullImageFirst: payload.pullImageFirst === true,
       },
-    );
+    )
     await markJobSucceeded(job.id, {
       desiredStateVersion: desiredState.version,
       pullImageFirst: payload.pullImageFirst === true,
-    });
+    })
   } catch (error) {
-    const message = getErrorMessage(error);
+    const message = getErrorMessage(error)
 
     await markApplyRun(job.id, {
       error: message,
       finishedAt: new Date(),
       status: APPLY_STEPS.failed,
-    });
+    })
     if (slackEnabledInDesiredState) {
       await markIntegrationStatus(
         payload.tenantId,
         SLACK_PROVIDER_KEY,
         "apply_failed",
         message,
-      );
+      )
     }
 
     if (whatsAppEnabledInDesiredState) {
@@ -314,7 +309,7 @@ export async function processApplyTenantConfigJob(
         WHATSAPP_PROVIDER_KEY,
         "apply_failed",
         message,
-      );
+      )
     }
 
     await appendJobEvent(
@@ -324,35 +319,35 @@ export async function processApplyTenantConfigJob(
       {
         error: message,
       },
-    );
-    await markJobFailed(job.id, message);
-    throw error;
+    )
+    await markJobFailed(job.id, message)
+    throw error
   }
 }
 
 function parseApplyPayload(
   payload: Record<string, unknown>,
 ): ApplyTenantConfigPayload {
-  const tenantId = payload.tenantId;
-  const desiredStateVersion = payload.desiredStateVersion;
+  const tenantId = payload.tenantId
+  const desiredStateVersion = payload.desiredStateVersion
   const managedSkillRenameOperations = Array.isArray(
     payload.managedSkillRenameOperations,
   )
     ? payload.managedSkillRenameOperations.flatMap((entry) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-          return [];
+          return []
         }
 
-        const candidate = entry as Record<string, unknown>;
+        const candidate = entry as Record<string, unknown>
         const fromSkillKey =
           typeof candidate.fromSkillKey === "string"
             ? candidate.fromSkillKey
-            : null;
+            : null
         const toSkillKey =
-          typeof candidate.toSkillKey === "string" ? candidate.toSkillKey : null;
+          typeof candidate.toSkillKey === "string" ? candidate.toSkillKey : null
 
         if (!fromSkillKey || !toSkillKey) {
-          return [];
+          return []
         }
 
         return [
@@ -360,27 +355,27 @@ function parseApplyPayload(
             fromSkillKey,
             toSkillKey,
           },
-        ];
+        ]
       })
-    : [];
+    : []
   const managedSkillResetOperations = Array.isArray(
     payload.managedSkillResetOperations,
   )
     ? payload.managedSkillResetOperations.flatMap((entry) => {
         if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
-          return [];
+          return []
         }
 
-        const candidate = entry as Record<string, unknown>;
+        const candidate = entry as Record<string, unknown>
         const skillKey =
-          typeof candidate.skillKey === "string" ? candidate.skillKey : null;
+          typeof candidate.skillKey === "string" ? candidate.skillKey : null
         const scope =
           candidate.scope === "companion_files"
             ? ("companion_files" as const)
-            : null;
+            : null
 
         if (!skillKey || !scope) {
-          return [];
+          return []
         }
 
         return [
@@ -388,13 +383,13 @@ function parseApplyPayload(
             scope,
             skillKey,
           },
-        ];
+        ]
       })
-    : [];
-  const pullImageFirst = payload.pullImageFirst;
+    : []
+  const pullImageFirst = payload.pullImageFirst
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
-    throw new Error("Apply job payload is missing tenantId");
+    throw new Error("Apply job payload is missing tenantId")
   }
 
   if (
@@ -402,7 +397,7 @@ function parseApplyPayload(
     !Number.isInteger(desiredStateVersion) ||
     desiredStateVersion < 1
   ) {
-    throw new Error("Apply job payload is missing desiredStateVersion");
+    throw new Error("Apply job payload is missing desiredStateVersion")
   }
 
   return {
@@ -415,23 +410,23 @@ function parseApplyPayload(
       : {}),
     ...(typeof pullImageFirst === "boolean" ? { pullImageFirst } : {}),
     tenantId,
-  };
+  }
 }
 
 async function markApplyRun(
   jobRunId: string,
   input: {
-    error?: string;
-    finishedAt?: Date;
-    restartStderr?: string;
-    restartStdout?: string;
-    startedAt?: Date;
-    status: ApplyStep;
-    verifyStderr?: string;
-    verifyStdout?: string;
+    error?: string
+    finishedAt?: Date
+    restartStderr?: string
+    restartStdout?: string
+    startedAt?: Date
+    status: ApplyStep
+    verifyStderr?: string
+    verifyStdout?: string
   },
 ) {
-  const db = getDb();
+  const db = getDb()
 
   await db
     .update(tenantApplyRuns)
@@ -454,7 +449,7 @@ async function markApplyRun(
         ? { verifyStdout: input.verifyStdout }
         : {}),
     })
-    .where(eq(tenantApplyRuns.jobRunId, jobRunId));
+    .where(eq(tenantApplyRuns.jobRunId, jobRunId))
 }
 
 async function markIntegrationStatus(
@@ -463,8 +458,8 @@ async function markIntegrationStatus(
   status: string,
   error?: string,
 ) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
 
   await db
     .update(tenantIntegrations)
@@ -479,12 +474,12 @@ async function markIntegrationStatus(
         eq(tenantIntegrations.tenantId, tenantId),
         eq(tenantIntegrations.providerKey, providerKey),
       ),
-    );
+    )
 }
 
 async function markWhatsAppApplySuccessStatus(tenantId: string) {
-  const db = getDb();
-  const now = new Date();
+  const db = getDb()
+  const now = new Date()
   const [integration] = await db
     .select({
       connectedAt: tenantIntegrations.connectedAt,
@@ -508,7 +503,7 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   const [runtimeConfigEntry] = await db
     .select({
@@ -529,11 +524,11 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
         ),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   const isInstalled =
     runtimeConfigEntry?.installState === "installed" &&
-    runtimeConfigEntry.enabled === true;
+    runtimeConfigEntry.enabled === true
 
   const nextStatus = !isInstalled
     ? "ready_to_link"
@@ -541,7 +536,7 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
       ? "disconnected"
       : integration?.whatsappSelfE164 || integration?.whatsappSelfJid
         ? "connected"
-        : "ready_to_link";
+        : "ready_to_link"
 
   await db
     .update(tenantIntegrations)
@@ -556,7 +551,7 @@ async function markWhatsAppApplySuccessStatus(tenantId: string) {
         eq(tenantIntegrations.tenantId, tenantId),
         eq(tenantIntegrations.providerKey, WHATSAPP_PROVIDER_KEY),
       ),
-    );
+    )
 }
 
 function desiredStateUsesSlack(configJson: unknown) {
@@ -565,12 +560,12 @@ function desiredStateUsesSlack(configJson: unknown) {
     typeof configJson !== "object" ||
     Array.isArray(configJson)
   ) {
-    return false;
+    return false
   }
 
-  const integrations = (configJson as Record<string, unknown>).integrations;
+  const integrations = (configJson as Record<string, unknown>).integrations
 
-  return Array.isArray(integrations) && integrations.includes("slack");
+  return Array.isArray(integrations) && integrations.includes("slack")
 }
 
 function desiredStateUsesWhatsApp(configJson: unknown) {
@@ -579,20 +574,20 @@ function desiredStateUsesWhatsApp(configJson: unknown) {
     typeof configJson !== "object" ||
     Array.isArray(configJson)
   ) {
-    return false;
+    return false
   }
 
-  const integrations = (configJson as Record<string, unknown>).integrations;
+  const integrations = (configJson as Record<string, unknown>).integrations
 
-  return Array.isArray(integrations) && integrations.includes("whatsapp");
+  return Array.isArray(integrations) && integrations.includes("whatsapp")
 }
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error) {
-    return error.message;
+    return error.message
   }
 
-  return "Unknown runtime apply error";
+  return "Unknown runtime apply error"
 }
 
 function logStep(
@@ -603,5 +598,5 @@ function logStep(
 ) {
   console.info(
     `[worker] job ${jobId} tenant ${tenantId} step ${step}: ${message}`,
-  );
+  )
 }

@@ -51,8 +51,7 @@ function createDependencies(): WorkspaceChatRuntimeRouteDependencies {
         sizeBytes: 11,
       },
       bytes: new TextEncoder().encode("hello world"),
-      sha256:
-        "b94d27b9934d3e08a52e52d7da7dabfade4f7d6d4b1f2e5d7e5f8d6f7d6f5f6",
+      sha256: "b94d27b9934d3e08a52e52d7da7dabfade4f7d6d4b1f2e5d7e5f8d6f7d6f5f6",
     }),
   }
 }
@@ -71,7 +70,10 @@ describe("workspace chat runtime routes", () => {
 
     assert.equal(response.status, 200)
     assert.equal(response.headers.get("content-type"), "text/plain")
-    assert.equal(response.headers.get("x-workspace-chat-attachment-id"), "att_1")
+    assert.equal(
+      response.headers.get("x-workspace-chat-attachment-id"),
+      "att_1",
+    )
     assert.equal(
       response.headers.get("x-workspace-chat-file-name"),
       encodeURIComponent("notes.txt"),

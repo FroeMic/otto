@@ -35,9 +35,13 @@ export async function transcribePublicIntakeAudio(input: { file: File }) {
   const formData = new FormData()
   formData.set(
     "file",
-    new File([new Uint8Array(await input.file.arrayBuffer())], input.file.name, {
-      type: input.file.type,
-    }),
+    new File(
+      [new Uint8Array(await input.file.arrayBuffer())],
+      input.file.name,
+      {
+        type: input.file.type,
+      },
+    ),
   )
   formData.set("model", "gpt-4o-mini-transcribe")
 
@@ -56,8 +60,7 @@ export async function transcribePublicIntakeAudio(input: { file: File }) {
   }
 
   const payload = (await response.json()) as { text?: unknown }
-  const transcript =
-    typeof payload.text === "string" ? payload.text.trim() : ""
+  const transcript = typeof payload.text === "string" ? payload.text.trim() : ""
 
   return transcript
 }

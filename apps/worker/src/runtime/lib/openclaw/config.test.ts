@@ -1,13 +1,13 @@
-import assert from "node:assert/strict";
+import assert from "node:assert/strict"
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest"
 
-import { __testing as envTesting } from "../env";
+import { __testing as envTesting } from "../env"
 import {
   buildOpenClawTenantConfig,
-  renderOpenClawConfig,
   type OpenClawTenantConfig,
-} from "./config";
+  renderOpenClawConfig,
+} from "./config"
 
 function buildConfig(): OpenClawTenantConfig {
   return {
@@ -26,40 +26,41 @@ function buildConfig(): OpenClawTenantConfig {
     prompts: {},
     tenantId: "tenant_test",
     workspacePath: "/home/node/.openclaw/workspace",
-  };
+  }
 }
 
 function restoreEnvVar(name: string, value: string | undefined) {
   if (value === undefined) {
-    delete process.env[name];
-    return;
+    delete process.env[name]
+    return
   }
 
-  process.env[name] = value;
+  process.env[name] = value
 }
 
 function saveEnvVars(names: string[]) {
-  return Object.fromEntries(names.map((name) => [name, process.env[name]]));
+  return Object.fromEntries(names.map((name) => [name, process.env[name]]))
 }
 
 describe("renderOpenClawConfig", () => {
   it("builds a tenant config when web search config is absent", () => {
-    const previousDatabaseUrl = process.env.DATABASE_URL;
-    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
-    envTesting.resetEnvCacheForTests();
+    const previousDatabaseUrl = process.env.DATABASE_URL
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto"
+    envTesting.resetEnvCacheForTests()
     try {
       const config = buildOpenClawTenantConfig({
         configJson: {},
         tenantId: "tenant_test",
-      });
+      })
 
-      expect(config.webSearch).toBeUndefined();
-      expect(config.tenantId).toBe("tenant_test");
+      expect(config.webSearch).toBeUndefined()
+      expect(config.tenantId).toBe("tenant_test")
     } finally {
-      process.env.DATABASE_URL = previousDatabaseUrl;
-      envTesting.resetEnvCacheForTests();
+      process.env.DATABASE_URL = previousDatabaseUrl
+      envTesting.resetEnvCacheForTests()
     }
-  });
+  })
 
   it("honors Otto plugins declared in desired state config", () => {
     const previousEnv = saveEnvVars([
@@ -69,15 +70,16 @@ describe("renderOpenClawConfig", () => {
       "WORKOS_REDIRECT_URI",
       "SLACK_REDIRECT_URI",
       "NEXT_PUBLIC_WORKOS_REDIRECT_URI",
-    ]);
+    ])
 
-    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
-    delete process.env.LANDING_PAGE_DOMAIN;
-    delete process.env.WORKOS_BASE_URL;
-    delete process.env.WORKOS_REDIRECT_URI;
-    delete process.env.SLACK_REDIRECT_URI;
-    delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI;
-    envTesting.resetEnvCacheForTests();
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto"
+    delete process.env.LANDING_PAGE_DOMAIN
+    delete process.env.WORKOS_BASE_URL
+    delete process.env.WORKOS_REDIRECT_URI
+    delete process.env.SLACK_REDIRECT_URI
+    delete process.env.NEXT_PUBLIC_WORKOS_REDIRECT_URI
+    envTesting.resetEnvCacheForTests()
 
     try {
       const config = buildOpenClawTenantConfig({
@@ -85,55 +87,58 @@ describe("renderOpenClawConfig", () => {
           ottoPlugins: [{ id: "otto-workspace-chat" }],
         },
         tenantId: "tenant_test",
-      });
+      })
       const rendered = JSON.parse(renderOpenClawConfig(config)) as {
-        channels: Record<string, { enabled: boolean; managed?: boolean }>;
+        channels: Record<string, { enabled: boolean; managed?: boolean }>
         plugins: {
-          entries: Record<string, { enabled: boolean }>;
-        };
-      };
+          entries: Record<string, { enabled: boolean }>
+        }
+      }
 
       expect(rendered.plugins.entries["otto-workspace-chat"]).toEqual({
         enabled: true,
-      });
+      })
       expect(rendered.channels["otto-workspace-chat"]).toEqual({
         enabled: true,
         managed: true,
-      });
+      })
     } finally {
       for (const [name, value] of Object.entries(previousEnv)) {
-        restoreEnvVar(name, value);
+        restoreEnvVar(name, value)
       }
-      envTesting.resetEnvCacheForTests();
+      envTesting.resetEnvCacheForTests()
     }
-  });
+  })
 
   it("omits plugin config fields when a plugin does not declare them and enables the workspace channel", () => {
     const rendered = JSON.parse(renderOpenClawConfig(buildConfig())) as {
-      channels: Record<string, { enabled: boolean; managed?: boolean }>;
+      channels: Record<string, { enabled: boolean; managed?: boolean }>
       plugins: {
-        entries: Record<string, { config?: Record<string, unknown>; enabled: boolean }>;
-      };
-      tools: Record<string, unknown>;
-    };
+        entries: Record<
+          string,
+          { config?: Record<string, unknown>; enabled: boolean }
+        >
+      }
+      tools: Record<string, unknown>
+    }
 
     expect(rendered.plugins.entries["otto-managed-config"]).toEqual({
       config: { timeoutMs: 15_000 },
       enabled: true,
-    });
+    })
     expect(rendered.plugins.entries["otto-workspace-chat"]).toEqual({
       enabled: true,
-    });
+    })
     assert.equal(
       "config" in rendered.plugins.entries["otto-workspace-chat"],
       false,
-    );
+    )
     expect(rendered.channels["otto-workspace-chat"]).toEqual({
       enabled: true,
       managed: true,
-    });
-    expect(rendered.tools.alsoAllow).toEqual(["otto-managed-config"]);
-  });
+    })
+    expect(rendered.tools.alsoAllow).toEqual(["otto-managed-config"])
+  })
 
   it("allowlists optional Otto tool plugins without including non-tool plugins", () => {
     const rendered = JSON.parse(
@@ -163,16 +168,16 @@ describe("renderOpenClawConfig", () => {
       }),
     ) as {
       tools: {
-        alsoAllow?: string[];
-      };
-    };
+        alsoAllow?: string[]
+      }
+    }
 
     expect(rendered.tools.alsoAllow).toEqual([
       "otto-managed-config",
       "otto-managed-skills",
       "otto-integrations",
-    ]);
-  });
+    ])
+  })
 
   it("projects openai-proxy model provider against the dedicated proxy base URL placeholder", () => {
     const previousEnv = saveEnvVars([
@@ -180,33 +185,35 @@ describe("renderOpenClawConfig", () => {
       "LANDING_PAGE_DOMAIN",
       "OTTO_OPENAI_PROXY_BASE_URL",
       "RUNTIME_MODEL_PRIMARY",
-    ]);
+    ])
 
-    process.env.DATABASE_URL = "postgres://postgres:postgres@localhost:5432/otto";
-    process.env.LANDING_PAGE_DOMAIN = "getyourotto.com";
-    process.env.OTTO_OPENAI_PROXY_BASE_URL = "http://116.203.190.123:3002";
-    process.env.RUNTIME_MODEL_PRIMARY = "openai-proxy/gpt-5.4";
-    envTesting.resetEnvCacheForTests();
+    process.env.DATABASE_URL =
+      "postgres://postgres:postgres@localhost:5432/otto"
+    process.env.LANDING_PAGE_DOMAIN = "getyourotto.com"
+    process.env.OTTO_OPENAI_PROXY_BASE_URL = "http://116.203.190.123:3002"
+    process.env.RUNTIME_MODEL_PRIMARY = "openai-proxy/gpt-5.4"
+    envTesting.resetEnvCacheForTests()
 
     try {
       const config = buildOpenClawTenantConfig({
         configJson: {},
         tenantId: "tenant_test",
-      });
+      })
       const rendered = JSON.parse(renderOpenClawConfig(config)) as {
         models: {
-          providers: Record<string, { baseUrl: string }>;
-        };
-      };
+          providers: Record<string, { baseUrl: string }>
+        }
+      }
 
       expect(rendered.models.providers["openai-proxy"].baseUrl).toBe(
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: this asserts the literal runtime env placeholder.
         "${OTTO_OPENAI_PROXY_BASE_URL}/api/internal/runtime/ai/openai/v1",
-      );
+      )
     } finally {
       for (const [name, value] of Object.entries(previousEnv)) {
-        restoreEnvVar(name, value);
+        restoreEnvVar(name, value)
       }
-      envTesting.resetEnvCacheForTests();
+      envTesting.resetEnvCacheForTests()
     }
-  });
-});
+  })
+})

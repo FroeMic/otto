@@ -1,6 +1,6 @@
-import type { IntegrationCommandExecute } from "../../../../framework";
+import type { IntegrationCommandExecute } from "../../../../framework"
 
-import { executeLinearGraphql, normalizeLimit } from "../../client";
+import { executeLinearGraphql, normalizeLimit } from "../../client"
 
 const LIST_TEAMS_QUERY = `
   query OttoLinearListTeams($limit: Int!) {
@@ -13,35 +13,35 @@ const LIST_TEAMS_QUERY = `
       }
     }
   }
-`;
+`
 
 export const executeLinearWorkspaceListTeams: IntegrationCommandExecute =
   async ({ arguments: args, context }) => {
     if (!context.auth) {
-      throw new Error("Linear requires an authenticated execution context.");
+      throw new Error("Linear requires an authenticated execution context.")
     }
 
     const limit = normalizeLimit({
       defaultLimit: 25,
       max: 100,
       value: args.limit,
-    });
+    })
     const data = await executeLinearGraphql<{
       teams?: {
         nodes?: Array<{
-          description?: string | null;
-          id: string;
-          key?: string | null;
-          name?: string | null;
-        }> | null;
-      } | null;
+          description?: string | null
+          id: string
+          key?: string | null
+          name?: string | null
+        }> | null
+      } | null
     }>({
       accessToken: context.auth.accessToken,
       query: LIST_TEAMS_QUERY,
       variables: {
         limit,
       },
-    });
+    })
 
     return {
       commandKey: "workspace.list_teams",
@@ -54,5 +54,5 @@ export const executeLinearWorkspaceListTeams: IntegrationCommandExecute =
       })),
       limit,
       source: "linear",
-    };
-  };
+    }
+  }

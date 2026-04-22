@@ -1,23 +1,23 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm"
 import {
   integrationMessagingConversations,
   integrationMessagingWorkspaceMembers,
   integrationMessagingWorkspaces,
   tenantIntegrations,
-} from "../db/schema";
+} from "../db/schema"
 import {
   deriveSlackPolicyEffects,
   type SlackPolicyDerivedEffects,
-} from "../integrations/library/slack/policy";
-import type { SlackRuntimeConfig } from "../lib/slack-config";
-import type { DbTransaction } from "./server-types";
+} from "../integrations/library/slack/policy"
+import type { SlackRuntimeConfig } from "../lib/slack-config"
+import type { DbTransaction } from "./server-types"
 
-const SLACK_PROVIDER_KEY = "slack";
+const SLACK_PROVIDER_KEY = "slack"
 
 export async function getSlackDirectoryOptionsForTenant(
   tx: DbTransaction,
   input: {
-    tenantId: string;
+    tenantId: string
   },
 ) {
   const [workspace] = await tx
@@ -38,13 +38,13 @@ export async function getSlackDirectoryOptionsForTenant(
         eq(tenantIntegrations.providerKey, SLACK_PROVIDER_KEY),
       ),
     )
-    .limit(1);
+    .limit(1)
 
   if (!workspace) {
     return {
       availableChannels: [],
       availableUsers: [],
-    };
+    }
   }
 
   const [channelRows, userRows] = await Promise.all([
@@ -80,7 +80,7 @@ export async function getSlackDirectoryOptionsForTenant(
           workspace.id,
         ),
       ),
-  ]);
+  ])
 
   return {
     availableChannels: channelRows.map((channel) => ({
@@ -112,20 +112,20 @@ export async function getSlackDirectoryOptionsForTenant(
         label: user.label ?? user.id,
         secondaryLabel: user.secondaryLabel ?? null,
       })),
-  };
+  }
 }
 
 export async function validateSlackRuntimeConfigSemanticsForTenant(
   tx: DbTransaction,
   input: {
-    config: SlackRuntimeConfig;
-    tenantId: string;
+    config: SlackRuntimeConfig
+    tenantId: string
   },
 ) {
   const { availableChannels, availableUsers } =
     await getSlackDirectoryOptionsForTenant(tx, {
       tenantId: input.tenantId,
-    });
+    })
 
   if (
     availableChannels.length === 0 &&
@@ -133,35 +133,35 @@ export async function validateSlackRuntimeConfigSemanticsForTenant(
     input.config.allowedChannelIds.length === 0 &&
     input.config.allowedUserIds.length === 0
   ) {
-    return;
+    return
   }
 
-  const availableUserIds = new Set(availableUsers.map((user) => user.id));
+  const availableUserIds = new Set(availableUsers.map((user) => user.id))
   const missingUserIds = input.config.allowedUserIds.filter(
     (userId) => !availableUserIds.has(userId),
-  );
+  )
 
   if (missingUserIds.length > 0) {
     throw new Error(
       `Slack users not found in the latest directory sync: ${missingUserIds.join(", ")}`,
-    );
+    )
   }
 
   if (input.config.channelAccessMode === "member_of_channels") {
-    return;
+    return
   }
 
   const availableChannelIds = new Set(
     availableChannels.map((channel) => channel.id),
-  );
+  )
   const missingChannelIds = input.config.allowedChannelIds.filter(
     (channelId) => !availableChannelIds.has(channelId),
-  );
+  )
 
   if (missingChannelIds.length > 0) {
     throw new Error(
       `Slack channels not found in the latest directory sync: ${missingChannelIds.join(", ")}`,
-    );
+    )
   }
 
   const archivedChannelIds = input.config.allowedChannelIds.filter(
@@ -169,30 +169,30 @@ export async function validateSlackRuntimeConfigSemanticsForTenant(
       availableChannels.some(
         (channel) => channel.id === channelId && channel.isArchived,
       ),
-  );
+  )
 
   if (archivedChannelIds.length > 0) {
     throw new Error(
       `Slack channels are archived and cannot be allowlisted: ${archivedChannelIds.join(", ")}`,
-    );
+    )
   }
 }
 
 export async function evaluateSlackPolicyForTenant(
   tx: DbTransaction,
   input: {
-    config: SlackRuntimeConfig;
-    currentConfig?: SlackRuntimeConfig;
-    tenantId: string;
+    config: SlackRuntimeConfig
+    currentConfig?: SlackRuntimeConfig
+    tenantId: string
   },
 ): Promise<SlackPolicyDerivedEffects> {
   const { availableChannels } = await getSlackDirectoryOptionsForTenant(tx, {
     tenantId: input.tenantId,
-  });
+  })
 
   return deriveSlackPolicyEffects({
     config: input.config,
     currentConfig: input.currentConfig,
     directoryChannels: availableChannels,
-  });
+  })
 }

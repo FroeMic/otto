@@ -1,5 +1,4 @@
-import { Hono } from "hono"
-import type { Context } from "hono"
+import { zValidator } from "@hono/zod-validator"
 import {
   authenticateWorkspaceSessionRequest,
   isWorkspaceSessionAuthError,
@@ -11,11 +10,11 @@ import type {
   WorkspaceChatUser,
 } from "@otto/feature-workspace-chat"
 import { workspaceChatRealtimeClientMessageSchema } from "@otto/feature-workspace-chat"
-import { zValidator } from "@hono/zod-validator"
+import type { Context } from "hono"
+import { Hono } from "hono"
 import { z } from "zod"
-
-import { getWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { canAccessWorkspaceChatConversation } from "./chat-data"
+import { getWorkspaceChatRealtimeHub } from "./chat-realtime-hub"
 import { syncUserFromSession } from "./data"
 
 const workspaceRealtimeParamsSchema = z.object({

@@ -6,9 +6,7 @@ const envSchema = z.object({
   NEXT_PUBLIC_POSTHOG_ENABLED: z
     .union([z.boolean(), z.string()])
     .optional()
-    .transform((value) =>
-      value === true || value === "true" || value === "1",
-    ),
+    .transform((value) => value === true || value === "true" || value === "1"),
   NEXT_PUBLIC_POSTHOG_HOST: z.string().default("/ingest"),
   NEXT_PUBLIC_POSTHOG_TOKEN: z.string().optional(),
   NODE_ENV: z

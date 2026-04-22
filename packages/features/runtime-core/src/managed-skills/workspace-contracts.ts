@@ -112,9 +112,7 @@ export const workspaceSkillSectionSchema = z.enum([
   "overview",
 ])
 
-export type WorkspaceSkillSection = z.infer<
-  typeof workspaceSkillSectionSchema
->
+export type WorkspaceSkillSection = z.infer<typeof workspaceSkillSectionSchema>
 
 export const workspaceSkillDetailSchema = z.object({
   dependencies: workspaceSkillDependencySummarySchema,

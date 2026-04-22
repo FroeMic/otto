@@ -3,12 +3,8 @@ import assert from "node:assert/strict"
 import { WorkspaceSessionAuthError } from "@otto/auth"
 import { Hono } from "hono"
 import { describe, it } from "vitest"
-
-import {
-  createSkillsRouter,
-  type SkillsRouteDependencies,
-} from "./routes"
 import { WorkspaceSkillInstallPrerequisiteError } from "./data"
+import { createSkillsRouter, type SkillsRouteDependencies } from "./routes"
 
 const user = {
   email: "test@getyourotto.com",
@@ -109,7 +105,8 @@ function createDependencies(): SkillsRouteDependencies {
         ],
         installable: true,
         installed: false,
-        skillBody: "# Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillBody:
+          "# Name Generator\n\nUse this skill when evaluating company names.\n",
         skillKey: "name-and-domain-research",
         summary: "Startup naming and domain research workflow",
       },
@@ -154,7 +151,8 @@ function createDependencies(): SkillsRouteDependencies {
             integrations: ["gandi"],
             skills: [],
           },
-          description: "Research names, brandability, and domains for founders.",
+          description:
+            "Research names, brandability, and domains for founders.",
           displayName: "Name Generator",
           installed: false,
           installable: true,
@@ -225,7 +223,8 @@ describe("skills routes", () => {
             integrations: ["gandi"],
             skills: [],
           },
-          description: "Research names, brandability, and domains for founders.",
+          description:
+            "Research names, brandability, and domains for founders.",
           displayName: "Name Generator",
           installed: false,
           installable: true,
@@ -325,7 +324,8 @@ describe("skills routes", () => {
         ],
         installable: true,
         installed: false,
-        skillBody: "# Name Generator\n\nUse this skill when evaluating company names.\n",
+        skillBody:
+          "# Name Generator\n\nUse this skill when evaluating company names.\n",
         skillKey: "name-and-domain-research",
         summary: "Startup naming and domain research workflow",
       },

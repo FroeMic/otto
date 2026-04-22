@@ -26,9 +26,7 @@ export interface CompleteWorkspaceIntegrationOauthInput {
 }
 
 export interface IntegrationsOauthRouteDependencies {
-  authenticateWorkspaceUser: (
-    request: Request,
-  ) => Promise<{
+  authenticateWorkspaceUser: (request: Request) => Promise<{
     email: string
     firstName?: string | null
     id: string

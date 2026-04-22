@@ -12,9 +12,8 @@ import {
 } from "@otto/feature-user-profile"
 import { Hono } from "hono"
 import { z } from "zod"
-
-import { getConnectedAccounts, getUserProfile, updateUserProfile } from "./data"
 import { getDashboardOrganizations } from "../workspace/data"
+import { getConnectedAccounts, getUserProfile, updateUserProfile } from "./data"
 
 const orgSlugParamsSchema = z.object({
   orgSlug: z.string().min(1),

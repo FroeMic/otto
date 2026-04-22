@@ -67,9 +67,8 @@ function PageDocument({
   title,
 }: PageDocumentProps) {
   const canonicalPath = path === "/" ? "" : path
-  const serializedPostHogConfig = serializeBrowserPostHogConfig(
-    browserPostHogConfig,
-  )
+  const serializedPostHogConfig =
+    serializeBrowserPostHogConfig(browserPostHogConfig)
 
   return (
     <html lang="en">
@@ -88,6 +87,7 @@ function PageDocument({
         {children}
         {serializedPostHogConfig ? (
           <script
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: config is JSON.stringify output produced server-side.
             dangerouslySetInnerHTML={{
               __html: `window.__OTTO_POSTHOG__ = ${serializedPostHogConfig};`,
             }}
@@ -200,7 +200,10 @@ function createExternalProxyHandler(options: {
     const proxiedPath = upstreamUrl.pathname.startsWith(options.pathPrefix)
       ? upstreamUrl.pathname.slice(options.pathPrefix.length) || "/"
       : upstreamUrl.pathname
-    const targetUrl = new URL(`${proxiedPath}${upstreamUrl.search}`, options.targetOrigin)
+    const targetUrl = new URL(
+      `${proxiedPath}${upstreamUrl.search}`,
+      options.targetOrigin,
+    )
     const headers = new Headers(context.req.raw.headers)
 
     headers.delete("cookie")

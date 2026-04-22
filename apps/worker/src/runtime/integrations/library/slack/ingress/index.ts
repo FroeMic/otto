@@ -1,7 +1,7 @@
-import type { SlackIngressRequestType } from "../../../../db/control-plane";
-import type { IntegrationIngressDefinition } from "../../../framework";
+import type { SlackIngressRequestType } from "../../../../db/control-plane"
+import type { IntegrationIngressDefinition } from "../../../framework"
 
-export type SlackIngressEndpointKey = SlackIngressRequestType;
+export type SlackIngressEndpointKey = SlackIngressRequestType
 
 const SLACK_ENDPOINTS = [
   {
@@ -22,32 +22,32 @@ const SLACK_ENDPOINTS = [
     endpointKey: "interactivity",
     label: "Interactivity",
   },
-] as const satisfies IntegrationIngressDefinition["endpoints"];
+] as const satisfies IntegrationIngressDefinition["endpoints"]
 
 export const slackIngressDefinition: IntegrationIngressDefinition = {
   endpoints: [...SLACK_ENDPOINTS],
   setupMode: "platform_managed",
-};
+}
 
 export function getSlackIngressFrameworkPath(
   endpointKey: SlackIngressEndpointKey,
 ) {
-  return `/api/webhooks/integrations/slack/${endpointKey}`;
+  return `/api/webhooks/integrations/slack/${endpointKey}`
 }
 
 export function getSlackIngressCompatibilityPath(
   endpointKey: SlackIngressEndpointKey,
 ) {
-  return `/api/integrations/slack/${endpointKey}`;
+  return `/api/integrations/slack/${endpointKey}`
 }
 
 export function getSlackIngressEndpoint(endpointKey: SlackIngressEndpointKey) {
   const endpoint = SLACK_ENDPOINTS.find(
     (candidate) => candidate.endpointKey === endpointKey,
-  );
+  )
 
   if (!endpoint) {
-    throw new Error(`Unsupported Slack ingress endpoint: ${endpointKey}`);
+    throw new Error(`Unsupported Slack ingress endpoint: ${endpointKey}`)
   }
 
   return {
@@ -55,5 +55,5 @@ export function getSlackIngressEndpoint(endpointKey: SlackIngressEndpointKey) {
     endpointKey: endpoint.endpointKey,
     frameworkPath: getSlackIngressFrameworkPath(endpoint.endpointKey),
     label: endpoint.label,
-  };
+  }
 }

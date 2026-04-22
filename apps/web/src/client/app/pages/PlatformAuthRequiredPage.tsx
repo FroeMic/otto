@@ -24,7 +24,10 @@ export function PlatformAuthRequiredPage({
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          <a className="inline-flex" href={`/auth/sign-in?returnTo=${returnTo}`}>
+          <a
+            className="inline-flex"
+            href={`/auth/sign-in?returnTo=${returnTo}`}
+          >
             <Button>Sign in</Button>
           </a>
           <a className="inline-flex" href="/">

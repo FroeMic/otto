@@ -60,8 +60,8 @@ export function ScheduledTasksSyncNotification({
                 queryKey: workspaceScheduledTasksQueryOptions(orgSlug).queryKey,
               }),
               queryClient.invalidateQueries({
-                queryKey: workspaceScheduledTaskRunsQueryOptions(orgSlug)
-                  .queryKey,
+                queryKey:
+                  workspaceScheduledTaskRunsQueryOptions(orgSlug).queryKey,
               }),
               queryClient.invalidateQueries({
                 queryKey: ["workspace-scheduled-tasks", orgSlug, "detail"],

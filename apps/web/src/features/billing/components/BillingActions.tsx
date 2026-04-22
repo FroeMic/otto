@@ -70,7 +70,10 @@ export function WorkspaceCheckoutButton({
         setPending(true)
 
         try {
-          window.location.href = await startBillingCheckout({ orgSlug, planKey })
+          window.location.href = await startBillingCheckout({
+            orgSlug,
+            planKey,
+          })
         } catch (error) {
           toast.error(
             error instanceof Error
