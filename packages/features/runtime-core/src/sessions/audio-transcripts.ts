@@ -1,5 +1,6 @@
 export type WorkspaceAudioTranscriptObservation = {
   messageId: string
+  messageTranscriptIndex: number
   transcript: string
 }
 
@@ -56,6 +57,35 @@ export function extractWorkspaceAudioTranscriptFromText(
   return transcript.length > 0 ? transcript : null
 }
 
+export function extractWorkspaceAudioUserTextFromText(
+  rawText: string,
+): string | null {
+  if (!rawText.includes("[Audio]")) {
+    return null
+  }
+
+  const userTextMarker = "User text:"
+  const transcriptMarker = "Transcript:"
+  const userTextIndex = rawText.indexOf(userTextMarker)
+  if (userTextIndex < 0) {
+    return null
+  }
+
+  const transcriptIndex = rawText.indexOf(transcriptMarker, userTextIndex)
+  const rawUserText = rawText
+    .slice(
+      userTextIndex + userTextMarker.length,
+      transcriptIndex >= 0 ? transcriptIndex : undefined,
+    )
+    .trim()
+  if (!rawUserText) {
+    return null
+  }
+
+  const withoutWorkspacePrefix = rawUserText.replace(/^\[[^\]]+\]\s*/, "")
+  return withoutWorkspacePrefix.trim() || rawUserText
+}
+
 export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
   transcriptJsonl: string | null | undefined,
 ): WorkspaceAudioTranscriptObservation[] {
@@ -64,6 +94,7 @@ export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
   }
 
   const observations: WorkspaceAudioTranscriptObservation[] = []
+  const transcriptCountByMessageId = new Map<string, number>()
 
   for (const line of transcriptJsonl.split("\n")) {
     if (!line.trim()) {
@@ -93,8 +124,17 @@ export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
       continue
     }
 
+    const normalizedMessageId = messageId.trim()
+    const messageTranscriptIndex =
+      transcriptCountByMessageId.get(normalizedMessageId) ?? 0
+    transcriptCountByMessageId.set(
+      normalizedMessageId,
+      messageTranscriptIndex + 1,
+    )
+
     observations.push({
-      messageId: messageId.trim(),
+      messageId: normalizedMessageId,
+      messageTranscriptIndex,
       transcript,
     })
   }

@@ -43,7 +43,7 @@ function buildUserMessage(text: string): WorkspaceChatMessage {
   }
 }
 
-function buildUserVoiceNoteMessage(transcript?: string): WorkspaceChatMessage {
+function buildMixedUserVoiceNoteMessage(): WorkspaceChatMessage {
   return {
     author: {
       kind: "user",
@@ -51,13 +51,24 @@ function buildUserVoiceNoteMessage(transcript?: string): WorkspaceChatMessage {
       userId: "user_1",
     },
     createdAt: "2026-04-21T10:31:00.000Z",
-    id: "message_2",
+    id: "message_3",
     parts: [
+      {
+        text: "Please process these.",
+        type: "text",
+      },
       {
         attachmentId: "attachment_1",
         durationMs: 9000,
         mimeType: "audio/webm",
-        ...(transcript ? { transcript } : {}),
+        transcript: "First voice note transcript with enough words.",
+        type: "audio",
+      },
+      {
+        attachmentId: "attachment_2",
+        durationMs: 11_000,
+        mimeType: "audio/webm",
+        transcript: "Second voice note transcript with different words.",
         type: "audio",
       },
     ],
@@ -145,17 +156,21 @@ describe("ConversationMessageBubble", () => {
     assert.equal(markup.includes("<script"), false)
   })
 
-  it("renders voice note transcripts as readable message text", () => {
+  it("renders voice-note transcript previews in stacked expandable rows", () => {
     const markup = renderToStaticMarkup(
       <ConversationMessageBubble
         currentUserId="user_1"
         events={[]}
-        message={buildUserVoiceNoteMessage("This is the transcript.")}
+        message={buildMixedUserVoiceNoteMessage()}
         orgSlug="acme"
       />,
     )
 
-    assert.match(markup, /This is the transcript\./)
-    assert.match(markup, /Voice note · 0:09/)
+    assert.match(markup, /Please process these\./)
+    assert.match(markup, /First voice note transcript/)
+    assert.match(markup, /Second voice note transcript/)
+    assert.match(markup, /aria-expanded="false"/)
+    assert.equal(markup.includes("with enough words."), false)
+    assert.equal(markup.includes("with different words."), false)
   })
 })

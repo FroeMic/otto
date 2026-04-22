@@ -12,6 +12,11 @@ import {
 import { type ReactNode, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 import { cn } from "@/lib/utils"
 
 import { getWorkspaceChatAttachmentDownloadUrl } from "../api/chat"
@@ -27,6 +32,7 @@ import {
   ConversationTurnHeader,
   ConversationTurnShell,
 } from "./ConversationTurnPrimitives"
+import { TraceCaretIcon } from "./TraceCaretIcon"
 
 export interface ConversationMessageBubbleProps {
   currentUserId?: string
@@ -146,33 +152,16 @@ export function ConversationMessageBubble({
                 )
               })}
               {fileParts.length > 0 || audioParts.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {fileParts.map((part, index) => (
-                    <AttachmentChip
-                      key={`${message.id}:file:${index}`}
-                      attachmentId={part.attachmentId}
-                      className="bg-muted/40"
-                      label={part.fileName}
-                      orgSlug={orgSlug}
-                    >
-                      <FileIcon className="size-3.5 shrink-0" />
-                    </AttachmentChip>
-                  ))}
-                  {audioParts.map((part, index) => (
-                    <AudioAttachmentBlock
-                      key={`${message.id}:audio:${index}`}
-                      attachmentId={part.attachmentId}
-                      className="bg-muted/40"
-                      label={formatAudioPartLabel(part.durationMs)}
-                      isPlaying={playingAudioAttachmentId === part.attachmentId}
-                      orgSlug={orgSlug}
-                      transcript={part.transcript}
-                      onTogglePlayback={toggleAudioAttachmentPlayback}
-                    >
-                      <WaveformIcon className="size-3.5 shrink-0" />
-                    </AudioAttachmentBlock>
-                  ))}
-                </div>
+                <AttachmentStack
+                  audioParts={audioParts}
+                  fileParts={fileParts}
+                  isAudioPlaying={(attachmentId) =>
+                    playingAudioAttachmentId === attachmentId
+                  }
+                  orgSlug={orgSlug}
+                  surfaceClassName="bg-muted/40"
+                  onToggleAudioPlayback={toggleAudioAttachmentPlayback}
+                />
               ) : null}
             </div>
           </div>
@@ -199,33 +188,17 @@ export function ConversationMessageBubble({
             ))}
 
             {fileParts.length > 0 || audioParts.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {fileParts.map((part, index) => (
-                  <AttachmentChip
-                    key={`${message.id}:file:${index}`}
-                    attachmentId={part.attachmentId}
-                    className="bg-background/70"
-                    label={part.fileName}
-                    orgSlug={orgSlug}
-                  >
-                    <FileIcon className="size-3.5 shrink-0" />
-                  </AttachmentChip>
-                ))}
-                {audioParts.map((part, index) => (
-                  <AudioAttachmentBlock
-                    key={`${message.id}:audio:${index}`}
-                    attachmentId={part.attachmentId}
-                    className="bg-background/70"
-                    label={formatAudioPartLabel(part.durationMs)}
-                    isPlaying={playingAudioAttachmentId === part.attachmentId}
-                    orgSlug={orgSlug}
-                    transcript={part.transcript}
-                    onTogglePlayback={toggleAudioAttachmentPlayback}
-                  >
-                    <WaveformIcon className="size-3.5 shrink-0" />
-                  </AudioAttachmentBlock>
-                ))}
-              </div>
+              <AttachmentStack
+                audioParts={audioParts}
+                className="mt-3"
+                fileParts={fileParts}
+                isAudioPlaying={(attachmentId) =>
+                  playingAudioAttachmentId === attachmentId
+                }
+                orgSlug={orgSlug}
+                surfaceClassName="bg-background/70"
+                onToggleAudioPlayback={toggleAudioAttachmentPlayback}
+              />
             ) : null}
           </div>
         )}
@@ -240,6 +213,81 @@ function formatAudioPartLabel(durationMs?: number) {
   }
 
   return `Voice note · ${formatVoiceNoteDuration(durationMs)}`
+}
+
+function formatTranscriptPreview(transcript: string | undefined) {
+  const normalized = transcript?.trim().replace(/\s+/g, " ")
+  if (!normalized) {
+    return null
+  }
+
+  const words = normalized.split(" ")
+  const preview = words.slice(0, 4).join(" ")
+  return words.length > 4 ? `${preview}...` : preview
+}
+
+type FilePart = Extract<WorkspaceChatMessage["parts"][number], { type: "file" }>
+type AudioPart = Extract<
+  WorkspaceChatMessage["parts"][number],
+  { type: "audio" }
+>
+
+interface AttachmentStackProps {
+  audioParts: AudioPart[]
+  className?: string
+  fileParts: FilePart[]
+  isAudioPlaying: (attachmentId: string) => boolean
+  orgSlug: string
+  surfaceClassName: string
+  onToggleAudioPlayback: (attachmentId: string) => Promise<void>
+}
+
+function AttachmentStack({
+  audioParts,
+  className,
+  fileParts,
+  isAudioPlaying,
+  orgSlug,
+  surfaceClassName,
+  onToggleAudioPlayback,
+}: AttachmentStackProps) {
+  return (
+    <div className={cn("flex max-w-full flex-col gap-2", className)}>
+      {fileParts.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {fileParts.map((part, index) => (
+            <AttachmentChip
+              key={`file:${part.attachmentId}:${index}`}
+              attachmentId={part.attachmentId}
+              className={surfaceClassName}
+              label={part.fileName}
+              orgSlug={orgSlug}
+            >
+              <FileIcon className="size-3.5 shrink-0" />
+            </AttachmentChip>
+          ))}
+        </div>
+      ) : null}
+      {audioParts.length > 0 ? (
+        <div className="flex max-w-full flex-col gap-2">
+          {audioParts.map((part, index) => (
+            <AudioAttachmentBlock
+              key={`audio:${part.attachmentId}:${index}`}
+              attachmentId={part.attachmentId}
+              className={surfaceClassName}
+              label={formatAudioPartLabel(part.durationMs)}
+              isPlaying={isAudioPlaying(part.attachmentId)}
+              orgSlug={orgSlug}
+              transcript={part.transcript}
+              onTogglePlayback={onToggleAudioPlayback}
+            >
+              <WaveformIcon className="size-3.5 shrink-0" />
+            </AudioAttachmentBlock>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  )
 }
 
 interface AttachmentChipProps {
@@ -310,17 +358,19 @@ function AudioAttachmentBlock({
   onTogglePlayback,
 }: AudioAttachmentBlockProps) {
   const normalizedTranscript = transcript?.trim()
+  const transcriptPreview = formatTranscriptPreview(normalizedTranscript)
+  const displayLabel = transcriptPreview ?? label
 
   return (
-    <span className="flex max-w-full flex-col gap-1.5">
-      <span
+    <Collapsible className="max-w-full">
+      <div
         className={cn(
           "inline-flex w-fit max-w-full items-center gap-2 rounded-full border border-border/80 px-3 py-1 text-xs text-muted-foreground",
           className,
         )}
       >
         {children}
-        <span>{label}</span>
+        <span className="min-w-0 truncate">{displayLabel}</span>
         <button
           aria-label={isPlaying ? `Pause ${label}` : `Play ${label}`}
           className="rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
@@ -358,13 +408,25 @@ function AudioAttachmentBlock({
         >
           <DownloadSimpleIcon className="size-3.5" />
         </button>
-      </span>
+        {normalizedTranscript ? (
+          <CollapsibleTrigger
+            aria-label="Show voice note transcript"
+            className="group rounded-sm p-0.5 text-muted-foreground/80 transition hover:text-foreground"
+          >
+            <TraceCaretIcon className="transition-transform duration-150 group-data-[state=open]:rotate-90" />
+          </CollapsibleTrigger>
+        ) : (
+          <span aria-hidden="true" className="size-5" />
+        )}
+      </div>
       {normalizedTranscript ? (
-        <span className="max-w-full whitespace-pre-wrap break-words text-sm leading-6 text-foreground">
-          {normalizedTranscript}
-        </span>
+        <CollapsibleContent className="pt-1.5">
+          <div className="ml-6 max-w-full whitespace-pre-wrap break-words border-l border-border/80 pl-3 text-xs leading-5 text-muted-foreground">
+            {normalizedTranscript}
+          </div>
+        </CollapsibleContent>
       ) : null}
-    </span>
+    </Collapsible>
   )
 }
 

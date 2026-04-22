@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { parseTranscript } from "./transcript-parser"
 
 describe("parseTranscript", () => {
-  it("uses the OpenClaw audio transcript as the visible user text", () => {
+  it("keeps the raw OpenClaw audio user text visible", () => {
     const transcriptJsonl = [
       JSON.stringify({
         id: "msg_audio",
@@ -38,7 +38,7 @@ This is the voice note transcript.`,
 
     expect(messages[0]?.blocks).toEqual([
       {
-        text: "This is the voice note transcript.",
+        text: "Voice note attached.",
         type: "text",
       },
     ])
