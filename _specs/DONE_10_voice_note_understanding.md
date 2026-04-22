@@ -86,7 +86,7 @@ Recommended compiled defaults:
 - `model: "gpt-4o-mini-transcribe"`
 - `maxBytes: 20971520`
 - `echoTranscript: false`
-- `attachmentsMode: "first"`
+- `attachmentsMode: "all"`
 
 V1 constraints:
 
@@ -94,7 +94,7 @@ V1 constraints:
 - no transcript echo setting
 - no per-channel policy
 - no CLI fallback entries in desired state
-- no multi-attachment transcription mode
+- multi-attachment transcription is enabled so each voice note in a message can be downloaded and transcribed
 
 ## Runtime projection plan
 

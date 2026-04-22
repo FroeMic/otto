@@ -102,4 +102,54 @@ Transcript:`
       },
     ])
   })
+
+  it("extracts repeated transcript sections from one OpenClaw user turn", () => {
+    const transcriptJsonl = [
+      JSON.stringify({
+        message: {
+          content: [
+            {
+              text: `Conversation info (untrusted metadata):
+\`\`\`json
+{
+  "chat_id": "workspace:conversation_1",
+  "message_id": "message_1"
+}
+\`\`\`
+
+[Audio]
+User text:
+[Workspace Chat Michael Froehlich Wed 2026-04-22 10:10 GMT+2] Voice note attached.
+Transcript:
+First voice note.
+
+[Audio]
+User text:
+[Workspace Chat Michael Froehlich Wed 2026-04-22 10:10 GMT+2] Voice note attached.
+Transcript:
+Second voice note.`,
+              type: "text",
+            },
+          ],
+          role: "user",
+        },
+        type: "message",
+      }),
+    ].join("\n")
+
+    expect(
+      extractWorkspaceAudioTranscriptsFromSessionJsonl(transcriptJsonl),
+    ).toEqual([
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 0,
+        transcript: "First voice note.",
+      },
+      {
+        messageId: "message_1",
+        messageTranscriptIndex: 1,
+        transcript: "Second voice note.",
+      },
+    ])
+  })
 })

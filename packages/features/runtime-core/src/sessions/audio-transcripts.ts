@@ -43,18 +43,34 @@ function extractConversationInfo(rawText: string): Record<string, unknown> {
 export function extractWorkspaceAudioTranscriptFromText(
   rawText: string,
 ): string | null {
+  return extractWorkspaceAudioTranscriptsFromText(rawText)[0] ?? null
+}
+
+export function extractWorkspaceAudioTranscriptsFromText(
+  rawText: string,
+): string[] {
   if (!rawText.includes("[Audio]")) {
-    return null
+    return []
   }
 
-  const marker = "Transcript:"
-  const markerIndex = rawText.indexOf(marker)
-  if (markerIndex < 0) {
-    return null
+  const markerPattern = /(?:^|\n)Transcript:\s*/g
+  const matches = [...rawText.matchAll(markerPattern)]
+  if (matches.length === 0) {
+    return []
   }
 
-  const transcript = rawText.slice(markerIndex + marker.length).trim()
-  return transcript.length > 0 ? transcript : null
+  return matches
+    .map((match, index) => {
+      const start = (match.index ?? 0) + match[0].length
+      const nextMatch = matches[index + 1]
+      const nextAudioSectionIndex = rawText.indexOf("\n[Audio]", start)
+      const end = Math.min(
+        nextMatch?.index ?? rawText.length,
+        nextAudioSectionIndex >= 0 ? nextAudioSectionIndex : rawText.length,
+      )
+      return rawText.slice(start, end).trim()
+    })
+    .filter((transcript) => transcript.length > 0)
 }
 
 export function extractWorkspaceAudioUserTextFromText(
@@ -113,8 +129,8 @@ export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
     }
 
     const rawText = extractTextContent(parsed.message.content)
-    const transcript = extractWorkspaceAudioTranscriptFromText(rawText)
-    if (!transcript) {
+    const transcripts = extractWorkspaceAudioTranscriptsFromText(rawText)
+    if (transcripts.length === 0) {
       continue
     }
 
@@ -125,18 +141,22 @@ export function extractWorkspaceAudioTranscriptsFromSessionJsonl(
     }
 
     const normalizedMessageId = messageId.trim()
-    const messageTranscriptIndex =
+    let nextMessageTranscriptIndex =
       transcriptCountByMessageId.get(normalizedMessageId) ?? 0
+
+    for (const transcript of transcripts) {
+      observations.push({
+        messageId: normalizedMessageId,
+        messageTranscriptIndex: nextMessageTranscriptIndex,
+        transcript,
+      })
+      nextMessageTranscriptIndex += 1
+    }
+
     transcriptCountByMessageId.set(
       normalizedMessageId,
-      messageTranscriptIndex + 1,
+      nextMessageTranscriptIndex,
     )
-
-    observations.push({
-      messageId: normalizedMessageId,
-      messageTranscriptIndex,
-      transcript,
-    })
   }
 
   return observations

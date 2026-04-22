@@ -140,6 +140,35 @@ describe("renderOpenClawConfig", () => {
     expect(rendered.tools.alsoAllow).toEqual(["otto-managed-config"])
   })
 
+  it("renders multi-attachment audio transcription mode", () => {
+    const rendered = JSON.parse(
+      renderOpenClawConfig({
+        ...buildConfig(),
+        audio: {
+          attachmentsMode: "all",
+          echoTranscript: false,
+          enabled: true,
+          maxBytes: 20 * 1024 * 1024,
+          models: [{ model: "gpt-4o-mini-transcribe", provider: "openai" }],
+        },
+      }),
+    ) as {
+      tools: {
+        media?: {
+          audio?: {
+            attachmentsMode?: string
+            enabled?: boolean
+          }
+        }
+      }
+    }
+
+    expect(rendered.tools.media?.audio).toMatchObject({
+      attachmentsMode: "all",
+      enabled: true,
+    })
+  })
+
   it("allowlists optional Otto tool plugins without including non-tool plugins", () => {
     const rendered = JSON.parse(
       renderOpenClawConfig({
