@@ -112,6 +112,9 @@ documented here.
   new compiled defaults such as `tools.media.audio` in the rendered
   `openclaw.json` before bootstrap verification runs on a newly provisioned
   tenant server.
+- Workspace-chat uploaded audio/video files now enter OpenClaw as media context
+  instead of generic attached-file prompt text, so uploaded `.m4a` files can use
+  the same runtime transcription path as recorded voice notes.
 
 ## Risk Register
 
