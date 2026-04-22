@@ -78,6 +78,8 @@ const GATEWAY_HEALTH_MAX_DURATION_MS = 300_000
 const GATEWAY_HEALTH_MAX_POLL_INTERVAL_MS = 5_000
 const RUNTIME_START_HELPER_PATH =
   "/app/otto-helpers/start-runtime-with-watchers.mjs"
+const OPENCLAW_WORKSPACE_LOCAL_STATE_ROOT =
+  "/opt/openclaw/home/workspace/.openclaw"
 const WHATSAPP_QR_HELPER_PATH = "/app/otto-helpers/whatsapp-qr-login.mjs"
 const MANAGED_SKILL_WORKSPACE_ROOT = "/opt/openclaw/home/workspace/skills"
 const MANAGED_SKILL_MANIFEST_PATH =
@@ -505,6 +507,7 @@ export class RuntimeManager {
       "install -d -o openclaw -g openclaw -m 750 /opt/openclaw /opt/openclaw/runtime",
       `install -d -o openclaw -g openclaw -m 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
       "install -d -o root -g openclaw -m 755 /opt/openclaw/home/workspace",
+      `install -d -o openclaw -g openclaw -m 770 ${OPENCLAW_WORKSPACE_LOCAL_STATE_ROOT}`,
       `install -d -o openclaw -g openclaw -m 770 ${quotedWorkspaceWritableDirectoryPaths}`,
       ...(quotedManagedSkillDirectoryPaths.length > 0
         ? [
@@ -517,11 +520,13 @@ export class RuntimeManager {
           ]
         : []),
       "rm -f /opt/openclaw/home/workspace/USERS.md",
+      `chown openclaw:openclaw ${OPENCLAW_WORKSPACE_LOCAL_STATE_ROOT}`,
       `chown openclaw:openclaw ${quotedOpenClawOwnershipTargets}`,
       `chown root:openclaw ${quotedProtectedRootTargets}`,
       "chmod 750 /opt/openclaw /opt/openclaw/runtime",
       `chmod 700 /opt/openclaw/home /opt/openclaw/home/.cache /opt/openclaw/home/.cache/node-compile ${shellQuoteForShell(RUNTIME_CRON_ROOT)} ${shellQuoteForShell(RUNTIME_CRON_RUNS_ROOT)} ${shellQuoteForShell(MANAGED_SKILL_WORKSPACE_ROOT)}`,
       "chmod 755 /opt/openclaw/home/workspace",
+      `chmod 770 ${OPENCLAW_WORKSPACE_LOCAL_STATE_ROOT}`,
       `chmod 770 ${quotedWorkspaceWritableDirectoryPaths}`,
       "chmod 600 /opt/openclaw/home/openclaw.json",
       "chmod 600 /opt/openclaw/home/.env",

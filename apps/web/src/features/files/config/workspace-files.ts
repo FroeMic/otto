@@ -1,4 +1,5 @@
 export const HIDDEN_WORKSPACE_FILE_PATHS = [
+  ".openclaw",
   "AGENTS.md",
   "HEARTBEAT.md",
   "IDENTITY.md",

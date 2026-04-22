@@ -225,6 +225,46 @@ describe("RuntimeManager runtime home bootstrap", () => {
     expect(command).toContain("chmod 770")
     expect(command).toContain("chmod 444")
   })
+
+  it("pre-creates OpenClaw workspace-local state without making the managed workspace root writable", async () => {
+    const execMock = vi.fn(async () => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: "",
+    }))
+    const sshClient = {
+      exec: execMock,
+    }
+    const manager = new RuntimeManager(sshClient as never)
+
+    await manager.normalizeTenantRuntimeFilePermissions(
+      {
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      },
+      {
+        managedBootstrapFiles: [],
+        managedSkillFiles: [],
+        metadataPath: "/opt/openclaw/runtime/apply-metadata.json",
+      },
+    )
+
+    const command =
+      (execMock.mock.calls as unknown as Array<[unknown, string]>)[0]?.[1] ?? ""
+
+    expect(command).toContain(
+      "install -d -o root -g openclaw -m 755 /opt/openclaw/home/workspace",
+    )
+    expect(command).toContain(
+      "install -d -o openclaw -g openclaw -m 770 /opt/openclaw/home/workspace/.openclaw",
+    )
+    expect(command).toContain(
+      "chown openclaw:openclaw /opt/openclaw/home/workspace/.openclaw",
+    )
+    expect(command).toContain("chmod 755 /opt/openclaw/home/workspace")
+    expect(command).toContain("chmod 770 /opt/openclaw/home/workspace/.openclaw")
+  })
 })
 
 describe("managed skill runtime file projection", () => {
