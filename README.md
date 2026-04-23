@@ -117,6 +117,8 @@ bun run db:migrate
 bun run dev:all
 ```
 
+All root `dev:*` scripts now source `.env` automatically before launching app processes, so worker/API/gateway/web get the same root environment variables (including `DATABASE_URL`) without manually running `source .env` first.
+
 Docker provider lab mode (optional):
 
 ```bash
