@@ -75,7 +75,7 @@ const DESTINATION_PATH_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description:
-    "Optional destination path relative to the runtime workspace root.",
+    "Optional checkout/worktree destination relative to the runtime workspace root. Use destinationPath, not path. Example: projects/business-autopilot-ai/repositories/otto.",
 } as const
 
 const PR_NUMBER_ARGUMENT_SCHEMA = {
@@ -337,6 +337,7 @@ const repositoryCheckoutCommand: IntegrationRuntimeCommandDefinition = {
   effect: "write",
   exampleArguments: {
     branch: "main",
+    destinationPath: "projects/business-autopilot-ai/repositories/otto",
     owner: "acme",
     repo: "web-app",
   },
@@ -348,6 +349,7 @@ const repositoryCheckoutCommand: IntegrationRuntimeCommandDefinition = {
   usageNotes: [
     "Runs inside the tenant runtime so the checked-out files are available to the agent.",
     "Only repositories selected for this workspace are available.",
+    "To clone into a project folder, pass destinationPath such as projects/business-autopilot-ai/repositories/otto; do not use path.",
   ],
 }
 
@@ -379,7 +381,10 @@ const remoteFetchCommand: IntegrationRuntimeCommandDefinition = {
   intentKeywords: ["github remote", "git fetch", "fetch origin"],
   label: "Fetch remote",
   resultMode: "json",
-  usageNotes: ["Runs inside the tenant runtime checkout root."],
+  usageNotes: [
+    "Runs inside the tenant runtime checkout root.",
+    "When operating on a project-local checkout, pass the same destinationPath used for repository.checkout; do not use path.",
+  ],
 }
 
 const remotePullCommand: IntegrationRuntimeCommandDefinition = {
@@ -417,7 +422,10 @@ const remotePullCommand: IntegrationRuntimeCommandDefinition = {
   intentKeywords: ["github remote", "git pull", "pull origin"],
   label: "Pull remote",
   resultMode: "json",
-  usageNotes: ["Runs inside the tenant runtime checkout root."],
+  usageNotes: [
+    "Runs inside the tenant runtime checkout root.",
+    "When operating on a project-local checkout, pass the same destinationPath used for repository.checkout; do not use path.",
+  ],
 }
 
 const remotePushCommand: IntegrationRuntimeCommandDefinition = {
@@ -450,7 +458,10 @@ const remotePushCommand: IntegrationRuntimeCommandDefinition = {
   intentKeywords: ["github remote", "git push", "push branch"],
   label: "Push remote",
   resultMode: "json",
-  usageNotes: ["Runs inside the tenant runtime checkout root."],
+  usageNotes: [
+    "Runs inside the tenant runtime checkout root.",
+    "When operating on a project-local checkout, pass the same destinationPath used for repository.checkout; do not use path.",
+  ],
 }
 
 const branchCheckoutRemoteCommand: IntegrationRuntimeCommandDefinition = {
@@ -485,7 +496,10 @@ const branchCheckoutRemoteCommand: IntegrationRuntimeCommandDefinition = {
   intentKeywords: ["github branch", "checkout remote branch"],
   label: "Check out remote branch",
   resultMode: "json",
-  usageNotes: ["Runs inside the tenant runtime checkout root."],
+  usageNotes: [
+    "Runs inside the tenant runtime checkout root.",
+    "When operating on a project-local checkout, pass the same destinationPath used for repository.checkout; do not use path.",
+  ],
 }
 
 const branchPublishCommand: IntegrationRuntimeCommandDefinition = {
@@ -518,7 +532,10 @@ const branchPublishCommand: IntegrationRuntimeCommandDefinition = {
   intentKeywords: ["github branch", "publish branch", "push branch"],
   label: "Publish branch",
   resultMode: "json",
-  usageNotes: ["Runs inside the tenant runtime checkout root."],
+  usageNotes: [
+    "Runs inside the tenant runtime checkout root.",
+    "When operating on a project-local checkout, pass the same destinationPath used for repository.checkout; do not use path.",
+  ],
 }
 
 const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [

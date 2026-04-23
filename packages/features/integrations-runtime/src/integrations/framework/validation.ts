@@ -20,8 +20,18 @@ export function validateCommandArguments(
   if (schema.additionalProperties === false) {
     for (const key of Object.keys(argumentsObject)) {
       if (!(key in properties)) {
+        const acceptedArguments = Object.keys(properties)
+        const acceptedGuidance =
+          acceptedArguments.length > 0
+            ? ` Accepted arguments: ${acceptedArguments.join(", ")}.`
+            : " This command does not accept any arguments."
+        const suggestion =
+          key === "path" && "destinationPath" in properties
+            ? " Use destinationPath instead of path."
+            : ""
+
         throw new Error(
-          `${command.commandKey} does not accept the ${key} argument.`,
+          `${command.commandKey} does not accept the ${key} argument.${suggestion}${acceptedGuidance}`,
         )
       }
     }

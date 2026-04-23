@@ -2,6 +2,10 @@ import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { spawn } from "node:child_process";
 import { access, lstat, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  GITHUB_LOCAL_GIT_COMMANDS,
+  validateGitHubLocalGitArguments,
+} from "./github-local-git-arguments.mjs";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const PLUGIN_CONFIG_SCHEMA = {
@@ -535,15 +539,6 @@ async function executeIntegrationCommand(api, params) {
   };
 }
 
-const GITHUB_LOCAL_GIT_COMMANDS = new Set([
-  "repository.checkout",
-  "remote.fetch",
-  "remote.pull",
-  "remote.push",
-  "branch.checkout_remote",
-  "branch.publish",
-]);
-
 function getGitHubLocalGitCommandKey(input) {
   const value = input.commandKey || input.commandPath.join(".");
 
@@ -551,6 +546,8 @@ function getGitHubLocalGitCommandKey(input) {
 }
 
 async function executeGitHubLocalGitCommand(api, input) {
+  validateGitHubLocalGitArguments(input.commandKey, input.argumentsObject);
+
   const owner = readGitHubSafeName(input.argumentsObject.owner, "owner");
   const repo = readGitHubSafeName(input.argumentsObject.repo, "repo");
   const branch = readGitHubBranchName(input.argumentsObject.branch, "branch");
