@@ -3,6 +3,7 @@ import { Link } from "@tanstack/react-router"
 import { Badge } from "@/components/ui/badge"
 
 import type { WorkspaceIntegrationCatalogEntry } from "../../types"
+import { GitHubIntegrationIcon } from "./GitHubIntegrationIcon"
 
 export interface GitHubIntegrationOverviewItemProps {
   entry: WorkspaceIntegrationCatalogEntry
@@ -18,7 +19,7 @@ export function GitHubIntegrationOverviewItem({
     >
       <div className="flex min-w-0 items-start gap-4">
         <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-muted">
-          <img alt={entry.label} className="size-6" src={entry.iconSrc ?? ""} />
+          <GitHubIntegrationIcon alt={entry.label} className="size-6" />
         </div>
         <div className="flex min-w-0 flex-col gap-1">
           <div className="flex items-center gap-2">

@@ -20,6 +20,8 @@ import { IntegrationCapabilitiesTable } from "@/features/integrations/components
 import { IntegrationSettingsShell } from "@/features/integrations/components/IntegrationSettingsShell"
 import type { WorkspaceIntegrationDetail } from "@/features/integrations/types"
 
+import { GitHubIntegrationIcon } from "../GitHubIntegrationIcon"
+
 export interface GitHubIntegrationStatusPageProps {
   currentSection: string
   detail: WorkspaceIntegrationDetail
@@ -105,11 +107,7 @@ export function GitHubIntegrationStatusPage({
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
-              <img
-                alt=""
-                className="size-8"
-                src={detail.integration.iconSrc ?? ""}
-              />
+              <GitHubIntegrationIcon alt="" className="size-8" />
               <h1 className="text-3xl font-semibold tracking-tight">
                 {detail.integration.label}
               </h1>
