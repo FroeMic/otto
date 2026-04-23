@@ -578,7 +578,15 @@ function getString(record: unknown, key: string) {
 
   const value = record[key]
 
-  return typeof value === "string" && value.trim() ? value.trim() : undefined
+  if (typeof value === "string" && value.trim()) {
+    return value.trim()
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+
+  return undefined
 }
 
 function getMetadataString(

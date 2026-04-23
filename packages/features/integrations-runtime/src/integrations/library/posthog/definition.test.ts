@@ -161,6 +161,49 @@ describe("PostHog integration definition", () => {
     );
   });
 
+  it("falls back to configured targets when PostHog no longer exposes project environments", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          detail:
+            "Multiple environments per project are no longer available. Please contact support if you need assistance.",
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 403,
+        },
+      ),
+    );
+    const command = collectCommands(
+      posthogIntegrationDefinition.runtimeSurface!,
+    ).find((entry) => entry.commandKey === "workspace.list_environments");
+
+    assert.ok(command);
+
+    const result = await command.execute({
+      arguments: {},
+      context: buildPostHogContext(),
+    });
+
+    assert.deepEqual(result, {
+      count: 1,
+      next: null,
+      previous: null,
+      projectId: "project-1",
+      results: [
+        {
+          id: "env-1",
+          name: "Production",
+          projectId: "project-1",
+          source: "configured_environment",
+          uuid: "env-1",
+        },
+      ],
+    });
+  });
+
   it("publishes useful example arguments for HogQL queries", () => {
     const command = collectCommands(
       posthogIntegrationDefinition.runtimeSurface!,
@@ -209,6 +252,53 @@ describe("PostHog integration definition", () => {
       requiresConfirmation: true,
       summary: "Create PostHog feature flag.",
     });
+    assert.equal(fetch.mock.calls.length, 0);
+  });
+
+  it("plans every write command without calling PostHog until confirmed", async () => {
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("unexpected fetch"));
+    const commands = collectCommands(posthogIntegrationDefinition.runtimeSurface!)
+      .filter((entry) => entry.effect === "write")
+      .sort((left, right) => left.commandKey.localeCompare(right.commandKey));
+
+    assert.deepEqual(
+      commands.map((entry) => entry.commandKey),
+      [
+        "annotation.create",
+        "experiment.archive",
+        "experiment.create",
+        "experiment.update",
+        "feature_flag.archive",
+        "feature_flag.create",
+        "feature_flag.update",
+        "insight.create",
+        "insight.update",
+      ],
+    );
+
+    for (const command of commands) {
+      const result = await command.execute({
+        arguments: {
+          changeReason: "Live command safety test.",
+          id: "resource-1",
+          payload: {
+            key: "resource-1",
+            name: "Resource 1",
+          },
+        },
+        context: buildPostHogContext(),
+      });
+      const plannedResult = result as {
+        planned?: unknown;
+        requiresConfirmation?: unknown;
+      };
+
+      assert.equal(plannedResult.requiresConfirmation, true);
+      assert.equal(plannedResult.planned, true);
+    }
+
     assert.equal(fetch.mock.calls.length, 0);
   });
 
