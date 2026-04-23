@@ -51,6 +51,32 @@ describeLive("PostHog live integration contract", () => {
   )
 
   it(
+    "returns configured target state through the runtime command surface",
+    async () => {
+      const discovery = await discoverLiveSetup()
+      const state = discovery.statePreview as PostHogIntegrationState
+      const context = buildLiveCommandContext(state)
+      const command = getPostHogCommand("workspace.get_configured_targets")
+      const result = (await command.execute({
+        arguments: {},
+        context,
+      })) as PostHogIntegrationState
+
+      assert.equal(result.host, state.host)
+      assert.equal(result.defaultTargetKey, state.defaultTargetKey)
+      assert.ok(result.targets.length > 0, "expected configured PostHog targets")
+
+      if (state.targets.some((entry) => entry.environmentId)) {
+        assert.ok(
+          result.targets.some((entry) => entry.environmentId),
+          "expected configured target state to include environmentId",
+        )
+      }
+    },
+    LIVE_TEST_TIMEOUT_MS,
+  )
+
+  it(
     "runs the live read command battery without provider errors",
     async () => {
       const discovery = await discoverLiveSetup()
@@ -188,11 +214,11 @@ function buildLiveReadCommandCases(state: PostHogIntegrationState) {
   }> = [
     {
       arguments: {},
-      commandKey: "workspace.list_projects",
+      commandKey: "workspace.get_configured_targets",
     },
     {
       arguments: {},
-      commandKey: "workspace.list_environments",
+      commandKey: "workspace.list_projects",
     },
     {
       arguments: {},

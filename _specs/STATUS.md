@@ -153,6 +153,7 @@
   - `PostHog` should land as a workspace-managed API-key integration, not an OAuth integration
   - the first framework step is a generic encrypted API credential substrate plus generic non-secret tenant integration state
   - the integration should support multiple PostHog project/environment targets per workspace
+  - runtime target inspection should come from Otto's configured target state via `workspace.get_configured_targets`, not a provider-backed environment-list command
   - runtime commands should prioritize direct product analytics workflows first, with bounded read-only HogQL as an escape hatch
   - selected write commands may be included in the first implementation, but must require explicit confirmation and change reasons
 - The next developer-workflow integration slice is now tracked in `_specs/TODO_39_github_integration.md`:
