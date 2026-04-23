@@ -8,6 +8,11 @@ import {
   executeGitHubRepositoryList,
   executeGitHubRepositorySearch,
 } from "./commands/repository"
+import {
+  executeGitHubBranchDeleteRemote,
+  executeGitHubBranchGetRemote,
+  executeGitHubBranchListRemote,
+} from "./commands/branch"
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
@@ -32,6 +37,12 @@ const QUERY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Repository search query.",
+} as const
+
+const BRANCH_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Remote branch name.",
 } as const
 
 const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
@@ -122,6 +133,106 @@ const repositorySearchCommand: IntegrationRuntimeCommandDefinition = {
   usageNotes: ["Only repositories selected for this workspace are returned."],
 }
 
+const branchListRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "List remote branches",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "branch.list_remote",
+  commandPath: ["branch", "list_remote"],
+  description: "List remote GitHub branches for a selected repository.",
+  effect: "read",
+  exampleArguments: {
+    limit: 25,
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchListRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "list branches", "remote branch"],
+  label: "List remote branches",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
+const branchGetRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "Get remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.get_remote",
+  commandPath: ["branch", "get_remote"],
+  description: "Read one remote GitHub branch for a selected repository.",
+  effect: "read",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchGetRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "get branch", "remote branch"],
+  label: "Get remote branch",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
+const branchDeleteRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Delete remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.delete_remote",
+  commandPath: ["branch", "delete_remote"],
+  description: "Delete a non-default remote GitHub branch from a selected repository.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchDeleteRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "delete remote branch", "remove branch"],
+  label: "Delete remote branch",
+  resultMode: "json",
+  safety: "destructive",
+  usageNotes: [
+    "Only repositories selected for this workspace are available.",
+    "The default branch cannot be deleted.",
+  ],
+}
+
 export const githubIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
   auth: {
@@ -160,6 +271,18 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["repository"],
         intentKeywords: ["github repository", "repo", "checkout"],
         label: "Repository",
+      },
+      {
+        commands: [
+          branchListRemoteCommand,
+          branchGetRemoteCommand,
+          branchDeleteRemoteCommand,
+        ],
+        description: "Remote branch discovery and cleanup commands.",
+        groupKey: "branch",
+        groupPath: ["branch"],
+        intentKeywords: ["github branch", "remote branch"],
+        label: "Branch",
       },
     ],
     rootCommands: [],
