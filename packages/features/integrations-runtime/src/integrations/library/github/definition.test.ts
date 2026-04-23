@@ -56,4 +56,27 @@ describe("GitHub integration definition", () => {
     )
     assert.ok(commands.every((command) => typeof command.execute === "function"))
   })
+
+  it("allows repository checkout to target a safe workspace-relative destination", () => {
+    const commands = collectCommands(
+      githubIntegrationDefinition.runtimeSurface!,
+    )
+    const checkout = commands.find(
+      (command) => command.commandKey === "repository.checkout",
+    )
+
+    assert.ok(checkout)
+    const schema = checkout.argumentsSchema as {
+      properties: Record<string, unknown>
+    }
+    assert.deepEqual(
+      schema.properties.destinationPath,
+      {
+        description:
+          "Optional destination path relative to the runtime workspace root.",
+        minLength: 1,
+        type: "string",
+      },
+    )
+  })
 })
