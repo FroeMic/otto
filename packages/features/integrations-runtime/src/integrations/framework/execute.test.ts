@@ -146,4 +146,80 @@ describe("executeRegisteredIntegrationCommand", () => {
       /requires the query:read PostHog scope/,
     );
   });
+
+  it("does not mark API-key credentials as needing attention for provider request errors", async () => {
+    const providerError = Object.assign(new Error("HogQL query failed"), {
+      status: 400,
+    });
+    getIntegrationDefinition.mockReturnValue(
+      buildApiKeyIntegrationDefinition(async () => {
+        throw providerError;
+      }),
+    );
+    getConnectedApiCredentialForTenantIntegration.mockResolvedValue({
+      apiKey: "phx_secret",
+      credentialId: "credential-1",
+      declaredScopes: ["query:read"],
+      externalAccountLabel: "Product analytics",
+      metadata: {},
+      providerKey: "posthog",
+      state: {},
+      stateVersion: 1,
+      status: "connected",
+      tenantIntegrationId: "tenant-integration-1",
+    });
+
+    const { executeRegisteredIntegrationCommand } = await import("./execute");
+
+    await assert.rejects(
+      executeRegisteredIntegrationCommand({
+        arguments: {},
+        commandKey: "query.hogql",
+        integrationKey: "posthog",
+        tenantIntegrationId: "tenant-integration-1",
+      }),
+      /HogQL query failed/,
+    );
+    assert.equal(recordApiCredentialAttention.mock.calls.length, 0);
+  });
+
+  it("marks API-key credentials as needing attention for provider auth errors", async () => {
+    const providerError = Object.assign(new Error("Invalid API key"), {
+      status: 401,
+    });
+    getIntegrationDefinition.mockReturnValue(
+      buildApiKeyIntegrationDefinition(async () => {
+        throw providerError;
+      }),
+    );
+    getConnectedApiCredentialForTenantIntegration.mockResolvedValue({
+      apiKey: "phx_secret",
+      credentialId: "credential-1",
+      declaredScopes: ["query:read"],
+      externalAccountLabel: "Product analytics",
+      metadata: {},
+      providerKey: "posthog",
+      state: {},
+      stateVersion: 1,
+      status: "connected",
+      tenantIntegrationId: "tenant-integration-1",
+    });
+
+    const { executeRegisteredIntegrationCommand } = await import("./execute");
+
+    await assert.rejects(
+      executeRegisteredIntegrationCommand({
+        arguments: {},
+        commandKey: "query.hogql",
+        integrationKey: "posthog",
+        tenantIntegrationId: "tenant-integration-1",
+      }),
+      /Reconnect PostHog/,
+    );
+    assert.equal(recordApiCredentialAttention.mock.calls.length, 1);
+    assert.deepEqual(recordApiCredentialAttention.mock.calls[0]?.[0], {
+      credentialId: "credential-1",
+      errorMessage: "Invalid API key",
+    });
+  });
 });
