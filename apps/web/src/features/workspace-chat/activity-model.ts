@@ -736,8 +736,12 @@ function getToolFilePath(payload: Record<string, unknown>) {
     getStringValue(getRecordValue(payload.params)?.path) ??
     getStringValue(getRecordValue(payload.input)?.filePath) ??
     getStringValue(getRecordValue(payload.input)?.path) ??
+    getStringValue(getRecordValue(payload.args)?.filePath) ??
+    getStringValue(getRecordValue(payload.args)?.path) ??
     getStringValue(getRecordValue(payload.arguments)?.filePath) ??
     getStringValue(getRecordValue(payload.arguments)?.path) ??
+    getStringValue(getJsonRecordValue(payload.args)?.filePath) ??
+    getStringValue(getJsonRecordValue(payload.args)?.path) ??
     getStringValue(getJsonRecordValue(payload.arguments)?.filePath) ??
     getStringValue(getJsonRecordValue(payload.arguments)?.path)
   )
