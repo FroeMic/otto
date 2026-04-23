@@ -69,6 +69,18 @@ function getMissingScopes(input: {
   return input.requiredScopes.filter((scope) => !declaredScopes.has(scope))
 }
 
+function classifyApiKeyError(error: unknown) {
+  const status =
+    typeof error === "object" &&
+    error &&
+    "status" in error &&
+    typeof error.status === "number"
+      ? error.status
+      : undefined
+
+  return status === 401 || status === 403 ? "reauthorize" : "transient"
+}
+
 export async function executeRegisteredIntegrationCommand(input: {
   arguments: Record<string, unknown>
   commandKey?: string | null
@@ -183,7 +195,7 @@ export async function executeRegisteredIntegrationCommand(input: {
     const classifiedKind =
       authBinding.kind === "oauth"
         ? authBinding.provider.classifyError(error)
-        : "reauthorize"
+        : classifyApiKeyError(error)
 
     if (classifiedKind === "reauthorize") {
       console.warn(
