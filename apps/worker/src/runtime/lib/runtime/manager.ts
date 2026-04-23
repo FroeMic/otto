@@ -96,17 +96,27 @@ const WORKSPACE_CHAT_HTTP_INGRESS_PATH = "/otto/workspace-chat/events"
 export class RuntimeManager {
   constructor(private readonly sshClient = new SshClient()) {}
 
-  async waitForHostBootstrap(connection: SshConnection): Promise<void> {
-    await this.execChecked(
-      connection,
-      buildShellCommand([
-        "cloud-init status --wait >/dev/null",
-        "command -v docker >/dev/null",
-        "systemctl is-active --quiet docker",
-        "id openclaw >/dev/null",
-      ]),
-      { timeoutMs: getEnv().RUNTIME_SSH_READY_TIMEOUT_MS },
-    )
+  async waitForHostBootstrap(
+    connection: SshConnection,
+    provider: "docker" | "fake" | "hetzner" = "hetzner",
+  ): Promise<void> {
+    const commands =
+      provider === "hetzner"
+        ? [
+            "cloud-init status --wait >/dev/null",
+            "command -v docker >/dev/null",
+            "systemctl is-active --quiet docker",
+            "id openclaw >/dev/null",
+          ]
+        : [
+            "command -v docker >/dev/null",
+            "docker info >/dev/null",
+            "id openclaw >/dev/null || id root >/dev/null",
+          ]
+
+    await this.execChecked(connection, buildShellCommand(commands), {
+      timeoutMs: getEnv().RUNTIME_SSH_READY_TIMEOUT_MS,
+    })
   }
 
   async bootstrapTenantRuntime(

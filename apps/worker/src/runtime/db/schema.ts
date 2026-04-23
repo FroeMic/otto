@@ -781,6 +781,8 @@ export const tenantServers = pgTable(
     provider: varchar("provider", { length: 64 }).notNull(),
     providerServerId: varchar("provider_server_id", { length: 255 }),
     ipv4: varchar("ipv4", { length: 64 }),
+    sshHost: varchar("ssh_host", { length: 255 }),
+    sshPort: integer("ssh_port"),
     provisioningStrategy: varchar("provisioning_strategy", { length: 64 }),
     sshUsername: varchar("ssh_username", { length: 255 }),
     sourceImage: varchar("source_image", { length: 255 }),
