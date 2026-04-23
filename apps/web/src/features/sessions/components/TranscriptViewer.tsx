@@ -68,6 +68,26 @@ interface MessageGroup {
   senderName: string | null
 }
 
+type ToolCallContentBlock = Extract<ParsedContentBlock, { type: "tool_call" }>
+type ToolResultContentBlock = Extract<
+  ParsedContentBlock,
+  { type: "tool_result" }
+>
+type AssistantContentBlock = Exclude<ParsedContentBlock, ToolCallContentBlock>
+
+type AssistantRenderItem =
+  | {
+      block: AssistantContentBlock
+      key: string
+      kind: "content"
+    }
+  | {
+      call: ToolCallContentBlock
+      key: string
+      kind: "tool_exchange"
+      result: ToolResultContentBlock | null
+    }
+
 function buildResolveText(
   memberNames: Record<string, string>,
   channelNames: Record<string, string>,
@@ -155,6 +175,54 @@ function groupMessagesIntoTurns(
   }
 
   return groups
+}
+
+function buildAssistantRenderItems(messages: ParsedMessage[]) {
+  const items: AssistantRenderItem[] = []
+  const toolExchangesByCallId = new Map<
+    string,
+    Extract<AssistantRenderItem, { kind: "tool_exchange" }>
+  >()
+
+  for (const message of messages) {
+    for (const [blockIndex, block] of message.blocks.entries()) {
+      const key = `${message.id}:${block.type}:${blockIndex}`
+
+      if (block.type === "tool_call") {
+        const item: AssistantRenderItem = {
+          call: block,
+          key,
+          kind: "tool_exchange",
+          result: null,
+        }
+
+        items.push(item)
+
+        if (block.id) {
+          toolExchangesByCallId.set(block.id, item)
+        }
+
+        continue
+      }
+
+      if (block.type === "tool_result" && block.toolCallId) {
+        const exchange = toolExchangesByCallId.get(block.toolCallId)
+
+        if (exchange && !exchange.result) {
+          exchange.result = block
+          continue
+        }
+      }
+
+      items.push({
+        block,
+        key,
+        kind: "content",
+      })
+    }
+  }
+
+  return items
 }
 
 function formatDuration(value: number | null) {
@@ -251,27 +319,118 @@ function SenderAvatar({
   )
 }
 
-function ToolCallBlock({
-  block,
+function formatToolPayload(value: unknown) {
+  if (typeof value === "string") {
+    return value
+  }
+
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function getRecordValue(value: unknown) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null
+  }
+
+  return value as Record<string, unknown>
+}
+
+function getStringValue(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function getToolCommandSubtitle(call: ToolCallContentBlock) {
+  const input = getRecordValue(call.args)
+
+  if (!input) {
+    return null
+  }
+
+  const integrationKey = getStringValue(input.integrationKey)
+  const commandKey =
+    getStringValue(input.commandKey) ?? getStringValue(input.command)
+  const commandPath = Array.isArray(input.commandPath)
+    ? input.commandPath.filter((part) => typeof part === "string").join(".")
+    : null
+  const command = commandKey ?? commandPath
+
+  if (integrationKey && command) {
+    return `${integrationKey}.${command}`
+  }
+
+  return command ?? integrationKey
+}
+
+function ToolExchangeSection({
+  children,
+  label,
 }: {
-  block: ParsedContentBlock & { type: "tool_call" }
+  children: string
+  label: string
 }) {
   return (
-    <Collapsible className="rounded-md border">
+    <div className="flex flex-col gap-1.5">
+      <div className="text-[10px] font-medium uppercase text-muted-foreground">
+        {label}
+      </div>
+      <pre className="max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs text-muted-foreground">
+        {children}
+      </pre>
+    </div>
+  )
+}
+
+function ToolExchangeBlock({
+  call,
+  resolveText,
+  result,
+}: {
+  call: ToolCallContentBlock
+  resolveText: (text: string) => string
+  result: ToolResultContentBlock | null
+}) {
+  const input = call.args !== undefined ? formatToolPayload(call.args) : null
+  const output = result ? resolveText(result.content) : null
+  const hasBody = input !== null || output !== null
+  const subtitle = getToolCommandSubtitle(call)
+
+  return (
+    <Collapsible
+      className="rounded-md border"
+      data-tool-exchange-id={call.id ?? undefined}
+      defaultOpen={true}
+    >
       <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           <ToolboxIcon className="size-3.5 text-muted-foreground" />
-          <span className="font-mono text-xs font-medium">{block.name}</span>
+          <span className="shrink-0 font-mono text-xs font-medium">
+            {call.name}
+          </span>
+          {subtitle ? (
+            <span className="truncate font-mono text-xs text-muted-foreground">
+              {subtitle}
+            </span>
+          ) : null}
+          {result?.isError ? (
+            <Badge className="px-1.5 py-0 text-[10px]" variant="destructive">
+              Error
+            </Badge>
+          ) : null}
         </div>
         <CaretDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
       </CollapsibleTrigger>
-      {block.args !== undefined ? (
-        <CollapsibleContent className="border-t px-3 py-2">
-          <pre className="overflow-x-auto text-xs text-muted-foreground">
-            {typeof block.args === "string"
-              ? block.args
-              : JSON.stringify(block.args, null, 2)}
-          </pre>
+      {hasBody ? (
+        <CollapsibleContent className="flex flex-col gap-3 border-t px-3 py-2">
+          {input !== null ? (
+            <ToolExchangeSection label="Input">{input}</ToolExchangeSection>
+          ) : null}
+          {output !== null ? (
+            <ToolExchangeSection label="Output">{output}</ToolExchangeSection>
+          ) : null}
         </CollapsibleContent>
       ) : null}
     </Collapsible>
@@ -282,7 +441,7 @@ function ToolResultBlock({
   block,
   resolveText,
 }: {
-  block: ParsedContentBlock & { type: "tool_result" }
+  block: ToolResultContentBlock
   resolveText: (text: string) => string
 }) {
   return (
@@ -526,65 +685,63 @@ export function TranscriptViewer({
                   />
                   {turn.kind === "assistant" ? (
                     <div className="flex flex-col gap-3 pl-9">
-                      {turn.messages.map((message) => (
-                        <div className="flex flex-col gap-2" key={message.id}>
-                          {message.blocks.map((block, blockIndex) => {
-                            if (block.type === "thinking") {
-                              return (
-                                <Collapsible
-                                  className="rounded-md border"
-                                  key={`${message.id}:thinking:${blockIndex}`}
-                                >
-                                  <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
-                                    <span className="text-xs font-medium text-muted-foreground">
-                                      Otto reasoning
-                                    </span>
-                                    <CaretDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
-                                  </CollapsibleTrigger>
-                                  <CollapsibleContent className="border-t px-3 py-2">
-                                    <TextBlock text={block.text} />
-                                  </CollapsibleContent>
-                                </Collapsible>
-                              )
-                            }
+                      {buildAssistantRenderItems(turn.messages).map((item) => {
+                        if (item.kind === "tool_exchange") {
+                          return (
+                            <ToolExchangeBlock
+                              call={item.call}
+                              key={item.key}
+                              resolveText={resolveText}
+                              result={item.result}
+                            />
+                          )
+                        }
 
-                            if (block.type === "tool_call") {
-                              return (
-                                <ToolCallBlock
-                                  block={block}
-                                  key={`${message.id}:tool:${blockIndex}`}
-                                />
-                              )
-                            }
+                        if (item.block.type === "thinking") {
+                          return (
+                            <Collapsible
+                              className="rounded-md border"
+                              key={item.key}
+                            >
+                              <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
+                                <span className="text-xs font-medium text-muted-foreground">
+                                  Otto reasoning
+                                </span>
+                                <CaretDownIcon className="size-3.5 text-muted-foreground transition-transform [[data-state=open]>&]:rotate-180" />
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="border-t px-3 py-2">
+                                <TextBlock text={item.block.text} />
+                              </CollapsibleContent>
+                            </Collapsible>
+                          )
+                        }
 
-                            if (block.type === "tool_result") {
-                              return (
-                                <ToolResultBlock
-                                  block={block}
-                                  key={`${message.id}:tool-result:${blockIndex}`}
-                                  resolveText={resolveText}
-                                />
-                              )
-                            }
+                        if (item.block.type === "tool_result") {
+                          return (
+                            <ToolResultBlock
+                              block={item.block}
+                              key={item.key}
+                              resolveText={resolveText}
+                            />
+                          )
+                        }
 
-                            if (block.type === "audio_transcript") {
-                              return (
-                                <AudioTranscriptBlock
-                                  key={`${message.id}:audio-transcript:${blockIndex}`}
-                                  text={resolveText(block.text)}
-                                />
-                              )
-                            }
+                        if (item.block.type === "audio_transcript") {
+                          return (
+                            <AudioTranscriptBlock
+                              key={item.key}
+                              text={resolveText(item.block.text)}
+                            />
+                          )
+                        }
 
-                            return (
-                              <TextBlock
-                                key={`${message.id}:text:${blockIndex}`}
-                                text={resolveText(block.text)}
-                              />
-                            )
-                          })}
-                        </div>
-                      ))}
+                        return (
+                          <TextBlock
+                            key={item.key}
+                            text={resolveText(item.block.text)}
+                          />
+                        )
+                      })}
                     </div>
                   ) : (
                     <div
