@@ -1,4 +1,7 @@
-import { listEnabledGitHubRepositoriesForTenantIntegration } from "../../../../db/github-installations"
+import {
+  getEnabledGitHubRepositoryDetailsForTenantIntegration,
+  listEnabledGitHubRepositoriesForTenantIntegration,
+} from "../../../../db/github-installations"
 import type { IntegrationCommandExecute } from "../../../framework"
 
 function readLimit(arguments_: Record<string, unknown>) {
@@ -22,6 +25,19 @@ function requireGitHubTenantIntegrationId(
   return context.tenantIntegrationId
 }
 
+function readRequiredString(
+  arguments_: Record<string, unknown>,
+  key: "owner" | "repo",
+) {
+  const value = arguments_[key]
+
+  if (typeof value !== "string" || !value.trim()) {
+    throw new Error(`repository.get requires a non-empty ${key}.`)
+  }
+
+  return value.trim()
+}
+
 export const executeGitHubRepositoryList: IntegrationCommandExecute = async ({
   arguments: arguments_,
   context,
@@ -34,5 +50,27 @@ export const executeGitHubRepositoryList: IntegrationCommandExecute = async ({
   return {
     repositories,
     total: repositories.length,
+  }
+}
+
+export const executeGitHubRepositoryGet: IntegrationCommandExecute = async ({
+  arguments: arguments_,
+  context,
+}) => {
+  const repository =
+    await getEnabledGitHubRepositoryDetailsForTenantIntegration({
+      owner: readRequiredString(arguments_, "owner"),
+      repo: readRequiredString(arguments_, "repo"),
+      tenantIntegrationId: requireGitHubTenantIntegrationId(context),
+    })
+
+  if (!repository) {
+    throw new Error(
+      "GitHub repository is not selected for this workspace or does not exist.",
+    )
+  }
+
+  return {
+    repository,
   }
 }

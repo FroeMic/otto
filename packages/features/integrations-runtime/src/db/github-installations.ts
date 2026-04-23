@@ -155,6 +155,49 @@ export async function getEnabledGitHubRepositoryForTenantIntegration(input: {
   return row ?? null
 }
 
+export async function getEnabledGitHubRepositoryDetailsForTenantIntegration(input: {
+  owner: string
+  repo: string
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+        sql`lower(${integrationGithubRepositories.ownerLogin}) = ${input.owner.trim().toLowerCase()}`,
+        sql`lower(${integrationGithubRepositories.name}) = ${input.repo.trim().toLowerCase()}`,
+      ),
+    )
+    .limit(1)
+
+  return row ?? null
+}
+
 export async function getConnectedGitHubInstallationForTenantIntegration(input: {
   tenantIntegrationId: string
 }): Promise<ConnectedGitHubInstallationRecord | null> {

@@ -3,13 +3,28 @@ import type {
   IntegrationRuntimeCommandDefinition,
 } from "../../framework"
 
-import { executeGitHubRepositoryList } from "./commands/repository"
+import {
+  executeGitHubRepositoryGet,
+  executeGitHubRepositoryList,
+} from "./commands/repository"
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
   minimum: 1,
   maximum: 100,
   description: "Maximum number of results to return.",
+} as const
+
+const OWNER_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "GitHub repository owner or organization login.",
+} as const
+
+const REPO_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "GitHub repository name.",
 } as const
 
 const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
@@ -40,6 +55,36 @@ const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
   usageNotes: ["Only repositories selected for this workspace are returned."],
 }
 
+const repositoryGetCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "Get repository",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "repository.get",
+  commandPath: ["repository", "get"],
+  description: "Read cached metadata for a GitHub repository selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubRepositoryGet,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "get repository"],
+  label: "Get repository",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
 export const githubIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
   auth: {
@@ -68,7 +113,7 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
   runtimeSurface: {
     commandGroups: [
       {
-        commands: [repositoryListCommand],
+        commands: [repositoryListCommand, repositoryGetCommand],
         description: "Repository discovery and checkout commands.",
         groupKey: "repository",
         groupPath: ["repository"],
