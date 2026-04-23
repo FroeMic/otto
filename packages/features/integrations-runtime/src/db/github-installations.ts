@@ -15,6 +15,19 @@ export type ConnectedGitHubRepositoryRecord = {
   repositoryOwner: string
 }
 
+export type ConnectedGitHubInstallationRecord = {
+  accountLogin: string
+  accountType: string
+  appId: string
+  appSlug: string | null
+  events: string[]
+  installationId: string
+  permissions: Record<string, string>
+  repositorySelection: string
+  suspendedAt: Date | null
+  tenantIntegrationId: string
+}
+
 export type GitHubRepositoryUpsertInput = {
   archived: boolean
   defaultBranch: string | null
@@ -130,6 +143,41 @@ export async function getEnabledGitHubRepositoryForTenantIntegration(input: {
   return row ?? null
 }
 
+export async function getConnectedGitHubInstallationForTenantIntegration(input: {
+  tenantIntegrationId: string
+}): Promise<ConnectedGitHubInstallationRecord | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      accountLogin: integrationGithubInstallations.accountLogin,
+      accountType: integrationGithubInstallations.accountType,
+      appId: integrationGithubInstallations.appId,
+      appSlug: integrationGithubInstallations.appSlug,
+      events: integrationGithubInstallations.eventsJson,
+      installationId: integrationGithubInstallations.installationId,
+      permissions: integrationGithubInstallations.permissionsJson,
+      repositorySelection: integrationGithubInstallations.repositorySelection,
+      suspendedAt: integrationGithubInstallations.suspendedAt,
+      tenantIntegrationId: integrationGithubInstallations.tenantIntegrationId,
+    })
+    .from(integrationGithubInstallations)
+    .where(
+      eq(
+        integrationGithubInstallations.tenantIntegrationId,
+        input.tenantIntegrationId,
+      ),
+    )
+    .limit(1)
+
+  return row
+    ? {
+        ...row,
+        events: Array.isArray(row.events) ? row.events : [],
+        permissions: isStringRecord(row.permissions) ? row.permissions : {},
+      }
+    : null
+}
+
 export async function upsertGitHubRepositoriesForInstallation(input: {
   githubInstallationId: string
   repositories: GitHubRepositoryUpsertInput[]
@@ -192,4 +240,13 @@ export async function upsertGitHubRepositoriesForInstallation(input: {
         integrationGithubRepositories.githubRepositoryId,
       ],
     })
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  )
 }

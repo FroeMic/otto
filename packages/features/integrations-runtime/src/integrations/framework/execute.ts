@@ -2,10 +2,15 @@ import {
   getConnectedApiCredentialForTenantIntegration,
   recordApiCredentialAttention,
 } from "../../db/api-credentials"
+import { getConnectedGitHubInstallationForTenantIntegration } from "../../db/github-installations"
 import {
   getConnectedOauthAccessForTenantIntegration,
   recordOauthConnectionAttention,
 } from "../../db/oauth"
+import {
+  createGitHubAppJwt,
+  requestGitHubInstallationAccessToken,
+} from "../library/github/auth"
 
 import { getIntegrationDefinition } from "./registry"
 import { collectCommands } from "./search"
@@ -79,6 +84,23 @@ function classifyApiKeyError(error: unknown) {
       : undefined
 
   return status === 401 || status === 403 ? "reauthorize" : "transient"
+}
+
+function normalizePrivateKeyValue(value: string) {
+  return value.replace(/\\n/g, "\n")
+}
+
+function getGitHubRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
+  const privateKeyPem = env.GITHUB_APP_PRIVATE_KEY?.trim()
+
+  if (!privateKeyPem) {
+    throw new Error("GITHUB_APP_PRIVATE_KEY is required to run GitHub commands.")
+  }
+
+  return {
+    apiBaseUrl: env.GITHUB_API_BASE_URL?.trim() || "https://api.github.com",
+    privateKeyPem: normalizePrivateKeyValue(privateKeyPem),
+  }
 }
 
 export async function executeRegisteredIntegrationCommand(input: {
@@ -185,9 +207,42 @@ export async function executeRegisteredIntegrationCommand(input: {
       )
     }
 
-    throw new Error(
-      `${integration.label} needs attention. Connect ${integration.label} in your workspace.`,
-    )
+    const installation =
+      await getConnectedGitHubInstallationForTenantIntegration({
+        tenantIntegrationId: input.tenantIntegrationId,
+      })
+
+    if (!installation) {
+      throw new Error(
+        `${integration.label} needs attention. Connect ${integration.label} in your workspace.`,
+      )
+    }
+
+    if (installation.suspendedAt) {
+      throw new Error(
+        `${integration.label} needs attention. The GitHub App installation is suspended.`,
+      )
+    }
+
+    auth = {
+      ...installation,
+      accessToken: undefined as never,
+      apiKey: undefined as never,
+      getAccessToken: async () => {
+        const config = getGitHubRuntimeConfig()
+        const appJwt = createGitHubAppJwt({
+          appId: installation.appId,
+          privateKeyPem: config.privateKeyPem,
+        })
+
+        return requestGitHubInstallationAccessToken({
+          apiBaseUrl: config.apiBaseUrl,
+          appJwt,
+          installationId: installation.installationId,
+        })
+      },
+      kind: "github_app_installation" as const,
+    }
   }
 
   try {

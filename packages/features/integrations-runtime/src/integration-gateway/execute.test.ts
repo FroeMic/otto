@@ -9,6 +9,10 @@ const connectedTenantIntegration = {
 }
 
 const executeRegisteredIntegrationCommand = vi.fn()
+let integrationAuth: Record<string, unknown> = {
+  credentialType: "personal_api_key",
+  kind: "api_key",
+}
 const recordIntegrationExecutionAudit = vi.fn()
 
 vi.mock("../db/client", () => ({
@@ -42,10 +46,7 @@ vi.mock("../integrations/framework", () => ({
   executeRegisteredIntegrationCommand: (...args: unknown[]) =>
     executeRegisteredIntegrationCommand(...args),
   getIntegrationDefinition: () => ({
-    auth: {
-      credentialType: "personal_api_key",
-      kind: "api_key",
-    },
+    auth: integrationAuth,
     key: "posthog",
     label: "PostHog",
     runtimeSurface: {
@@ -58,6 +59,10 @@ vi.mock("../integrations/framework", () => ({
 describe("executeRuntimeIntegrationInGateway", () => {
   beforeEach(() => {
     executeRegisteredIntegrationCommand.mockReset()
+    integrationAuth = {
+      credentialType: "personal_api_key",
+      kind: "api_key",
+    }
     recordIntegrationExecutionAudit.mockReset()
   })
 
@@ -71,6 +76,29 @@ describe("executeRuntimeIntegrationInGateway", () => {
       arguments: {},
       commandKey: "workspace.list_projects",
       integrationKey: "posthog",
+      tenantId: "tenant-1",
+    })
+
+    assert.equal(
+      executeRegisteredIntegrationCommand.mock.calls[0]?.[0]
+        .tenantIntegrationId,
+      "tenant-integration-1",
+    )
+  })
+
+  it("passes connected GitHub App integration ids into command execution", async () => {
+    integrationAuth = {
+      kind: "github_app_installation",
+    }
+    executeRegisteredIntegrationCommand.mockResolvedValueOnce({
+      ok: true,
+    })
+    const { executeRuntimeIntegrationInGateway } = await import("./execute")
+
+    await executeRuntimeIntegrationInGateway({
+      arguments: {},
+      commandKey: "workspace.list_projects",
+      integrationKey: "github",
       tenantId: "tenant-1",
     })
 

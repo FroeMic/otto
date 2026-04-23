@@ -4,6 +4,7 @@ import { beforeEach, describe, it, vi } from "vitest";
 import type { IntegrationDefinition } from "./types";
 
 const getConnectedApiCredentialForTenantIntegration = vi.fn();
+const getConnectedGitHubInstallationForTenantIntegration = vi.fn();
 const getConnectedOauthAccessForTenantIntegration = vi.fn();
 const getIntegrationDefinition = vi.fn();
 const recordApiCredentialAttention = vi.fn();
@@ -12,6 +13,10 @@ const recordOauthConnectionAttention = vi.fn();
 vi.mock("../../db/api-credentials", () => ({
   getConnectedApiCredentialForTenantIntegration,
   recordApiCredentialAttention,
+}));
+
+vi.mock("../../db/github-installations", () => ({
+  getConnectedGitHubInstallationForTenantIntegration,
 }));
 
 vi.mock("../../db/oauth", () => ({
@@ -69,6 +74,50 @@ function buildApiKeyIntegrationDefinition(
   };
 }
 
+function buildGitHubIntegrationDefinition(
+  execute: NonNullable<
+    IntegrationDefinition["runtimeSurface"]
+  >["rootCommands"][number]["execute"],
+): IntegrationDefinition {
+  return {
+    agentCapabilities: [],
+    auth: {
+      kind: "github_app_installation",
+    },
+    categoryLabel: "Code",
+    catalogDescription: "GitHub test integration.",
+    description: "GitHub test integration.",
+    iconSrc: null,
+    key: "github",
+    label: "GitHub",
+    pageDescription: "GitHub test integration.",
+    runtimeSurface: {
+      commandGroups: [],
+      rootCommands: [
+        {
+          argumentsSchema: {
+            additionalProperties: false,
+            properties: {},
+            type: "object",
+          },
+          commandKey: "repository.list",
+          commandPath: ["repository", "list"],
+          description: "List repositories.",
+          execute,
+          inputMode: "json",
+          label: "List repositories",
+          resultMode: "json",
+        },
+      ],
+      toolDescription: "GitHub commands.",
+      toolName: "github",
+    },
+    settingsPath: (orgSlug) =>
+      `/${orgSlug}/settings/agent/integrations/github/status`,
+    showInWorkspaceCatalog: true,
+  };
+}
+
 describe("executeRegisteredIntegrationCommand", () => {
   beforeEach(() => {
     vi.resetModules();
@@ -113,6 +162,60 @@ describe("executeRegisteredIntegrationCommand", () => {
     assert.deepEqual(result, {
       apiKey: "phx_secret",
       host: "https://us.posthog.com",
+    });
+    assert.equal(execute.mock.calls.length, 1);
+  });
+
+  it("resolves GitHub App installation auth and passes it to the command context", async () => {
+    const execute = vi.fn(async ({ context }) => {
+      const auth = context.auth as {
+        accountLogin?: string;
+        getAccessToken?: unknown;
+        installationId?: string;
+        kind?: string;
+      } | null;
+
+      return {
+        accountLogin: auth?.accountLogin,
+        hasGetAccessToken: typeof auth?.getAccessToken === "function",
+        installationId: auth?.installationId,
+        kind: auth?.kind,
+      };
+    });
+    getIntegrationDefinition.mockReturnValue(
+      buildGitHubIntegrationDefinition(execute),
+    );
+    getConnectedGitHubInstallationForTenantIntegration.mockResolvedValue({
+      accountLogin: "FroeMic",
+      accountType: "User",
+      appId: "12345",
+      appSlug: "workspace-assistant",
+      events: [],
+      installationId: "98765",
+      permissions: {
+        contents: "write",
+        metadata: "read",
+        pull_requests: "write",
+      },
+      repositorySelection: "selected",
+      suspendedAt: null,
+      tenantIntegrationId: "tenant-integration-1",
+    });
+
+    const { executeRegisteredIntegrationCommand } = await import("./execute");
+
+    const result = await executeRegisteredIntegrationCommand({
+      arguments: {},
+      commandKey: "repository.list",
+      integrationKey: "github",
+      tenantIntegrationId: "tenant-integration-1",
+    });
+
+    assert.deepEqual(result, {
+      accountLogin: "FroeMic",
+      hasGetAccessToken: true,
+      installationId: "98765",
+      kind: "github_app_installation",
     });
     assert.equal(execute.mock.calls.length, 1);
   });
