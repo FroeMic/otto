@@ -114,6 +114,56 @@ describe("GitHub installation state", () => {
     })
   })
 
+  it("lists enabled repositories for a connected installation", async () => {
+    const selectBuilder = {
+      from: vi.fn(() => selectBuilder),
+      innerJoin: vi.fn(() => selectBuilder),
+      limit: vi.fn(() =>
+        Promise.resolve([
+          {
+            archived: false,
+            defaultBranch: "main",
+            disabled: false,
+            fullName: "acme/web-app",
+            githubRepositoryId: "123",
+            isPrivate: true,
+            name: "web-app",
+            ownerLogin: "acme",
+            selectedByInstallation: true,
+          },
+        ]),
+      ),
+      orderBy: vi.fn(() => selectBuilder),
+      where: vi.fn(() => selectBuilder),
+    }
+    getDb.mockReturnValue({
+      select: vi.fn(() => selectBuilder),
+    })
+
+    const { listEnabledGitHubRepositoriesForTenantIntegration } =
+      await import("./github-installations")
+
+    const repositories =
+      await listEnabledGitHubRepositoriesForTenantIntegration({
+        limit: 25,
+        tenantIntegrationId: "tenant-integration-1",
+      })
+
+    assert.deepEqual(repositories, [
+      {
+        archived: false,
+        defaultBranch: "main",
+        disabled: false,
+        fullName: "acme/web-app",
+        githubRepositoryId: "123",
+        isPrivate: true,
+        name: "web-app",
+        ownerLogin: "acme",
+        selectedByInstallation: true,
+      },
+    ])
+  })
+
   it("upserts GitHub repositories for an installation", async () => {
     const values: Record<string, unknown>[] = []
     const insertBuilder = {

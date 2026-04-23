@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 
 import { getDb } from "./client"
 import {
@@ -26,6 +26,18 @@ export type ConnectedGitHubInstallationRecord = {
   repositorySelection: string
   suspendedAt: Date | null
   tenantIntegrationId: string
+}
+
+export type GitHubRepositoryListRecord = {
+  archived: boolean
+  defaultBranch: string | null
+  disabled: boolean
+  fullName: string
+  githubRepositoryId: string
+  isPrivate: boolean
+  name: string
+  ownerLogin: string
+  selectedByInstallation: boolean
 }
 
 export type GitHubRepositoryUpsertInput = {
@@ -176,6 +188,47 @@ export async function getConnectedGitHubInstallationForTenantIntegration(input: 
         permissions: isStringRecord(row.permissions) ? row.permissions : {},
       }
     : null
+}
+
+export async function listEnabledGitHubRepositoriesForTenantIntegration(input: {
+  limit?: number
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord[]> {
+  const db = getDb()
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 100))
+
+  return db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+      ),
+    )
+    .orderBy(asc(integrationGithubRepositories.fullName))
+    .limit(limit)
 }
 
 export async function upsertGitHubRepositoriesForInstallation(input: {

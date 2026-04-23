@@ -14,11 +14,19 @@ describe("GitHub integration definition", () => {
     assert.equal(getIntegrationDefinition("github"), githubIntegrationDefinition)
   })
 
-  it("does not expose runtime commands until they have real executors", () => {
+  it("exposes only GitHub commands with real executors", () => {
     const commands = collectCommands(
       githubIntegrationDefinition.runtimeSurface!,
-    ).map((command) => command.commandKey)
+    )
 
-    assert.deepEqual(commands, [])
+    assert.deepEqual(
+      commands.map((command) => command.commandKey),
+      ["repository.list"],
+    )
+    assert.ok(commands.every((command) => typeof command.execute === "function"))
+    assert.deepEqual(
+      Object.keys(commands[0]?.argumentsSchema.properties ?? {}).sort(),
+      ["limit"],
+    )
   })
 })

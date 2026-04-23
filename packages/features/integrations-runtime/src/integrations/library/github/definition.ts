@@ -1,4 +1,44 @@
-import type { IntegrationDefinition } from "../../framework"
+import type {
+  IntegrationDefinition,
+  IntegrationRuntimeCommandDefinition,
+} from "../../framework"
+
+import { executeGitHubRepositoryList } from "./commands/repository"
+
+const LIMIT_ARGUMENT_SCHEMA = {
+  type: "integer",
+  minimum: 1,
+  maximum: 100,
+  description: "Maximum number of results to return.",
+} as const
+
+const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "List repositories",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
+    },
+    required: [],
+    type: "object",
+  },
+  commandKey: "repository.list",
+  commandPath: ["repository", "list"],
+  description: "List GitHub repositories selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    limit: 25,
+  },
+  execute: executeGitHubRepositoryList,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "list repositories"],
+  label: "List repositories",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are returned."],
+}
 
 export const githubIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
@@ -26,7 +66,16 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
   pageDescription:
     "Connect GitHub so the assistant can inspect selected repositories, work on branches, and prepare pull requests.",
   runtimeSurface: {
-    commandGroups: [],
+    commandGroups: [
+      {
+        commands: [repositoryListCommand],
+        description: "Repository discovery and checkout commands.",
+        groupKey: "repository",
+        groupPath: ["repository"],
+        intentKeywords: ["github repository", "repo", "checkout"],
+        label: "Repository",
+      },
+    ],
     rootCommands: [],
     toolDescription:
       "GitHub is connected through the managed GitHub App integration. Runtime commands are only advertised after their executors are implemented.",
