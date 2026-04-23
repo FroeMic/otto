@@ -8,6 +8,7 @@ import {
   createBillingRouter,
 } from "./billing/routes"
 import { createFilesRouter } from "./files/routes"
+import { createGitHubAppRouter } from "./integrations/github-routes"
 import { createIntegrationsOauthRouter } from "./integrations/oauth-routes"
 import { createIntegrationsRouter } from "./integrations/routes"
 import {
@@ -59,6 +60,7 @@ export function createApiApp(options: CreateApiAppOptions = {}) {
     .route("/", createAgentRouter())
     .route("/", createWorkspaceRouter())
     .route("/", createIntegrationsRouter())
+    .route("/", createGitHubAppRouter())
     .route("/", createIntegrationsOauthRouter())
     .route("/", createFilesRouter())
     .route("/", createSessionsRouter())

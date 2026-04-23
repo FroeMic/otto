@@ -87,7 +87,7 @@ describe("GitHub App auth", () => {
       headers: {
         Accept: "application/vnd.github+json",
         Authorization: "Bearer app.jwt",
-        "User-Agent": "Otto-GitHub-Integration",
+        "User-Agent": "Workspace-GitHub-Integration",
         "X-GitHub-Api-Version": "2022-11-28",
       },
       method: "POST",

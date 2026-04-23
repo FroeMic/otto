@@ -570,8 +570,9 @@ Webhook route requirements:
 - [ ] GitHub App operator configuration created.
 - [x] Framework auth binding added.
 - [x] Database migration added.
-- [ ] Install lifecycle implemented.
-- [ ] Repository inventory UI implemented.
+- [x] Install lifecycle implemented.
+- [x] First repository inventory projection implemented.
+- [ ] Repository selection management UI implemented.
 - [ ] Read command surface implemented.
 - [ ] Repository command group implemented.
 - [ ] Branch command group implemented.

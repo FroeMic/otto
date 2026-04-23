@@ -1,6 +1,5 @@
 import type {
   IntegrationCommandActivityPresentationKind,
-  IntegrationCommandDefinition,
   IntegrationCommandEffect,
   IntegrationCommandSafety,
   IntegrationDefinition,
@@ -448,10 +447,26 @@ const pullRequestCommands = [
   }),
   ...[
     ["get", "Get pull request", "Read pull request metadata."],
-    ["list_files", "List pull request files", "List changed files for a pull request."],
-    ["list_reviews", "List pull request reviews", "List reviews for a pull request."],
-    ["list_comments", "List pull request comments", "List comments for a pull request."],
-    ["list_checks", "List pull request checks", "List checks for a pull request."],
+    [
+      "list_files",
+      "List pull request files",
+      "List changed files for a pull request.",
+    ],
+    [
+      "list_reviews",
+      "List pull request reviews",
+      "List reviews for a pull request.",
+    ],
+    [
+      "list_comments",
+      "List pull request comments",
+      "List comments for a pull request.",
+    ],
+    [
+      "list_checks",
+      "List pull request checks",
+      "List checks for a pull request.",
+    ],
   ].map(([key, label, description]) =>
     buildCommand({
       description,
@@ -488,7 +503,11 @@ const pullRequestCommands = [
     required: ["base", "head", "title"],
   }),
   ...[
-    ["update", "Update pull request", "Update pull request title, body, or base branch."],
+    [
+      "update",
+      "Update pull request",
+      "Update pull request title, body, or base branch.",
+    ],
     ["close", "Close pull request", "Close a pull request."],
     ["reopen", "Reopen pull request", "Reopen a closed pull request."],
     [
@@ -672,7 +691,7 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
   },
   categoryLabel: "Code",
   catalogDescription:
-    "Connect selected GitHub repositories so Otto can inspect code, work in branches, and prepare pull requests.",
+    "Connect selected GitHub repositories so the assistant can inspect code, work in branches, and prepare pull requests.",
   description:
     "Workspace-managed GitHub App integration for selected repositories, branches, pull requests, checks, and code worktrees.",
   iconSrc: "/integrations/github.svg",
@@ -689,7 +708,7 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
   label: "GitHub",
   managementMode: "workspace_managed",
   pageDescription:
-    "Connect GitHub so Otto can inspect selected repositories, work on branches, and prepare pull requests.",
+    "Connect GitHub so the assistant can inspect selected repositories, work on branches, and prepare pull requests.",
   runtimeSurface: {
     commandGroups: [
       group({
@@ -726,7 +745,7 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
     ],
     rootCommands: [],
     toolDescription:
-      "Use GitHub commands to inspect selected repositories, work on branches, and prepare pull requests through Otto's managed GitHub App integration.",
+      "Use GitHub commands to inspect selected repositories, work on branches, and prepare pull requests through the managed GitHub App integration.",
     toolName: "github",
   },
   settingsPath: (orgSlug) => `/${orgSlug}/settings/agent/integrations/github`,

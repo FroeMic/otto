@@ -17,4 +17,9 @@ describe("integration registry", () => {
     assert.equal(typeof integrationOverviewRegistry.posthog, "function")
     assert.equal(typeof integrationDetailRegistry.posthog, "function")
   })
+
+  it("registers github in the overview and detail registries", () => {
+    assert.equal(typeof integrationOverviewRegistry.github, "function")
+    assert.equal(typeof integrationDetailRegistry.github, "function")
+  })
 })

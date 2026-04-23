@@ -3,6 +3,7 @@ import { z } from "zod"
 export const workspaceIntegrationKeySchema = z.enum([
   "brave",
   "gandi",
+  "github",
   "linear",
   "posthog",
   "slack",

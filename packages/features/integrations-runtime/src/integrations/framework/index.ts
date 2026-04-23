@@ -39,8 +39,8 @@ export {
 export type {
   IntegrationAuthBinding,
   IntegrationCapabilityPolicy,
-  IntegrationCommandDefinition,
   IntegrationCommandActivityPresentationKind,
+  IntegrationCommandDefinition,
   IntegrationCommandEffect,
   IntegrationCommandExecute,
   IntegrationCommandGroupDefinition,

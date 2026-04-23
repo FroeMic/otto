@@ -113,4 +113,58 @@ describe("GitHub installation state", () => {
       repositoryOwner: "acme",
     })
   })
+
+  it("upserts GitHub repositories for an installation", async () => {
+    const values: Record<string, unknown>[] = []
+    const insertBuilder = {
+      onConflictDoUpdate: vi.fn(() => Promise.resolve()),
+      values: vi.fn((nextValues: Record<string, unknown>[]) => {
+        values.push(...nextValues)
+        return insertBuilder
+      }),
+    }
+    getDb.mockReturnValue({
+      insert: vi.fn(() => insertBuilder),
+    })
+
+    const { upsertGitHubRepositoriesForInstallation } = await import(
+      "./github-installations"
+    )
+
+    await upsertGitHubRepositoriesForInstallation({
+      githubInstallationId: "github-install-1",
+      repositories: [
+        {
+          archived: false,
+          defaultBranch: "main",
+          disabled: false,
+          fullName: "acme/web-app",
+          githubRepositoryId: "123",
+          isPrivate: true,
+          name: "web-app",
+          ownerLogin: "acme",
+          selectedByInstallation: true,
+        },
+      ],
+    })
+
+    assert.equal(values.length, 1)
+    assert.deepEqual(values[0], {
+      archived: false,
+      defaultBranch: "main",
+      disabled: false,
+      enabledForWorkspace: true,
+      fullName: "acme/web-app",
+      githubInstallationId: "github-install-1",
+      githubRepositoryId: "123",
+      isPrivate: true,
+      lastSyncedAt: values[0]?.lastSyncedAt,
+      name: "web-app",
+      ownerLogin: "acme",
+      selectedByInstallation: true,
+      updatedAt: values[0]?.updatedAt,
+    })
+    assert.ok(values[0]?.lastSyncedAt instanceof Date)
+    assert.ok(values[0]?.updatedAt instanceof Date)
+  })
 })

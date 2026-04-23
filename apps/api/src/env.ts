@@ -3,6 +3,11 @@ import * as z from "zod"
 const rawApiEnvSchema = z.object({
   API_PORT: z.coerce.number().int().positive().default(3002),
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY: z.string().optional(),
+  GITHUB_API_BASE_URL: z.string().url().optional(),
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+  GITHUB_APP_SLUG: z.string().optional(),
+  GITHUB_APP_STATE_SECRET: z.string().optional(),
   HETZNER_DEFAULT_IMAGE: z.string().default("ubuntu-24.04"),
   LANDING_PAGE_DOMAIN: z.string().optional(),
   NODE_ENV: z
@@ -41,6 +46,11 @@ const rawApiEnvSchema = z.object({
 export type ApiEnv = {
   API_PORT: number
   CONTROL_PLANE_OPENAI_ADMIN_API_KEY?: string
+  GITHUB_API_BASE_URL?: string
+  GITHUB_APP_ID?: string
+  GITHUB_APP_PRIVATE_KEY?: string
+  GITHUB_APP_SLUG?: string
+  GITHUB_APP_STATE_SECRET?: string
   HETZNER_DEFAULT_IMAGE: string
   LANDING_PAGE_DOMAIN?: string
   NODE_ENV: "development" | "test" | "production"
@@ -111,6 +121,16 @@ export function resolveApiEnv(input: Record<string, string | undefined>) {
     API_PORT: raw.API_PORT,
     CONTROL_PLANE_OPENAI_ADMIN_API_KEY:
       raw.CONTROL_PLANE_OPENAI_ADMIN_API_KEY?.trim() || undefined,
+    GITHUB_API_BASE_URL: raw.GITHUB_API_BASE_URL?.trim() || undefined,
+    GITHUB_APP_ID: raw.GITHUB_APP_ID?.trim() || undefined,
+    GITHUB_APP_PRIVATE_KEY: raw.GITHUB_APP_PRIVATE_KEY
+      ? normalizePrivateKeyValue(raw.GITHUB_APP_PRIVATE_KEY)
+      : undefined,
+    GITHUB_APP_SLUG: raw.GITHUB_APP_SLUG?.trim() || undefined,
+    GITHUB_APP_STATE_SECRET:
+      raw.GITHUB_APP_STATE_SECRET?.trim() ||
+      raw.WORKOS_COOKIE_PASSWORD?.trim() ||
+      undefined,
     HETZNER_DEFAULT_IMAGE: raw.HETZNER_DEFAULT_IMAGE,
     LANDING_PAGE_DOMAIN: raw.LANDING_PAGE_DOMAIN?.trim() || undefined,
     NODE_ENV: raw.NODE_ENV,

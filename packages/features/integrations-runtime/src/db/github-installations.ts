@@ -15,6 +15,18 @@ export type ConnectedGitHubRepositoryRecord = {
   repositoryOwner: string
 }
 
+export type GitHubRepositoryUpsertInput = {
+  archived: boolean
+  defaultBranch: string | null
+  disabled: boolean
+  fullName: string
+  githubRepositoryId: string
+  isPrivate: boolean
+  name: string
+  ownerLogin: string
+  selectedByInstallation: boolean
+}
+
 export async function upsertGitHubInstallationForTenantIntegration(input: {
   accountId: string
   accountLogin: string
@@ -116,4 +128,68 @@ export async function getEnabledGitHubRepositoryForTenantIntegration(input: {
     .limit(1)
 
   return row ?? null
+}
+
+export async function upsertGitHubRepositoriesForInstallation(input: {
+  githubInstallationId: string
+  repositories: GitHubRepositoryUpsertInput[]
+}) {
+  if (input.repositories.length === 0) {
+    return
+  }
+
+  const db = getDb()
+  const now = new Date()
+
+  await db
+    .insert(integrationGithubRepositories)
+    .values(
+      input.repositories.map((repository) => ({
+        archived: repository.archived,
+        defaultBranch: repository.defaultBranch,
+        disabled: repository.disabled,
+        enabledForWorkspace: true,
+        fullName: repository.fullName,
+        githubInstallationId: input.githubInstallationId,
+        githubRepositoryId: repository.githubRepositoryId,
+        isPrivate: repository.isPrivate,
+        lastSyncedAt: now,
+        name: repository.name,
+        ownerLogin: repository.ownerLogin,
+        selectedByInstallation: repository.selectedByInstallation,
+        updatedAt: now,
+      })),
+    )
+    .onConflictDoUpdate({
+      set: {
+        archived: sql.raw(
+          `excluded.${integrationGithubRepositories.archived.name}`,
+        ),
+        defaultBranch: sql.raw(
+          `excluded.${integrationGithubRepositories.defaultBranch.name}`,
+        ),
+        disabled: sql.raw(
+          `excluded.${integrationGithubRepositories.disabled.name}`,
+        ),
+        fullName: sql.raw(
+          `excluded.${integrationGithubRepositories.fullName.name}`,
+        ),
+        isPrivate: sql.raw(
+          `excluded.${integrationGithubRepositories.isPrivate.name}`,
+        ),
+        lastSyncedAt: now,
+        name: sql.raw(`excluded.${integrationGithubRepositories.name.name}`),
+        ownerLogin: sql.raw(
+          `excluded.${integrationGithubRepositories.ownerLogin.name}`,
+        ),
+        selectedByInstallation: sql.raw(
+          `excluded.${integrationGithubRepositories.selectedByInstallation.name}`,
+        ),
+        updatedAt: now,
+      },
+      target: [
+        integrationGithubRepositories.githubInstallationId,
+        integrationGithubRepositories.githubRepositoryId,
+      ],
+    })
 }
