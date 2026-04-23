@@ -3,22 +3,27 @@ import type {
   RuntimeDirectorySnapshot,
 } from "@otto/feature-runtime-core/runtime-files/types"
 import { ArrowsClockwiseIcon } from "@phosphor-icons/react"
-import { useEffect, useState } from "react"
+import { useDeferredValue, useEffect, useMemo, useState } from "react"
 
 import {
   SettingsCard,
   SettingsRow,
-  SettingsRowDescription,
-  SettingsRowLabel,
-  SettingsRowTitle,
 } from "@/client/app/app-shell/SettingsLayout"
+import { ToolbarSearchInput } from "@/components/toolbar-search-input"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-import type { RuntimeFileSelection, RuntimeFileTreeNode } from "../types"
+import type { RuntimeFileSelection } from "../types"
 import { RuntimeFilePreview } from "./RuntimeFilePreview"
 import { RuntimeFileTree } from "./RuntimeFileTree"
+import {
+  buildExplorerTree,
+  collectExpandedDirectories,
+  collectVisibleDirectoryPaths,
+  filterRuntimeFilesForSearch,
+  getInitialExpandedDirectories,
+} from "./runtime-file-browser-model"
 
 export interface RuntimeFileBrowserProps {
   buildDownloadUrl: (input: {
@@ -40,12 +45,13 @@ export interface RuntimeFileBrowserProps {
 }
 
 const EMPTY_HIDDEN_PATHS: string[] = []
+const EMPTY_PATH_DISPLAY_NAMES: Record<string, string> = {}
 
 export function RuntimeFileBrowser({
   buildDownloadUrl,
   emptyDirectoryMessage = "This directory is currently empty.",
   explorerLabel,
-  pathDisplayNames = {},
+  pathDisplayNames = EMPTY_PATH_DISPLAY_NAMES,
   hiddenPathPrefixes = EMPTY_HIDDEN_PATHS,
   hiddenPaths = EMPTY_HIDDEN_PATHS,
   isRefreshing = false,
@@ -55,16 +61,33 @@ export function RuntimeFileBrowser({
   rootPathFallback,
   snapshot,
 }: RuntimeFileBrowserProps) {
-  const [expandedDirectories, setExpandedDirectories] = useState<string[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
+  const deferredSearchQuery = useDeferredValue(searchQuery)
+  const [expandedDirectories, setExpandedDirectories] = useState<string[]>(() =>
+    getInitialExpandedDirectories(),
+  )
   const [selectedNode, setSelectedNode] = useState<RuntimeFileSelection | null>(
     null,
   )
-  const visibleFiles = snapshot.files.filter(
-    (file) =>
-      !hiddenPaths.includes(file.path) &&
-      !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
+  const unfilteredVisibleFiles = useMemo(
+    () =>
+      snapshot.files.filter(
+        (file) =>
+          !hiddenPaths.includes(file.path) &&
+          !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
+      ),
+    [hiddenPathPrefixes, hiddenPaths, snapshot.files],
   )
-  const tree = buildExplorerTree(visibleFiles, pathDisplayNames)
+  const visibleFiles = useMemo(
+    () =>
+      filterRuntimeFilesForSearch(unfilteredVisibleFiles, deferredSearchQuery),
+    [deferredSearchQuery, unfilteredVisibleFiles],
+  )
+  const isSearching = deferredSearchQuery.trim().length > 0
+  const tree = useMemo(
+    () => buildExplorerTree(visibleFiles, pathDisplayNames),
+    [pathDisplayNames, visibleFiles],
+  )
   const selectedFile =
     selectedNode?.kind === "file"
       ? (visibleFiles.find((file) => file.path === selectedNode.path) ?? null)
@@ -78,19 +101,15 @@ export function RuntimeFileBrowser({
       : null
 
   useEffect(() => {
-    const nextVisibleFiles = snapshot.files.filter(
-      (file) =>
-        !hiddenPaths.includes(file.path) &&
-        !hiddenPathPrefixes.some((prefix) => file.path.startsWith(prefix)),
-    )
-    const nextVisibleDirectoryPaths =
-      collectVisibleDirectoryPaths(nextVisibleFiles)
+    const nextVisibleDirectoryPaths = collectVisibleDirectoryPaths(visibleFiles)
 
-    setExpandedDirectories(collectExpandedDirectories(nextVisibleFiles))
+    setExpandedDirectories(
+      isSearching ? collectExpandedDirectories(visibleFiles) : [],
+    )
     setSelectedNode((current) => {
       if (
         current?.kind === "file" &&
-        nextVisibleFiles.some((file) => file.path === current.path)
+        visibleFiles.some((file) => file.path === current.path)
       ) {
         return current
       }
@@ -103,10 +122,10 @@ export function RuntimeFileBrowser({
       }
 
       const defaultFile =
-        nextVisibleFiles.find((file) => file.path === preferredFilePath) ??
-        nextVisibleFiles.find((file) => isPreviewableImage(file)) ??
-        nextVisibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
-        nextVisibleFiles[0] ??
+        visibleFiles.find((file) => file.path === preferredFilePath) ??
+        visibleFiles.find((file) => isPreviewableImage(file)) ??
+        visibleFiles.find((file) => file.storageEncoding === "utf8_text") ??
+        visibleFiles[0] ??
         null
 
       if (!defaultFile) {
@@ -118,7 +137,7 @@ export function RuntimeFileBrowser({
         path: defaultFile.path,
       }
     })
-  }, [hiddenPathPrefixes, hiddenPaths, preferredFilePath, snapshot.files])
+  }, [isSearching, preferredFilePath, visibleFiles])
 
   if (!snapshot.rootExists) {
     return (
@@ -132,7 +151,7 @@ export function RuntimeFileBrowser({
     )
   }
 
-  if (visibleFiles.length === 0) {
+  if (unfilteredVisibleFiles.length === 0) {
     return (
       <Alert>
         <AlertTitle>No visible files yet</AlertTitle>
@@ -145,43 +164,55 @@ export function RuntimeFileBrowser({
     <div className="grid gap-4 lg:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
       <SettingsCard className="overflow-hidden">
         <SettingsRow>
-          <SettingsRowLabel>
-            <SettingsRowTitle>{explorerLabel}</SettingsRowTitle>
-            <SettingsRowDescription>
-              Browse the runtime file tree.
-            </SettingsRowDescription>
-          </SettingsRowLabel>
+          <ToolbarSearchInput
+            aria-label={`Search ${explorerLabel.toLowerCase()}`}
+            autoComplete="off"
+            containerClassName="max-w-none flex-1"
+            name="runtime-file-search"
+            onChange={(event) => setSearchQuery(event.currentTarget.value)}
+            placeholder="Search files and folders…"
+            type="search"
+            value={searchQuery}
+          />
           <Button
-            className="shrink-0"
+            aria-label="Refresh files"
+            className="size-9 shrink-0"
             onClick={() => {
               void onRefresh()
             }}
-            size="sm"
+            size="icon"
+            title="Refresh files"
             type="button"
             variant="outline"
           >
             <ArrowsClockwiseIcon
+              aria-hidden="true"
               className={isRefreshing ? "size-4 animate-spin" : "size-4"}
             />
-            Refresh
           </Button>
         </SettingsRow>
-        <ScrollArea className="h-[36rem]">
-          <RuntimeFileTree
-            buildDownloadUrl={buildDownloadUrl}
-            expandedDirectories={expandedDirectories}
-            onDirectoryToggle={(path) =>
-              setExpandedDirectories((current) =>
-                current.includes(path)
-                  ? current.filter((entry) => entry !== path)
-                  : [...current, path],
-              )
-            }
-            onNodeSelect={setSelectedNode}
-            selectedNode={selectedNode}
-            tree={tree}
-          />
-        </ScrollArea>
+        {visibleFiles.length > 0 ? (
+          <ScrollArea className="h-[36rem]">
+            <RuntimeFileTree
+              buildDownloadUrl={buildDownloadUrl}
+              expandedDirectories={expandedDirectories}
+              onDirectoryToggle={(path) =>
+                setExpandedDirectories((current) =>
+                  current.includes(path)
+                    ? current.filter((entry) => entry !== path)
+                    : [...current, path],
+                )
+              }
+              onNodeSelect={setSelectedNode}
+              selectedNode={selectedNode}
+              tree={tree}
+            />
+          </ScrollArea>
+        ) : (
+          <div className="flex h-[36rem] items-center justify-center px-6 py-12 text-center text-sm text-muted-foreground">
+            No files or folders match this search.
+          </div>
+        )}
       </SettingsCard>
 
       <SettingsCard className="overflow-hidden">
@@ -194,117 +225,6 @@ export function RuntimeFileBrowser({
       </SettingsCard>
     </div>
   )
-}
-
-function buildExplorerTree(
-  files: RuntimeDirectoryFileSnapshot[],
-  pathDisplayNames: Record<string, string>,
-): RuntimeFileTreeNode[] {
-  const root = createMutableDirectoryNode("", "")
-
-  for (const file of files) {
-    const segments = file.path.split("/").filter(Boolean)
-    const fileName = segments.pop()
-
-    if (!fileName) {
-      continue
-    }
-
-    let currentDirectory = root
-    let currentPath = ""
-
-    for (const segment of segments) {
-      currentPath = currentPath ? `${currentPath}/${segment}` : segment
-
-      let nextDirectory = currentDirectory.directories.get(segment)
-
-      if (!nextDirectory) {
-        nextDirectory = createMutableDirectoryNode(segment, currentPath)
-        currentDirectory.directories.set(segment, nextDirectory)
-      }
-
-      currentDirectory = nextDirectory
-    }
-
-    currentDirectory.files.push(file)
-  }
-
-  return convertMutableDirectoryNode(root, pathDisplayNames)
-}
-
-function collectExpandedDirectories(files: RuntimeDirectoryFileSnapshot[]) {
-  const expanded = new Set<string>()
-
-  for (const file of files) {
-    const segments = file.path.split("/").filter(Boolean)
-    let currentPath = ""
-
-    for (const segment of segments.slice(0, -1)) {
-      currentPath = currentPath ? `${currentPath}/${segment}` : segment
-      expanded.add(currentPath)
-    }
-  }
-
-  return Array.from(expanded)
-}
-
-function collectVisibleDirectoryPaths(files: RuntimeDirectoryFileSnapshot[]) {
-  const paths = new Set<string>()
-
-  for (const file of files) {
-    const segments = file.path.split("/").filter(Boolean)
-    let currentPath = ""
-
-    for (const segment of segments.slice(0, -1)) {
-      currentPath = currentPath ? `${currentPath}/${segment}` : segment
-      paths.add(currentPath)
-    }
-  }
-
-  return Array.from(paths)
-}
-
-interface MutableDirectoryNode {
-  directories: Map<string, MutableDirectoryNode>
-  files: RuntimeDirectoryFileSnapshot[]
-  name: string
-  path: string
-}
-
-function createMutableDirectoryNode(
-  name: string,
-  path: string,
-): MutableDirectoryNode {
-  return {
-    directories: new Map<string, MutableDirectoryNode>(),
-    files: [] as RuntimeDirectoryFileSnapshot[],
-    name,
-    path,
-  }
-}
-
-function convertMutableDirectoryNode(
-  node: MutableDirectoryNode,
-  pathDisplayNames: Record<string, string>,
-): RuntimeFileTreeNode[] {
-  const childDirectories = Array.from(node.directories.values())
-    .sort((left, right) => left.path.localeCompare(right.path))
-    .map((directory) => ({
-      children: convertMutableDirectoryNode(directory, pathDisplayNames),
-      kind: "directory" as const,
-      name: pathDisplayNames[directory.path] ?? directory.name,
-      path: directory.path,
-    }))
-  const childFiles = [...node.files]
-    .sort((left, right) => left.path.localeCompare(right.path))
-    .map((file) => ({
-      file,
-      kind: "file" as const,
-      name: file.path.split("/").pop() ?? file.path,
-      path: file.path,
-    }))
-
-  return [...childDirectories, ...childFiles]
 }
 
 function isPreviewableImage(file: RuntimeDirectoryFileSnapshot) {

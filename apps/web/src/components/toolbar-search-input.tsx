@@ -27,7 +27,10 @@ export function ToolbarSearchInput({
       )}
       style={focused ? { borderColor: "var(--primary)" } : undefined}
     >
-      <MagnifyingGlass className="size-4 shrink-0 text-muted-foreground" />
+      <MagnifyingGlass
+        aria-hidden="true"
+        className="size-4 shrink-0 text-muted-foreground"
+      />
       <input
         className={cn(
           "w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground",
