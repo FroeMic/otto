@@ -375,7 +375,7 @@ export function ConversationComposer({
 
       <Textarea
         aria-label="Message"
-        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-1 text-base leading-8 shadow-none focus-visible:ring-0 md:text-[15px]"
+        className="max-h-60 min-h-[5.5rem] resize-none overflow-y-auto rounded-none border-0 bg-transparent px-0 py-1 text-base leading-5 shadow-none focus-visible:ring-0 md:text-[15px]"
         disabled={disabled || isUploading || isVoiceMode}
         onChange={(event) => {
           setDraft(event.target.value)
