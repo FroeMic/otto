@@ -145,7 +145,7 @@ export async function connectWorkspaceApiKeyIntegration(input: {
 }
 
 export async function discoverWorkspaceIntegrationSetup(input: {
-  apiKey: string
+  apiKey?: string
   host?: string
   integrationKey: string
   orgSlug: string
@@ -169,7 +169,7 @@ export async function discoverWorkspaceIntegrationSetup(input: {
 }
 
 export async function applyWorkspaceIntegrationSetup(input: {
-  apiKey: string
+  apiKey?: string
   defaultResourceKey?: string
   enabledCapabilityKeys: string[]
   host?: string

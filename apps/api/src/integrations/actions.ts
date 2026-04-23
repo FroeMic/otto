@@ -1,4 +1,5 @@
 import {
+  getConnectedApiCredentialForTenantIntegration,
   upsertApiCredentialForTenantIntegration,
   upsertTenantIntegrationState,
 } from "@otto/feature-integrations-runtime/db/api-credentials"
@@ -432,28 +433,91 @@ export async function connectWorkspaceApiKeyIntegration(input: {
   }
 }
 
+export function resolvePostHogSetupApiKey(input: {
+  providedApiKey?: string
+  storedApiKey?: string | null
+}) {
+  const providedApiKey = input.providedApiKey?.trim()
+
+  if (providedApiKey) {
+    return providedApiKey
+  }
+
+  const storedApiKey = input.storedApiKey?.trim()
+
+  if (storedApiKey) {
+    return storedApiKey
+  }
+
+  throw new Error("Enter a PostHog API key before discovering or saving setup.")
+}
+
+async function resolvePostHogSetupApiKeyForTenant(input: {
+  providedApiKey?: string
+  providerKey: string
+  tenantId: string
+}) {
+  if (input.providedApiKey?.trim()) {
+    return resolvePostHogSetupApiKey({
+      providedApiKey: input.providedApiKey,
+      storedApiKey: null,
+    })
+  }
+
+  const db = getDb()
+  const [integration] = await db
+    .select({
+      id: tenantIntegrations.id,
+    })
+    .from(tenantIntegrations)
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, input.providerKey),
+      ),
+    )
+    .limit(1)
+  const credential = integration
+    ? await getConnectedApiCredentialForTenantIntegration({
+        providerKey: input.providerKey,
+        tenantIntegrationId: integration.id,
+      })
+    : null
+
+  return resolvePostHogSetupApiKey({
+    providedApiKey: input.providedApiKey,
+    storedApiKey: credential?.apiKey,
+  })
+}
+
 export async function discoverWorkspaceIntegrationSetup(input: {
-  apiKey: string
+  apiKey?: string
   host?: string
   orgSlug: string
   providerKey: string
   userExternalId: string
 }) {
-  await getAuthorizedTenantContext(input)
+  const { tenantId } = await getAuthorizedTenantContext(input)
   const providerKey = input.providerKey.trim().toLowerCase()
 
   if (providerKey !== "posthog") {
     throw new Error(`Setup discovery is not supported for ${providerKey}.`)
   }
 
+  const apiKey = await resolvePostHogSetupApiKeyForTenant({
+    providedApiKey: input.apiKey,
+    providerKey,
+    tenantId,
+  })
+
   return discoverPostHogIntegrationSetup({
-    apiKey: input.apiKey,
+    apiKey,
     host: input.host ?? "https://us.posthog.com",
   })
 }
 
 export async function applyWorkspaceIntegrationSetup(input: {
-  apiKey: string
+  apiKey?: string
   defaultResourceKey?: string
   enabledCapabilityKeys: string[]
   host?: string
@@ -469,9 +533,14 @@ export async function applyWorkspaceIntegrationSetup(input: {
     throw new Error(`Setup apply is not supported for ${providerKey}.`)
   }
 
+  const apiKey = await resolvePostHogSetupApiKeyForTenant({
+    providedApiKey: input.apiKey,
+    providerKey,
+    tenantId,
+  })
   const host = normalizePostHogHost(input.host ?? "https://us.posthog.com")
   const discovery = await discoverPostHogIntegrationSetup({
-    apiKey: input.apiKey,
+    apiKey,
     host,
   })
   const resources = normalizePostHogSetupResources(discovery.resources)
@@ -540,7 +609,7 @@ export async function applyWorkspaceIntegrationSetup(input: {
   })
 
   await upsertApiCredentialForTenantIntegration({
-    apiKey: input.apiKey,
+    apiKey,
     credentialType: "personal_api_key",
     declaredScopes: discovery.credential.detectedScopes,
     externalAccountLabel: discovery.account?.label ?? "PostHog",

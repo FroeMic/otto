@@ -2,7 +2,10 @@ import assert from "node:assert/strict"
 
 import { describe, it } from "vitest"
 
-import { buildDisconnectedDesiredStateConfig } from "./actions"
+import {
+  buildDisconnectedDesiredStateConfig,
+  resolvePostHogSetupApiKey,
+} from "./actions"
 
 describe("buildDisconnectedDesiredStateConfig", () => {
   it("removes slack from integrations and clears the slack config block", () => {
@@ -51,5 +54,38 @@ describe("buildDisconnectedDesiredStateConfig", () => {
         },
       },
     })
+  })
+})
+
+describe("resolvePostHogSetupApiKey", () => {
+  it("uses an explicitly entered key when present", () => {
+    assert.equal(
+      resolvePostHogSetupApiKey({
+        providedApiKey: "  phx_fresh  ",
+        storedApiKey: "phx_stored",
+      }),
+      "phx_fresh",
+    )
+  })
+
+  it("falls back to the stored connected key when the browser omits the key", () => {
+    assert.equal(
+      resolvePostHogSetupApiKey({
+        providedApiKey: undefined,
+        storedApiKey: "phx_stored",
+      }),
+      "phx_stored",
+    )
+  })
+
+  it("requires a key when no connected key exists", () => {
+    assert.throws(
+      () =>
+        resolvePostHogSetupApiKey({
+          providedApiKey: undefined,
+          storedApiKey: null,
+        }),
+      /Enter a PostHog API key/,
+    )
   })
 })

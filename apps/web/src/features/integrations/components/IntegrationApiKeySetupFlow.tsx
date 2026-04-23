@@ -64,6 +64,7 @@ type ClickableUrlPart =
     }
 
 export interface ApiKeySetupInitialState {
+  canReuseCredential: boolean
   defaultResourceKey: string
   discovery: WorkspaceIntegrationSetupDiscoverResponse | null
   enabledCapabilityKeys: string[]
@@ -206,6 +207,7 @@ export function buildInitialApiKeySetupState(input: {
   const host = getString(setupStateRecord?.host) ?? input.setupDefaultHost
 
   return {
+    canReuseCredential: input.detail.connection.status.connected,
     defaultResourceKey,
     discovery:
       resources.length > 0
@@ -229,6 +231,61 @@ export function buildInitialApiKeySetupState(input: {
       .map((capability) => capability.capabilityKey),
     host,
     selectedResourceKeys: fallbackSelectedResourceKeys,
+  }
+}
+
+export function buildNextApiKeySetupStateFromDiscovery(input: {
+  currentDefaultResourceKey: string
+  currentEnabledCapabilityKeys: string[]
+  currentSelectedResourceKeys: string[]
+  defaultResourceSelectionMode: "all" | "first" | "none"
+  discovery: WorkspaceIntegrationSetupDiscoverResponse
+}): Pick<
+  ApiKeySetupInitialState,
+  "defaultResourceKey" | "enabledCapabilityKeys" | "selectedResourceKeys"
+> {
+  const resourceKeys = new Set(
+    input.discovery.resources.map((entry) => entry.key),
+  )
+  const availableCapabilityKeys = new Set(
+    input.discovery.capabilityRecommendations
+      .filter((capability) => capability.status !== "unavailable")
+      .map((capability) => capability.capabilityKey),
+  )
+  const preservedSelectedResourceKeys =
+    input.currentSelectedResourceKeys.filter((key) => resourceKeys.has(key))
+  const defaultResources = input.discovery.resources.filter(
+    (resource) => resource.selectedByDefault,
+  )
+  const selectedResourceKeys =
+    preservedSelectedResourceKeys.length > 0
+      ? preservedSelectedResourceKeys
+      : input.defaultResourceSelectionMode === "all"
+        ? input.discovery.resources.map((resource) => resource.key)
+        : input.defaultResourceSelectionMode === "first"
+          ? [
+              defaultResources[0]?.key ?? input.discovery.resources[0]?.key,
+            ].filter(Boolean)
+          : []
+  const defaultResourceKey = selectedResourceKeys.includes(
+    input.currentDefaultResourceKey,
+  )
+    ? input.currentDefaultResourceKey
+    : (selectedResourceKeys[0] ?? "")
+  const preservedCapabilityKeys = input.currentEnabledCapabilityKeys.filter(
+    (key) => availableCapabilityKeys.has(key),
+  )
+  const enabledCapabilityKeys =
+    preservedCapabilityKeys.length > 0
+      ? preservedCapabilityKeys
+      : input.discovery.capabilityRecommendations
+          .filter((capability) => capability.defaultEnabled)
+          .map((capability) => capability.capabilityKey)
+
+  return {
+    defaultResourceKey,
+    enabledCapabilityKeys,
+    selectedResourceKeys,
   }
 }
 
@@ -276,7 +333,7 @@ function HostHelpText({ onHostSelect, text }: HostHelpTextProps) {
       {extractClickableUrls(text).map((part, index) =>
         part.type === "url" ? (
           <button
-            className="underline underline-offset-3 hover:text-foreground"
+            className="inline appearance-none border-0 bg-transparent p-0 text-inherit focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             key={`${part.text}-${index}`}
             onClick={() => onHostSelect(part.text)}
             type="button"
@@ -530,9 +587,11 @@ export function IntegrationApiKeySetupFlow({
     () => getGroupedCapabilities(discovery?.capabilityRecommendations ?? []),
     [discovery],
   )
+  const hasUsableCredential =
+    Boolean(apiKey.trim()) || initialSetupState.canReuseCredential
   const canSave =
     Boolean(discovery) &&
-    Boolean(apiKey.trim()) &&
+    hasUsableCredential &&
     selectedResourceKeys.length > 0 &&
     Boolean(defaultResourceKey) &&
     enabledCapabilityKeys.length > 0
@@ -572,34 +631,25 @@ export function IntegrationApiKeySetupFlow({
   function handleDiscover() {
     startTransition(() => {
       void discoverWorkspaceIntegrationSetup({
-        apiKey,
+        apiKey: apiKey.trim() || undefined,
         host,
         integrationKey: detail.integration.key,
         orgSlug,
       })
         .then((result) => {
-          const defaultResources = result.resources.filter(
-            (resource) => resource.selectedByDefault,
-          )
-          const selected =
-            setupDefinition.discovery.defaultResourceSelectionMode === "all"
-              ? result.resources.map((resource) => resource.key)
-              : setupDefinition.discovery.defaultResourceSelectionMode ===
-                  "first"
-                ? [defaultResources[0]?.key ?? result.resources[0]?.key].filter(
-                    Boolean,
-                  )
-                : []
-          const defaultKey = selected[0] ?? ""
+          const next = buildNextApiKeySetupStateFromDiscovery({
+            currentDefaultResourceKey: defaultResourceKey,
+            currentEnabledCapabilityKeys: enabledCapabilityKeys,
+            currentSelectedResourceKeys: selectedResourceKeys,
+            defaultResourceSelectionMode:
+              setupDefinition.discovery.defaultResourceSelectionMode,
+            discovery: result,
+          })
 
           setDiscovery(result)
-          setSelectedResourceKeys(selected)
-          setDefaultResourceKey(defaultKey)
-          setEnabledCapabilityKeys(
-            result.capabilityRecommendations
-              .filter((capability) => capability.defaultEnabled)
-              .map((capability) => capability.capabilityKey),
-          )
+          setSelectedResourceKeys(next.selectedResourceKeys)
+          setDefaultResourceKey(next.defaultResourceKey)
+          setEnabledCapabilityKeys(next.enabledCapabilityKeys)
           setErrorMessage(null)
         })
         .catch((error) => {
@@ -615,7 +665,7 @@ export function IntegrationApiKeySetupFlow({
   function handleApply() {
     startTransition(() => {
       void applyWorkspaceIntegrationSetup({
-        apiKey,
+        apiKey: apiKey.trim() || undefined,
         defaultResourceKey,
         enabledCapabilityKeys,
         host,
@@ -723,7 +773,7 @@ export function IntegrationApiKeySetupFlow({
               </SettingsRowDescription>
             </SettingsRowLabel>
             <Button
-              disabled={isPending || !apiKey.trim()}
+              disabled={isPending || !hasUsableCredential}
               onClick={handleDiscover}
             >
               {isPending && !discovery
