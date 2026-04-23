@@ -14,6 +14,7 @@
     "./db/oauth": "./src/db/oauth.ts",
     "./db/schema": "./src/db/schema.ts",
     "./integrations/framework": "./src/integrations/framework/index.ts",
+    "./integrations/library/github/auth": "./src/integrations/library/github/auth.ts",
     "./integrations/library/brave/settings-metadata": "./src/integrations/library/brave/settings-metadata.ts",
     "./integrations/library/posthog/client": "./src/integrations/library/posthog/client.ts",
     "./integrations/library/posthog/setup": "./src/integrations/library/posthog/setup.ts",

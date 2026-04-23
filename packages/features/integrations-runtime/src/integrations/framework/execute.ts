@@ -166,6 +166,18 @@ export async function executeRegisteredIntegrationCommand(input: {
     }
   }
 
+  if (authBinding?.kind === "github_app_installation") {
+    if (!input.tenantIntegrationId) {
+      throw new Error(
+        `${integration.label} is not connected in this workspace.`,
+      )
+    }
+
+    throw new Error(
+      `${integration.label} needs attention. Connect ${integration.label} in your workspace.`,
+    )
+  }
+
   try {
     return await command.execute({
       arguments: validatedArguments,

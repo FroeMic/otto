@@ -40,6 +40,7 @@ export type {
   IntegrationAuthBinding,
   IntegrationCapabilityPolicy,
   IntegrationCommandDefinition,
+  IntegrationCommandActivityPresentationKind,
   IntegrationCommandEffect,
   IntegrationCommandExecute,
   IntegrationCommandGroupDefinition,
