@@ -71,6 +71,13 @@ const LOCAL_BRANCH_ARGUMENT_SCHEMA = {
   description: "Optional local branch name to create or update.",
 } as const
 
+const DESTINATION_PATH_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description:
+    "Optional destination path relative to the runtime workspace root.",
+} as const
+
 const PR_NUMBER_ARGUMENT_SCHEMA = {
   type: "integer",
   minimum: 1,
@@ -316,6 +323,7 @@ const repositoryCheckoutCommand: IntegrationRuntimeCommandDefinition = {
     additionalProperties: false,
     properties: {
       branch: BRANCH_ARGUMENT_SCHEMA,
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       repo: REPO_ARGUMENT_SCHEMA,
     },
@@ -351,6 +359,7 @@ const remoteFetchCommand: IntegrationRuntimeCommandDefinition = {
   argumentsSchema: {
     additionalProperties: false,
     properties: {
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       repo: REPO_ARGUMENT_SCHEMA,
     },
@@ -382,6 +391,7 @@ const remotePullCommand: IntegrationRuntimeCommandDefinition = {
     additionalProperties: false,
     properties: {
       branch: BRANCH_ARGUMENT_SCHEMA,
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       rebase: {
         type: "boolean",
@@ -419,6 +429,7 @@ const remotePushCommand: IntegrationRuntimeCommandDefinition = {
     additionalProperties: false,
     properties: {
       branch: BRANCH_ARGUMENT_SCHEMA,
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       repo: REPO_ARGUMENT_SCHEMA,
     },
@@ -451,6 +462,7 @@ const branchCheckoutRemoteCommand: IntegrationRuntimeCommandDefinition = {
     additionalProperties: false,
     properties: {
       branch: BRANCH_ARGUMENT_SCHEMA,
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       localBranch: LOCAL_BRANCH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       repo: REPO_ARGUMENT_SCHEMA,
@@ -485,6 +497,7 @@ const branchPublishCommand: IntegrationRuntimeCommandDefinition = {
     additionalProperties: false,
     properties: {
       branch: BRANCH_ARGUMENT_SCHEMA,
+      destinationPath: DESTINATION_PATH_ARGUMENT_SCHEMA,
       owner: OWNER_ARGUMENT_SCHEMA,
       repo: REPO_ARGUMENT_SCHEMA,
     },

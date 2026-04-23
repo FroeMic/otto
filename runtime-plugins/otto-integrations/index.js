@@ -1,6 +1,6 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
 import { spawn } from "node:child_process";
-import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
@@ -558,10 +558,14 @@ async function executeGitHubLocalGitCommand(api, input) {
     input.argumentsObject.localBranch,
     "localBranch",
   );
+  const destinationPath = readGitHubDestinationPath(
+    input.argumentsObject.destinationPath,
+  );
   const access = await requestGitHubGitAccess(api, { owner, repo });
-  const repoPath = getGitHubRepositoryPath({ owner, repo });
+  const repoPath = getGitHubRepositoryPath({ destinationPath, owner, repo });
 
   await mkdir(path.dirname(repoPath), { recursive: true, mode: 0o700 });
+  await removeDestinationSymlink(repoPath);
 
   switch (input.commandKey) {
     case "repository.checkout":
@@ -846,6 +850,10 @@ async function pathExists(filePath) {
 }
 
 function getGitHubRepositoryPath(input) {
+  if (input.destinationPath) {
+    return path.join(resolveGitHubWorkspaceRoot(), input.destinationPath);
+  }
+
   return path.join(resolveGitHubReposRoot(), input.owner, input.repo);
 }
 
@@ -853,6 +861,12 @@ function resolveGitHubReposRoot() {
   const configured = normalizeString(process.env.OTTO_GITHUB_REPOS_ROOT);
 
   return configured || "/home/node/.openclaw/repos";
+}
+
+function resolveGitHubWorkspaceRoot() {
+  const configured = normalizeString(process.env.OTTO_GITHUB_WORKSPACE_ROOT);
+
+  return configured || "/home/node/.openclaw/workspace";
 }
 
 function readGitHubSafeName(value, label) {
@@ -887,6 +901,45 @@ function readGitHubBranchName(value, label) {
   }
 
   return normalized;
+}
+
+function readGitHubDestinationPath(value) {
+  const normalized = normalizeString(value).replaceAll("\\", "/");
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (normalized.startsWith("/") || normalized === "." || normalized.includes("\0")) {
+    throw new Error("destinationPath must be relative to the workspace root.");
+  }
+
+  const parts = normalized.split("/").filter(Boolean);
+
+  if (
+    parts.length === 0 ||
+    parts.some((part) => part === "." || part === "..")
+  ) {
+    throw new Error("destinationPath must stay inside the workspace root.");
+  }
+
+  return parts.join("/");
+}
+
+async function removeDestinationSymlink(repoPath) {
+  try {
+    const stat = await lstat(repoPath);
+
+    if (stat.isSymbolicLink()) {
+      await rm(repoPath, { force: true });
+    }
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return;
+    }
+
+    throw error;
+  }
 }
 
 function escapeShellDoubleQuoted(value) {
