@@ -569,7 +569,7 @@ Webhook route requirements:
 - [x] GitHub App installation-token helper added.
 - [ ] GitHub App operator configuration created.
 - [x] Framework auth binding added.
-- [ ] Database migration added.
+- [x] Database migration added.
 - [ ] Install lifecycle implemented.
 - [ ] Repository inventory UI implemented.
 - [ ] Read command surface implemented.

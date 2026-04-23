@@ -421,6 +421,13 @@
       "when": 1776754000000,
       "tag": "0060_agent_personalization_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1776938400000,
+      "tag": "0061_github_integration_state",
+      "breakpoints": true
     }
   ]
 }
