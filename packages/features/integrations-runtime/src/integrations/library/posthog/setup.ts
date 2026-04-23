@@ -1,5 +1,9 @@
 import { collectCommands } from "../../framework/search"
-import { buildPostHogOrganizationPath, normalizePostHogHost } from "./client"
+import {
+  buildPostHogOrganizationPath,
+  buildPostHogProjectPath,
+  normalizePostHogHost,
+} from "./client"
 import { posthogIntegrationDefinition } from "./definition"
 
 export type IntegrationSetupCapabilityRecommendation = {
@@ -51,6 +55,21 @@ type PostHogProjectResource = IntegrationSetupResource & {
   type: "project"
 }
 
+type PostHogEnvironmentResource = IntegrationSetupResource & {
+  metadata: {
+    environmentId: string
+    environmentLabel: string
+    organizationId?: string
+    organizationLabel?: string
+    projectId: string
+    projectLabel: string
+  }
+  parentKey: string
+  type: "environment"
+}
+
+type PostHogSetupResource = PostHogProjectResource | PostHogEnvironmentResource
+
 const SENSITIVE_CAPABILITIES = new Set([
   "person.list",
   "query.hogql",
@@ -72,7 +91,7 @@ export async function discoverPostHogIntegrationSetup(
     host,
     warnings,
   })
-  const resources: PostHogProjectResource[] = []
+  const resources: PostHogSetupResource[] = []
 
   for (const organization of organizations) {
     const projects = await discoverOrganizationProjects({
@@ -131,7 +150,7 @@ export async function discoverPostHogIntegrationSetup(
 export function buildPostHogSetupState(input: {
   defaultResourceKey?: string
   host: string
-  resources: PostHogProjectResource[]
+  resources: PostHogSetupResource[]
   selectedResourceKeys: string[]
 }) {
   const selected = input.resources.filter((resource) =>
@@ -215,30 +234,64 @@ export function buildPostHogCapabilityRecommendations(
 
 export function normalizePostHogSetupResources(
   resources: IntegrationSetupResource[],
-): PostHogProjectResource[] {
-  return resources.flatMap((resource) => {
-    if (resource.type !== "project") {
-      return []
+): PostHogSetupResource[] {
+  const normalized: PostHogSetupResource[] = []
+
+  for (const resource of resources) {
+    if (resource.type !== "project" && resource.type !== "environment") {
+      continue
     }
 
     const projectId =
       getMetadataString(resource.metadata, "projectId") ?? resource.id
+    const environmentId = getMetadataString(resource.metadata, "environmentId")
 
-    return [
-      {
+    if (resource.type === "environment" && environmentId) {
+      normalized.push({
         ...resource,
         metadata: {
-          environmentId: getMetadataString(resource.metadata, "environmentId"),
+          environmentId,
+          environmentLabel:
+            getMetadataString(resource.metadata, "environmentLabel") ??
+            resource.label,
           organizationId: getMetadataString(
             resource.metadata,
             "organizationId",
           ),
+          organizationLabel: getMetadataString(
+            resource.metadata,
+            "organizationLabel",
+          ),
           projectId,
+          projectLabel:
+            getMetadataString(resource.metadata, "projectLabel") ??
+            resource.label,
         },
-        type: "project" as const,
+        parentKey:
+          resource.parentKey ??
+          buildResourceKey(
+            getMetadataString(resource.metadata, "projectLabel") ??
+              resource.label,
+            projectId,
+          ),
+        type: "environment" as const,
+      })
+
+      continue
+    }
+
+    normalized.push({
+      ...resource,
+      metadata: {
+        environmentId,
+        organizationId: getMetadataString(resource.metadata, "organizationId"),
+        projectId,
       },
-    ]
-  })
+      type: "project" as const,
+    })
+  }
+
+  return normalized
 }
 
 async function discoverOrganizations(input: {
@@ -275,7 +328,7 @@ async function discoverOrganizationProjects(input: {
   host: string
   organization: { id: string; label: string }
   warnings: string[]
-}): Promise<PostHogProjectResource[]> {
+}): Promise<PostHogSetupResource[]> {
   const payload = await requestPostHogSetupApi({
     apiKey: input.apiKey,
     host: input.host,
@@ -284,11 +337,13 @@ async function discoverOrganizationProjects(input: {
   })
   const projects = normalizeListPayload(payload)
 
-  return projects.flatMap((project, index) => {
+  const resources: PostHogSetupResource[] = []
+
+  for (const [index, project] of projects.entries()) {
     const id = getString(project, "id") ?? getString(project, "uuid")
 
     if (!id) {
-      return []
+      continue
     }
 
     const label = getString(project, "name") ?? `Project ${id}`
@@ -296,20 +351,92 @@ async function discoverOrganizationProjects(input: {
       getString(project, "environment_id") ??
       getString(project, "environmentId") ??
       getFirstNestedId(project, "environments")
+    const projectResource = {
+      id,
+      key: buildResourceKey(label, id),
+      label,
+      metadata: {
+        environmentId,
+        organizationId: input.organization.id,
+        organizationLabel: input.organization.label,
+        projectId: id,
+      },
+      selectedByDefault: index === 0,
+      type: "project" as const,
+    } satisfies PostHogProjectResource
+    const environments = await discoverProjectEnvironments({
+      apiKey: input.apiKey,
+      host: input.host,
+      organization: input.organization,
+      project: {
+        id,
+        key: projectResource.key,
+        label,
+      },
+      warnings: input.warnings,
+    })
+
+    if (environments.length > 0) {
+      resources.push(
+        ...environments.map((environment, environmentIndex) => ({
+          ...environment,
+          selectedByDefault: index === 0 && environmentIndex === 0,
+        })),
+      )
+    } else {
+      resources.push(projectResource)
+      input.warnings.push(
+        `Otto could not discover PostHog environments for ${label}. Query, insight, and dashboard commands will need an explicit environmentId until PostHog discovery is rerun with environment access.`,
+      )
+    }
+  }
+
+  return resources
+}
+
+async function discoverProjectEnvironments(input: {
+  apiKey: string
+  host: string
+  organization: { id: string; label: string }
+  project: { id: string; key: string; label: string }
+  warnings: string[]
+}): Promise<PostHogEnvironmentResource[]> {
+  const payload = await requestPostHogSetupApi({
+    apiKey: input.apiKey,
+    host: input.host,
+    path: buildPostHogProjectPath(input.project.id, "environments/"),
+    tolerateForbidden: true,
+  })
+  const environments = normalizeListPayload(payload)
+
+  return environments.flatMap((environment) => {
+    const id = getString(environment, "id") ?? getString(environment, "uuid")
+
+    if (!id) {
+      return []
+    }
+
+    const label =
+      getString(environment, "name") ??
+      getString(environment, "label") ??
+      `Environment ${id}`
+    const fullLabel = `${input.project.label} / ${label}`
 
     return [
       {
         id,
-        key: buildResourceKey(label, id),
-        label,
+        key: buildResourceKey(fullLabel, id),
+        label: fullLabel,
         metadata: {
-          environmentId,
+          environmentId: id,
+          environmentLabel: label,
           organizationId: input.organization.id,
           organizationLabel: input.organization.label,
-          projectId: id,
+          projectId: input.project.id,
+          projectLabel: input.project.label,
         },
-        selectedByDefault: index === 0,
-        type: "project" as const,
+        parentKey: input.project.key,
+        type: "environment" as const,
       },
     ]
   })
@@ -392,7 +519,7 @@ function getPostHogSetupErrorMessage(payload: unknown, status: number) {
 }
 
 function inferPostHogScopesFromDiscoveredResources(
-  resources: PostHogProjectResource[],
+  resources: PostHogSetupResource[],
 ) {
   if (resources.length === 0) {
     return []
@@ -421,8 +548,13 @@ function buildResourceKey(label: string, id: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "")
+  const normalizedId = id
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
 
-  return slug ? `${slug}_${id}` : id
+  return slug ? `${slug}_${normalizedId || id}` : normalizedId || id
 }
 
 function getFirstNestedId(record: Record<string, unknown>, key: string) {

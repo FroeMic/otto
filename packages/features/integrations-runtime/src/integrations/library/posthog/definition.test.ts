@@ -48,8 +48,131 @@ describe("PostHog integration definition", () => {
       "taxonomy.event_definition.list",
       "taxonomy.property_definition.list",
       "workspace.get_project",
+      "workspace.list_environments",
       "workspace.list_projects",
     ]);
+  });
+
+  it("shapes project lists without returning project tokens", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              api_token: "phc_public_project_token",
+              completed_snippet_onboarding: false,
+              id: 153607,
+              ingested_event: true,
+              name: "Otto Control Plane",
+              organization: "org-1",
+              timezone: "Europe/Berlin",
+              uuid: "project-uuid",
+            },
+          ],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      ),
+    );
+    const command = collectCommands(
+      posthogIntegrationDefinition.runtimeSurface!,
+    ).find((entry) => entry.commandKey === "workspace.list_projects");
+
+    assert.ok(command);
+
+    const result = await command.execute({
+      arguments: {},
+      context: buildPostHogContext(),
+    });
+
+    assert.deepEqual(result, {
+      count: 1,
+      next: null,
+      previous: null,
+      results: [
+        {
+          completedSnippetOnboarding: false,
+          id: "153607",
+          ingestedEvent: true,
+          name: "Otto Control Plane",
+          organizationId: "org-1",
+          timezone: "Europe/Berlin",
+          uuid: "project-uuid",
+        },
+      ],
+    });
+    assert.equal(JSON.stringify(result).includes("api_token"), false);
+    assert.equal(JSON.stringify(result).includes("phc_public_project_token"), false);
+  });
+
+  it("lists shaped project environments", async () => {
+    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          results: [
+            {
+              id: 42,
+              name: "Production",
+              project_id: 153607,
+              uuid: "env-uuid",
+            },
+          ],
+        }),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          status: 200,
+        },
+      ),
+    );
+    const command = collectCommands(
+      posthogIntegrationDefinition.runtimeSurface!,
+    ).find((entry) => entry.commandKey === "workspace.list_environments");
+
+    assert.ok(command);
+
+    const result = await command.execute({
+      arguments: {},
+      context: buildPostHogContext(),
+    });
+
+    assert.deepEqual(result, {
+      count: 1,
+      next: null,
+      previous: null,
+      projectId: "project-1",
+      results: [
+        {
+          id: "42",
+          name: "Production",
+          projectId: "153607",
+          uuid: "env-uuid",
+        },
+      ],
+    });
+    assert.equal(
+      String(fetch.mock.calls[0]?.[0]),
+      "https://us.posthog.com/api/projects/project-1/environments/",
+    );
+  });
+
+  it("publishes useful example arguments for HogQL queries", () => {
+    const command = collectCommands(
+      posthogIntegrationDefinition.runtimeSurface!,
+    ).find((entry) => entry.commandKey === "query.hogql");
+
+    assert.ok(command);
+    assert.deepEqual(command.exampleArguments, {
+      maxRows: 14,
+      query:
+        "SELECT toDate(timestamp) AS day, count(DISTINCT person_id) AS daily_active_users FROM events WHERE timestamp >= now() - INTERVAL 7 DAY AND person_id IS NOT NULL GROUP BY day ORDER BY day ASC",
+      targetKey: "production",
+    });
   });
 
   it("plans write commands without calling PostHog until confirmed", async () => {
