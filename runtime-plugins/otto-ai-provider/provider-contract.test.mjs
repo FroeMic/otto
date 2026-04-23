@@ -154,6 +154,43 @@ test("openai-proxy extra params use forced transport defaults", () => {
   }
 });
 
+test("openai-proxy gpt-5 extra params default to low text verbosity", () => {
+  const provider = buildProviderForTest();
+
+  assert.deepEqual(
+    provider.prepareExtraParams({ modelId: "gpt-5.4", extraParams: {} }),
+    {
+      transport: "sse",
+      openaiWsWarmup: true,
+      text_verbosity: "low",
+    },
+  );
+
+  assert.deepEqual(
+    provider.prepareExtraParams({
+      modelId: "gpt-5.4",
+      extraParams: { text_verbosity: "medium" },
+    }),
+    {
+      transport: "sse",
+      openaiWsWarmup: true,
+      text_verbosity: "medium",
+    },
+  );
+
+  assert.deepEqual(
+    provider.prepareExtraParams({
+      modelId: "gpt-5.4",
+      extraParams: { textVerbosity: "high" },
+    }),
+    {
+      transport: "sse",
+      openaiWsWarmup: true,
+      textVerbosity: "high",
+    },
+  );
+});
+
 test("openai-proxy runtime auth resolves the control-plane OpenAI base URL", () => {
   assert.equal(normalizeControlPlaneBaseUrl("https://otto.example///"), "https://otto.example");
 
