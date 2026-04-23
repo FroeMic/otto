@@ -303,6 +303,13 @@
     - the billing cycle spend cap includes tax and is checked against a previewed next Stripe top-up invoice before Otto attempts the charge
     - successful top-up invoices now create positive top-up credit grants in Otto's ledger through the same grant path as other funded credits
     - manual top-up checkout is still not implemented yet
+- Cross-provider provider accounting is now captured in `_specs/TODO_40_provider_accounting_ledger.md`:
+  - the spec defines a single provider request ledger that can support provider-native aggregate accounting, proxy-observed exact per-call cost, proxy-observed usage with Otto-side pricing, and manual/external statement imports
+  - OpenAI remains the strong provider-native reconciliation example through project/API-key usage and project cost buckets
+  - xAI is documented as viable for proxy-attributed billing when `usage.cost_in_usd_ticks` is present, but not OpenAI-equivalent for provider-native tenant reconciliation unless each tenant gets its own team or xAI later exposes API-key-level cost/usage grouping
+  - the spec now also defines workspace-scoped model profiles so workspaces can keep today's default model initially, later change provider/model in workspace settings, project that choice into tenant desired state, and queue runtime apply
+  - selectable model/provider options must have provider credential resolution, proxy support, request-ledger instrumentation, settlement behavior, reconciliation behavior, and either exact provider-reported cost or a pricing rule
+  - the first implementation slice should add accounting contracts, request events, usage measurements, settlements, and reconciliation batches before adding xAI credit burn
 - Slack runtime projection now uses the shared app token from control-plane env plus the tenant-specific bot token captured during managed integration OAuth.
 - The older Slack-first onboarding plan in `TODO_08_signup_to_slack_onboarding_flow.md` is now superseded by `TODO_28_workspace_onboarding_and_public_intake.md`.
 - Slack remains a real managed integration and runtime-projected capability, but it should no longer be the primary workspace unlock dependency for first-time user onboarding.
@@ -830,11 +837,11 @@
   - the live plan catalog, top-up packs, expiry policy, and billing-cycle anchor behavior are now locked in `TODO_15`
   - raw OpenAI usage ingestion is now the implemented foundation, storing immutable per-minute usage buckets in Otto
   - worker startup should tolerate transient OpenAI usage-endpoint failures so queued jobs like tenant apply can still run while provider metering retries later
-  - next, add operator visibility for raw provider usage and daily cost reconciliation before any credit burn logic
-  - then ship Stripe Checkout, billing portal, and webhook-backed subscription sync
-  - then add Otto credit grants, ledger entries, and derived balances from Stripe events
-  - then convert raw provider usage into billable units and credit debits
-  - then ship the workspace billing page, top-ups, soft alerts, and only later hard-stop enforcement
+  - the first Stripe billing, credit grant, bucket settlement, balance, and auto-top-off slices now exist
+  - before adding xAI or another non-OpenAI managed AI provider to billable usage, implement the request-ledger foundation from `TODO_40_provider_accounting_ledger.md`
+  - include workspace model profile persistence, model catalog/accounting gates, and desired-state projection in that foundation so model choice and credit accounting evolve together
+  - then instrument OpenAI proxy request evidence so aggregate bucket reconciliation and per-call proxy accounting can be compared before broadening provider support
+  - then add xAI proxy accounting only if product accepts proxy-attributed tenant billing with team-level provider reconciliation
 - Then continue `TODO_06_integrations_and_oauth.md` by:
   - deciding whether the control plane should verify Slack signatures centrally and forward authenticated internal requests, or raw-proxy Slack payloads to tenant runtimes in v1
   - hardening the current shared Slack ingress transport so it no longer depends on the existing runtime connection hop for every inbound request
