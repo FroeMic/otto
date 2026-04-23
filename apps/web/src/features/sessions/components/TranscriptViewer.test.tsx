@@ -36,7 +36,7 @@ function buildSession(transcriptJsonl: string): TranscriptViewerSession {
 }
 
 describe("TranscriptViewer", () => {
-  it("renders matching tool input and output in one exchange", () => {
+  it("keeps matching tool input and output collapsed in one exchange by default", () => {
     const transcriptJsonl = [
       JSON.stringify({
         id: "msg_tool_call",
@@ -92,17 +92,14 @@ describe("TranscriptViewer", () => {
     const exchangeCount =
       markup.match(/data-tool-exchange-id="call_1"/g)?.length ?? 0
     const exchangeStart = markup.indexOf('data-tool-exchange-id="call_1"')
-    const inputLabelIndex = markup.indexOf(">Input<", exchangeStart)
-    const inputValueIndex = markup.indexOf("example.com", inputLabelIndex)
-    const outputLabelIndex = markup.indexOf(">Output<", exchangeStart)
-    const resultIndex = markup.indexOf(
-      "&quot;available&quot;: true",
-      exchangeStart,
-    )
 
     assert.equal(exchangeCount, 1)
-    assert.ok(inputLabelIndex < inputValueIndex)
-    assert.ok(inputValueIndex < outputLabelIndex)
-    assert.ok(outputLabelIndex < resultIndex)
+    assert.notEqual(exchangeStart, -1)
+    assert.match(markup, /execute_integration_command/)
+    assert.match(markup, /domain\.availability\.check/)
+    assert.equal(markup.includes(">Input<"), false)
+    assert.equal(markup.includes("example.com"), false)
+    assert.equal(markup.includes(">Output<"), false)
+    assert.equal(markup.includes("&quot;available&quot;: true"), false)
   })
 })
