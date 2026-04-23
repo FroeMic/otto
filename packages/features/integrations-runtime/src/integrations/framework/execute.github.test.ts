@@ -10,8 +10,6 @@ describe("GitHub App integration execution", () => {
         executeRegisteredIntegrationCommand({
           arguments: {
             limit: 10,
-            owner: "acme",
-            repo: "web-app",
           },
           commandKey: "repository.list",
           integrationKey: "github",

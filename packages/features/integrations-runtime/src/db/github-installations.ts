@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 
 import { getDb } from "./client"
 import {
@@ -13,6 +13,31 @@ export type ConnectedGitHubRepositoryRecord = {
   repositoryId: string
   repositoryName: string
   repositoryOwner: string
+}
+
+export type ConnectedGitHubInstallationRecord = {
+  accountLogin: string
+  accountType: string
+  appId: string
+  appSlug: string | null
+  events: string[]
+  installationId: string
+  permissions: Record<string, string>
+  repositorySelection: string
+  suspendedAt: Date | null
+  tenantIntegrationId: string
+}
+
+export type GitHubRepositoryListRecord = {
+  archived: boolean
+  defaultBranch: string | null
+  disabled: boolean
+  fullName: string
+  githubRepositoryId: string
+  isPrivate: boolean
+  name: string
+  ownerLogin: string
+  selectedByInstallation: boolean
 }
 
 export type GitHubRepositoryUpsertInput = {
@@ -130,6 +155,173 @@ export async function getEnabledGitHubRepositoryForTenantIntegration(input: {
   return row ?? null
 }
 
+export async function getEnabledGitHubRepositoryDetailsForTenantIntegration(input: {
+  owner: string
+  repo: string
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+        sql`lower(${integrationGithubRepositories.ownerLogin}) = ${input.owner.trim().toLowerCase()}`,
+        sql`lower(${integrationGithubRepositories.name}) = ${input.repo.trim().toLowerCase()}`,
+      ),
+    )
+    .limit(1)
+
+  return row ?? null
+}
+
+export async function getConnectedGitHubInstallationForTenantIntegration(input: {
+  tenantIntegrationId: string
+}): Promise<ConnectedGitHubInstallationRecord | null> {
+  const db = getDb()
+  const [row] = await db
+    .select({
+      accountLogin: integrationGithubInstallations.accountLogin,
+      accountType: integrationGithubInstallations.accountType,
+      appId: integrationGithubInstallations.appId,
+      appSlug: integrationGithubInstallations.appSlug,
+      events: integrationGithubInstallations.eventsJson,
+      installationId: integrationGithubInstallations.installationId,
+      permissions: integrationGithubInstallations.permissionsJson,
+      repositorySelection: integrationGithubInstallations.repositorySelection,
+      suspendedAt: integrationGithubInstallations.suspendedAt,
+      tenantIntegrationId: integrationGithubInstallations.tenantIntegrationId,
+    })
+    .from(integrationGithubInstallations)
+    .where(
+      eq(
+        integrationGithubInstallations.tenantIntegrationId,
+        input.tenantIntegrationId,
+      ),
+    )
+    .limit(1)
+
+  return row
+    ? {
+        ...row,
+        events: Array.isArray(row.events) ? row.events : [],
+        permissions: isStringRecord(row.permissions) ? row.permissions : {},
+      }
+    : null
+}
+
+export async function listEnabledGitHubRepositoriesForTenantIntegration(input: {
+  limit?: number
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord[]> {
+  const db = getDb()
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 100))
+
+  return db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+      ),
+    )
+    .orderBy(asc(integrationGithubRepositories.fullName))
+    .limit(limit)
+}
+
+export async function searchEnabledGitHubRepositoriesForTenantIntegration(input: {
+  limit?: number
+  query: string
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord[]> {
+  const db = getDb()
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 100))
+  const query = `%${input.query.trim().toLowerCase()}%`
+
+  return db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+        sql`(
+          lower(${integrationGithubRepositories.fullName}) like ${query}
+          or lower(${integrationGithubRepositories.ownerLogin}) like ${query}
+          or lower(${integrationGithubRepositories.name}) like ${query}
+        )`,
+      ),
+    )
+    .orderBy(asc(integrationGithubRepositories.fullName))
+    .limit(limit)
+}
+
 export async function upsertGitHubRepositoriesForInstallation(input: {
   githubInstallationId: string
   repositories: GitHubRepositoryUpsertInput[]
@@ -192,4 +384,13 @@ export async function upsertGitHubRepositoriesForInstallation(input: {
         integrationGithubRepositories.githubRepositoryId,
       ],
     })
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value).every((entry) => typeof entry === "string")
+  )
 }

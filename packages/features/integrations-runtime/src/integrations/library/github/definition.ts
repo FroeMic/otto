@@ -1,11 +1,45 @@
 import type {
-  IntegrationCommandActivityPresentationKind,
-  IntegrationCommandEffect,
-  IntegrationCommandSafety,
   IntegrationDefinition,
   IntegrationRuntimeCommandDefinition,
-  IntegrationRuntimeCommandGroupDefinition,
 } from "../../framework"
+import {
+  executeGitHubBranchDeleteRemote,
+  executeGitHubBranchGetRemote,
+  executeGitHubBranchListRemote,
+} from "./commands/branch"
+import { executeGitHubTenantRuntimeGitCommand } from "./commands/local-git"
+import {
+  executeGitHubPullRequestClose,
+  executeGitHubPullRequestComment,
+  executeGitHubPullRequestConvertToDraft,
+  executeGitHubPullRequestCreate,
+  executeGitHubPullRequestDeleteComment,
+  executeGitHubPullRequestGet,
+  executeGitHubPullRequestList,
+  executeGitHubPullRequestListChecks,
+  executeGitHubPullRequestListComments,
+  executeGitHubPullRequestListFiles,
+  executeGitHubPullRequestListReviews,
+  executeGitHubPullRequestMarkReadyForReview,
+  executeGitHubPullRequestMerge,
+  executeGitHubPullRequestReopen,
+  executeGitHubPullRequestRequestReview,
+  executeGitHubPullRequestSubmitReview,
+  executeGitHubPullRequestUpdate,
+  executeGitHubPullRequestUpdateComment,
+} from "./commands/pull-request"
+import {
+  executeGitHubRepositoryGet,
+  executeGitHubRepositoryList,
+  executeGitHubRepositorySearch,
+} from "./commands/repository"
+
+const LIMIT_ARGUMENT_SCHEMA = {
+  type: "integer",
+  minimum: 1,
+  maximum: 100,
+  description: "Maximum number of results to return.",
+} as const
 
 const OWNER_ARGUMENT_SCHEMA = {
   type: "string",
@@ -19,669 +53,921 @@ const REPO_ARGUMENT_SCHEMA = {
   description: "GitHub repository name.",
 } as const
 
-const BRANCH_ARGUMENT_SCHEMA = {
-  type: "string",
-  minLength: 1,
-  description: "Git branch name.",
-} as const
-
-const SHA_ARGUMENT_SCHEMA = {
-  type: "string",
-  minLength: 7,
-  description: "Git commit SHA.",
-} as const
-
 const QUERY_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-  description: "Search query.",
+  description: "Repository search query.",
 } as const
 
-const LIMIT_ARGUMENT_SCHEMA = {
-  type: "integer",
-  minimum: 1,
-  maximum: 100,
-  description: "Maximum number of results to return.",
-} as const
-
-const PATH_ARGUMENT_SCHEMA = {
+const BRANCH_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-  description: "Repository-relative file or directory path.",
+  description: "Remote branch name.",
 } as const
 
-const CONFIRM_ARGUMENT_SCHEMA = {
-  type: "boolean",
-  const: true,
-  description: "Must be true to confirm the GitHub write operation.",
-} as const
-
-const CHANGE_REASON_ARGUMENT_SCHEMA = {
+const LOCAL_BRANCH_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-  description: "Why this GitHub write operation is being performed.",
+  description: "Optional local branch name to create or update.",
 } as const
 
 const PR_NUMBER_ARGUMENT_SCHEMA = {
   type: "integer",
   minimum: 1,
-  description: "GitHub pull request number.",
+  description: "Pull request number.",
 } as const
 
-const COMMENT_ID_ARGUMENT_SCHEMA = {
-  type: "integer",
-  minimum: 1,
-  description: "GitHub comment id.",
-} as const
-
-const BODY_ARGUMENT_SCHEMA = {
+const PR_TITLE_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
-  description: "Markdown body.",
+  description: "Pull request title.",
 } as const
 
-type CommandSpec = {
-  description: string
-  effect?: IntegrationCommandEffect
-  exampleArguments?: Record<string, unknown>
-  extraProperties?: Record<string, Record<string, unknown>>
-  groupKey: string
-  intentKeywords?: string[]
-  key: string
-  label: string
-  required?: string[]
-  safety?: IntegrationCommandSafety
-}
+const PR_BODY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Pull request body or comment text.",
+} as const
 
-function notImplemented(commandKey: string) {
-  return async () => {
-    throw new Error(
-      `GitHub command ${commandKey} is registered but not implemented yet.`,
-    )
-  }
-}
+const PR_REF_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Git branch ref.",
+} as const
 
-function buildArgumentsSchema(input: {
-  effect: IntegrationCommandEffect
-  extraProperties?: Record<string, Record<string, unknown>>
-  required?: string[]
-}) {
-  const properties: Record<string, Record<string, unknown>> = {
+const PR_COMMENT_ID_ARGUMENT_SCHEMA = {
+  type: "integer",
+  minimum: 1,
+  description: "GitHub issue comment id.",
+} as const
+
+const STRING_ARRAY_ARGUMENT_SCHEMA = {
+  type: "array",
+  items: {
+    type: "string",
+    minLength: 1,
+  },
+} as const
+
+function pullRequestRepositoryProperties(extra: Record<string, unknown>) {
+  return {
     owner: OWNER_ARGUMENT_SCHEMA,
     repo: REPO_ARGUMENT_SCHEMA,
-    ...(input.extraProperties ?? {}),
+    ...extra,
   }
-  const required = ["owner", "repo", ...(input.required ?? [])]
-
-  if (input.effect === "write") {
-    properties.confirm = CONFIRM_ARGUMENT_SCHEMA
-    properties.changeReason = CHANGE_REASON_ARGUMENT_SCHEMA
-    required.push("confirm", "changeReason")
-  }
-
-  return {
-    type: "object",
-    additionalProperties: false,
-    properties,
-    required,
-  } as const
 }
 
-function buildCommand(spec: CommandSpec): IntegrationRuntimeCommandDefinition {
-  const effect = spec.effect ?? "read"
-  const commandKey = `${spec.groupKey}.${spec.key}`
-
-  return {
-    activityPresentation: {
-      kind: effect === "write" ? "write" : getReadActivityKind(spec.groupKey),
-      title: spec.label,
+const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "List repositories",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
     },
-    argumentsSchema: buildArgumentsSchema({
-      effect,
-      extraProperties: spec.extraProperties,
-      required: spec.required,
-    }),
-    commandKey,
-    commandPath: [spec.groupKey, spec.key],
-    description: spec.description,
-    effect,
-    exampleArguments: spec.exampleArguments ?? {
+    required: [],
+    type: "object",
+  },
+  commandKey: "repository.list",
+  commandPath: ["repository", "list"],
+  description: "List GitHub repositories selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    limit: 25,
+  },
+  execute: executeGitHubRepositoryList,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "list repositories"],
+  label: "List repositories",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are returned."],
+}
+
+const repositoryGetCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "Get repository",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "repository.get",
+  commandPath: ["repository", "get"],
+  description:
+    "Read cached metadata for a GitHub repository selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubRepositoryGet,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "get repository"],
+  label: "Get repository",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
+const repositorySearchCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "search",
+    title: "Search repositories",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
+      query: QUERY_ARGUMENT_SCHEMA,
+    },
+    required: ["query"],
+    type: "object",
+  },
+  commandKey: "repository.search",
+  commandPath: ["repository", "search"],
+  description: "Search GitHub repositories selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    limit: 10,
+    query: "web",
+  },
+  execute: executeGitHubRepositorySearch,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "search repositories"],
+  label: "Search repositories",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are returned."],
+}
+
+const branchListRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "List remote branches",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "branch.list_remote",
+  commandPath: ["branch", "list_remote"],
+  description: "List remote GitHub branches for a selected repository.",
+  effect: "read",
+  exampleArguments: {
+    limit: 25,
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchListRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "list branches", "remote branch"],
+  label: "List remote branches",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
+const branchGetRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "read",
+    title: "Get remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.get_remote",
+  commandPath: ["branch", "get_remote"],
+  description: "Read one remote GitHub branch for a selected repository.",
+  effect: "read",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchGetRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "get branch", "remote branch"],
+  label: "Get remote branch",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are available."],
+}
+
+const branchDeleteRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Delete remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.delete_remote",
+  commandPath: ["branch", "delete_remote"],
+  description:
+    "Delete a non-default remote GitHub branch from a selected repository.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubBranchDeleteRemote,
+  inputMode: "json",
+  intentKeywords: ["github branch", "delete remote branch", "remove branch"],
+  label: "Delete remote branch",
+  resultMode: "json",
+  safety: "destructive",
+  usageNotes: [
+    "Only repositories selected for this workspace are available.",
+    "The default branch cannot be deleted.",
+  ],
+}
+
+const repositoryCheckoutCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Check out repository",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "repository.checkout",
+  commandPath: ["repository", "checkout"],
+  description:
+    "Clone or update a selected GitHub repository in the tenant runtime checkout root.",
+  effect: "write",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github repository", "checkout repository", "clone repo"],
+  label: "Check out repository",
+  resultMode: "json",
+  usageNotes: [
+    "Runs inside the tenant runtime so the checked-out files are available to the agent.",
+    "Only repositories selected for this workspace are available.",
+  ],
+}
+
+const remoteFetchCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Fetch remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.fetch",
+  commandPath: ["remote", "fetch"],
+  description: "Fetch and prune origin for a selected checked-out repository.",
+  effect: "write",
+  exampleArguments: {
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git fetch", "fetch origin"],
+  label: "Fetch remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const remotePullCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Pull remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      rebase: {
+        type: "boolean",
+        description: "Use git pull --rebase instead of --ff-only.",
+      },
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.pull",
+  commandPath: ["remote", "pull"],
+  description:
+    "Pull a branch from origin for a selected checked-out repository.",
+  effect: "write",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git pull", "pull origin"],
+  label: "Pull remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const remotePushCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Push remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.push",
+  commandPath: ["remote", "push"],
+  description: "Push the current or named local branch to origin.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git push", "push branch"],
+  label: "Push remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const branchCheckoutRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Check out remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      localBranch: LOCAL_BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.checkout_remote",
+  commandPath: ["branch", "checkout_remote"],
+  description:
+    "Fetch and check out a remote branch into the tenant runtime worktree.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github branch", "checkout remote branch"],
+  label: "Check out remote branch",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const branchPublishCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Publish branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "branch.publish",
+  commandPath: ["branch", "publish"],
+  description: "Publish the current or named local branch to GitHub origin.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github branch", "publish branch", "push branch"],
+  label: "Publish branch",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
+  {
+    activityPresentation: { kind: "read", title: "List pull requests" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        limit: LIMIT_ARGUMENT_SCHEMA,
+        state: {
+          type: "string",
+          enum: ["open", "closed", "all"],
+          description: "Pull request state filter.",
+        },
+      }),
+      required: ["owner", "repo"],
+      type: "object",
+    },
+    commandKey: "pull_request.list",
+    commandPath: ["pull_request", "list"],
+    description: "List pull requests for a selected GitHub repository.",
+    effect: "read",
+    exampleArguments: { limit: 25, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestList,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "list pull requests", "pr"],
+    label: "List pull requests",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "read", title: "Get pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.get",
+    commandPath: ["pull_request", "get"],
+    description: "Read one pull request from a selected GitHub repository.",
+    effect: "read",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestGet,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "get pull request", "pr"],
+    label: "Get pull request",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "read", title: "List pull request files" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        limit: LIMIT_ARGUMENT_SCHEMA,
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.list_files",
+    commandPath: ["pull_request", "list_files"],
+    description: "List files changed by a pull request.",
+    effect: "read",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestListFiles,
+    inputMode: "json",
+    intentKeywords: ["github pull request files", "pr files"],
+    label: "List pull request files",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "read", title: "List pull request comments" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        limit: LIMIT_ARGUMENT_SCHEMA,
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.list_comments",
+    commandPath: ["pull_request", "list_comments"],
+    description: "List issue-thread comments on a pull request.",
+    effect: "read",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestListComments,
+    inputMode: "json",
+    intentKeywords: ["github pull request comments", "pr comments"],
+    label: "List pull request comments",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "read", title: "List pull request reviews" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        limit: LIMIT_ARGUMENT_SCHEMA,
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.list_reviews",
+    commandPath: ["pull_request", "list_reviews"],
+    description: "List reviews on a pull request.",
+    effect: "read",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestListReviews,
+    inputMode: "json",
+    intentKeywords: ["github pull request reviews", "pr reviews"],
+    label: "List pull request reviews",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "read", title: "List pull request checks" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        limit: LIMIT_ARGUMENT_SCHEMA,
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.list_checks",
+    commandPath: ["pull_request", "list_checks"],
+    description: "List check runs for the pull request head commit.",
+    effect: "read",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestListChecks,
+    inputMode: "json",
+    intentKeywords: ["github pull request checks", "pr checks", "ci status"],
+    label: "List pull request checks",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Create pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        base: PR_REF_ARGUMENT_SCHEMA,
+        body: PR_BODY_ARGUMENT_SCHEMA,
+        draft: { type: "boolean" },
+        head: PR_REF_ARGUMENT_SCHEMA,
+        title: PR_TITLE_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "title", "head", "base"],
+      type: "object",
+    },
+    commandKey: "pull_request.create",
+    commandPath: ["pull_request", "create"],
+    description: "Create a pull request in a selected GitHub repository.",
+    effect: "write",
+    exampleArguments: {
+      base: "main",
+      head: "feature/demo",
+      owner: "acme",
+      repo: "web-app",
+      title: "Demo",
+    },
+    execute: executeGitHubPullRequestCreate,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "create pr", "open pr"],
+    label: "Create pull request",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Update pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        base: PR_REF_ARGUMENT_SCHEMA,
+        body: PR_BODY_ARGUMENT_SCHEMA,
+        maintainerCanModify: { type: "boolean" },
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+        state: { type: "string", enum: ["open", "closed"] },
+        title: PR_TITLE_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.update",
+    commandPath: ["pull_request", "update"],
+    description: "Update pull request metadata.",
+    effect: "write",
+    exampleArguments: {
+      number: 7,
+      owner: "acme",
+      repo: "web-app",
+      title: "Demo",
+    },
+    execute: executeGitHubPullRequestUpdate,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "update pr", "edit pr"],
+    label: "Update pull request",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Comment on pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        body: PR_BODY_ARGUMENT_SCHEMA,
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number", "body"],
+      type: "object",
+    },
+    commandKey: "pull_request.comment",
+    commandPath: ["pull_request", "comment"],
+    description: "Add an issue-thread comment to a pull request.",
+    effect: "write",
+    exampleArguments: {
+      body: "Looks good.",
+      number: 7,
       owner: "acme",
       repo: "web-app",
     },
+    execute: executeGitHubPullRequestComment,
     inputMode: "json",
-    intentKeywords: spec.intentKeywords,
-    label: spec.label,
+    intentKeywords: ["github pull request comment", "comment on pr"],
+    label: "Comment on pull request",
     resultMode: "json",
-    safety: spec.safety,
-    usageNotes:
-      effect === "write"
-        ? [
-            "GitHub writes require confirm=true and a non-empty changeReason.",
-            "Commands only operate on repositories selected for this workspace.",
-          ]
-        : [
-            "Commands only operate on repositories selected for this workspace.",
-          ],
-    execute: notImplemented(commandKey),
-  }
-}
-
-function getReadActivityKind(
-  groupKey: string,
-): IntegrationCommandActivityPresentationKind {
-  if (groupKey === "repository" || groupKey === "branch") {
-    return "read"
-  }
-
-  return "search"
-}
-
-function group(input: {
-  commands: IntegrationRuntimeCommandDefinition[]
-  description: string
-  groupKey: string
-  intentKeywords: string[]
-  label: string
-}): IntegrationRuntimeCommandGroupDefinition {
-  return {
-    commands: input.commands,
-    description: input.description,
-    groupKey: input.groupKey,
-    groupPath: [input.groupKey],
-    intentKeywords: input.intentKeywords,
-    label: input.label,
-  }
-}
-
-const repositoryCommands = [
-  buildCommand({
-    description: "List repositories selected for this workspace.",
-    extraProperties: {
-      limit: LIMIT_ARGUMENT_SCHEMA,
+  },
+  {
+    activityPresentation: {
+      kind: "write",
+      title: "Update pull request comment",
     },
-    groupKey: "repository",
-    key: "list",
-    label: "List repositories",
-    required: [],
-  }),
-  buildCommand({
-    description: "Read repository metadata for a selected GitHub repository.",
-    groupKey: "repository",
-    key: "get",
-    label: "Get repository",
-  }),
-  buildCommand({
-    description: "Search selected GitHub repositories by name or metadata.",
-    extraProperties: {
-      query: QUERY_ARGUMENT_SCHEMA,
-      limit: LIMIT_ARGUMENT_SCHEMA,
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        body: PR_BODY_ARGUMENT_SCHEMA,
+        commentId: PR_COMMENT_ID_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "commentId", "body"],
+      type: "object",
     },
-    groupKey: "repository",
-    key: "search",
-    label: "Search repositories",
-    required: ["query"],
-  }),
-  buildCommand({
-    description: "List files and directories in a selected repository tree.",
-    extraProperties: {
-      path: PATH_ARGUMENT_SCHEMA,
-      ref: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "repository",
-    key: "list_tree",
-    label: "List repository tree",
-  }),
-  buildCommand({
-    description: "Read a bounded file from a selected GitHub repository.",
-    extraProperties: {
-      path: PATH_ARGUMENT_SCHEMA,
-      ref: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "repository",
-    key: "get_file",
-    label: "Get repository file",
-    required: ["path"],
-  }),
-  buildCommand({
-    description: "Compare two refs in a selected repository.",
-    extraProperties: {
-      base: BRANCH_ARGUMENT_SCHEMA,
-      head: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "repository",
-    key: "compare",
-    label: "Compare repository refs",
-    required: ["base", "head"],
-  }),
-  buildCommand({
-    description:
-      "Check out a selected repository into the dedicated runtime repository root.",
-    extraProperties: {
-      ref: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "repository",
-    key: "checkout",
-    label: "Checkout repository",
-  }),
-  buildCommand({
-    description:
-      "Fetch updates for a checked-out repository without exposing GitHub credentials.",
-    groupKey: "repository",
-    key: "fetch",
-    label: "Fetch repository",
-  }),
-  buildCommand({
-    description:
-      "Fast-forward pull a checked-out repository branch without exposing GitHub credentials.",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "repository",
-    key: "pull",
-    label: "Pull repository",
-  }),
-  buildCommand({
-    description: "Read local status for a checked-out repository worktree.",
-    groupKey: "repository",
-    key: "status",
-    label: "Read repository status",
-  }),
-  buildCommand({
-    description: "Read a bounded diff for a checked-out repository worktree.",
-    groupKey: "repository",
-    key: "diff",
-    label: "Read repository diff",
-  }),
-  buildCommand({
-    description:
-      "Commit current worktree changes after explicit confirmation and change reason.",
+    commandKey: "pull_request.update_comment",
+    commandPath: ["pull_request", "update_comment"],
+    description: "Update a pull request issue-thread comment.",
     effect: "write",
-    extraProperties: {
-      message: {
-        type: "string",
-        minLength: 1,
-        description: "Commit message.",
-      },
+    exampleArguments: {
+      body: "Updated comment.",
+      commentId: 123,
+      owner: "acme",
+      repo: "web-app",
     },
-    groupKey: "repository",
-    key: "commit",
-    label: "Commit repository changes",
-    required: ["message"],
+    execute: executeGitHubPullRequestUpdateComment,
+    inputMode: "json",
+    intentKeywords: ["github pull request comment", "update pr comment"],
+    label: "Update pull request comment",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: {
+      kind: "write",
+      title: "Delete pull request comment",
+    },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        commentId: PR_COMMENT_ID_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "commentId"],
+      type: "object",
+    },
+    commandKey: "pull_request.delete_comment",
+    commandPath: ["pull_request", "delete_comment"],
+    description: "Delete a pull request issue-thread comment.",
+    effect: "write",
+    exampleArguments: { commentId: 123, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestDeleteComment,
+    inputMode: "json",
+    intentKeywords: ["github pull request comment", "delete pr comment"],
+    label: "Delete pull request comment",
+    resultMode: "json",
     safety: "destructive",
-  }),
-  buildCommand({
-    description:
-      "Clean up a checked-out repository worktree, optionally discarding local changes after confirmation.",
-    effect: "write",
-    extraProperties: {
-      discardChanges: {
-        type: "boolean",
-        description: "Whether to discard uncommitted local worktree changes.",
-      },
-    },
-    groupKey: "repository",
-    key: "cleanup_worktree",
-    label: "Clean up repository worktree",
-    safety: "destructive",
-  }),
-]
-
-const branchCommands = [
-  buildCommand({
-    description: "List branches in a selected repository.",
-    extraProperties: {
-      limit: LIMIT_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "list",
-    label: "List branches",
-  }),
-  buildCommand({
-    description: "Read branch metadata from a selected repository.",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "get",
-    label: "Get branch",
-    required: ["branch"],
-  }),
-  buildCommand({
-    description: "Compare two branches or refs in a selected repository.",
-    extraProperties: {
-      base: BRANCH_ARGUMENT_SCHEMA,
-      head: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "compare",
-    label: "Compare branches",
-    required: ["base", "head"],
-  }),
-  buildCommand({
-    description: "Checkout a branch in the local runtime repository worktree.",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "checkout",
-    label: "Checkout branch",
-    required: ["branch"],
-  }),
-  buildCommand({
-    description: "Fast-forward pull a branch in the local runtime worktree.",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "pull",
-    label: "Pull branch",
-    required: ["branch"],
-  }),
-  buildCommand({
-    description:
-      "Create a branch from an explicit base branch or commit SHA after confirmation.",
-    effect: "write",
-    extraProperties: {
-      base: BRANCH_ARGUMENT_SCHEMA,
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "create",
-    label: "Create branch",
-    required: ["base", "branch"],
-  }),
-  buildCommand({
-    description:
-      "Push an assistant-created or explicitly adopted branch after confirmation.",
-    effect: "write",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "push",
-    label: "Push branch",
-    required: ["branch"],
-    safety: "destructive",
-  }),
-  buildCommand({
-    description:
-      "Delete an assistant-created branch after exact branch confirmation.",
-    effect: "write",
-    extraProperties: {
-      branch: BRANCH_ARGUMENT_SCHEMA,
-    },
-    groupKey: "branch",
-    key: "delete",
-    label: "Delete branch",
-    required: ["branch"],
-    safety: "destructive",
-  }),
-]
-
-const pullRequestCommands = [
-  buildCommand({
-    description: "List pull requests in a selected repository.",
-    extraProperties: {
-      limit: LIMIT_ARGUMENT_SCHEMA,
-      state: {
-        type: "string",
-        enum: ["open", "closed", "all"],
-        description: "Pull request state filter.",
-      },
-    },
-    groupKey: "pull_request",
-    key: "list",
-    label: "List pull requests",
-  }),
-  buildCommand({
-    description: "Search pull requests in selected GitHub repositories.",
-    extraProperties: {
-      query: QUERY_ARGUMENT_SCHEMA,
-      limit: LIMIT_ARGUMENT_SCHEMA,
-    },
-    groupKey: "pull_request",
-    key: "search",
-    label: "Search pull requests",
-    required: ["query"],
-  }),
-  ...[
-    ["get", "Get pull request", "Read pull request metadata."],
-    [
-      "list_files",
-      "List pull request files",
-      "List changed files for a pull request.",
-    ],
-    [
-      "list_reviews",
-      "List pull request reviews",
-      "List reviews for a pull request.",
-    ],
-    [
-      "list_comments",
-      "List pull request comments",
-      "List comments for a pull request.",
-    ],
-    [
-      "list_checks",
-      "List pull request checks",
-      "List checks for a pull request.",
-    ],
-  ].map(([key, label, description]) =>
-    buildCommand({
-      description,
-      extraProperties: {
+  },
+  {
+    activityPresentation: { kind: "write", title: "Close pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
         number: PR_NUMBER_ARGUMENT_SCHEMA,
-      },
-      groupKey: "pull_request",
-      key,
-      label,
-      required: ["number"],
-    }),
-  ),
-  buildCommand({
-    description:
-      "Create a draft pull request from an assistant-created or explicitly adopted branch after confirmation.",
-    effect: "write",
-    extraProperties: {
-      base: BRANCH_ARGUMENT_SCHEMA,
-      body: BODY_ARGUMENT_SCHEMA,
-      draft: {
-        type: "boolean",
-        description: "Whether to create the pull request as a draft.",
-      },
-      head: BRANCH_ARGUMENT_SCHEMA,
-      title: {
-        type: "string",
-        minLength: 1,
-        description: "Pull request title.",
-      },
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
     },
-    groupKey: "pull_request",
-    key: "create",
-    label: "Create pull request",
-    required: ["base", "head", "title"],
-  }),
-  ...[
-    [
-      "update",
-      "Update pull request",
-      "Update pull request title, body, or base branch.",
-    ],
-    ["close", "Close pull request", "Close a pull request."],
-    ["reopen", "Reopen pull request", "Reopen a closed pull request."],
-    [
-      "mark_ready_for_review",
-      "Mark pull request ready",
-      "Mark a draft pull request ready for review.",
-    ],
-    [
-      "convert_to_draft",
-      "Convert pull request to draft",
-      "Convert a pull request back to draft.",
-    ],
-  ].map(([key, label, description]) =>
-    buildCommand({
-      description,
-      effect: "write",
-      extraProperties: {
-        number: PR_NUMBER_ARGUMENT_SCHEMA,
-      },
-      groupKey: "pull_request",
-      key,
-      label,
-      required: ["number"],
-    }),
-  ),
-  ...[
-    ["comment", "Comment on pull request", "Create a pull request comment."],
-    [
-      "update_comment",
-      "Update pull request comment",
-      "Update a pull request comment.",
-    ],
-    [
-      "delete_comment",
-      "Delete pull request comment",
-      "Delete a pull request comment.",
-    ],
-  ].map(([key, label, description]) =>
-    buildCommand({
-      description,
-      effect: "write",
-      extraProperties: {
-        body: BODY_ARGUMENT_SCHEMA,
-        commentId: COMMENT_ID_ARGUMENT_SCHEMA,
-        number: PR_NUMBER_ARGUMENT_SCHEMA,
-      },
-      groupKey: "pull_request",
-      key,
-      label,
-      required:
-        key === "comment" ? ["number", "body"] : ["number", "commentId"],
-    }),
-  ),
-  buildCommand({
-    description: "Request review from users or teams on a pull request.",
+    commandKey: "pull_request.close",
+    commandPath: ["pull_request", "close"],
+    description: "Close a pull request without merging it.",
     effect: "write",
-    extraProperties: {
-      number: PR_NUMBER_ARGUMENT_SCHEMA,
-      reviewers: {
-        type: "array",
-        items: {
-          type: "string",
-          minLength: 1,
-        },
-        description: "GitHub usernames to request as reviewers.",
-      },
-      teamReviewers: {
-        type: "array",
-        items: {
-          type: "string",
-          minLength: 1,
-        },
-        description: "GitHub team slugs to request as reviewers.",
-      },
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestClose,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "close pr"],
+    label: "Close pull request",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Reopen pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
     },
-    groupKey: "pull_request",
-    key: "request_review",
+    commandKey: "pull_request.reopen",
+    commandPath: ["pull_request", "reopen"],
+    description: "Reopen a closed pull request.",
+    effect: "write",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestReopen,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "reopen pr"],
+    label: "Reopen pull request",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Mark ready for review" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.mark_ready_for_review",
+    commandPath: ["pull_request", "mark_ready_for_review"],
+    description: "Mark a draft pull request as ready for review.",
+    effect: "write",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestMarkReadyForReview,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "ready for review", "draft pr"],
+    label: "Mark ready for review",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Convert to draft" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.convert_to_draft",
+    commandPath: ["pull_request", "convert_to_draft"],
+    description: "Convert a pull request to draft.",
+    effect: "write",
+    exampleArguments: { number: 7, owner: "acme", repo: "web-app" },
+    execute: executeGitHubPullRequestConvertToDraft,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "convert to draft", "draft pr"],
+    label: "Convert to draft",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: {
+      kind: "write",
+      title: "Request pull request review",
+    },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+        reviewers: STRING_ARRAY_ARGUMENT_SCHEMA,
+        teamReviewers: STRING_ARRAY_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.request_review",
+    commandPath: ["pull_request", "request_review"],
+    description: "Request user or team reviews on a pull request.",
+    effect: "write",
+    exampleArguments: {
+      number: 7,
+      owner: "acme",
+      repo: "web-app",
+      reviewers: ["octocat"],
+    },
+    execute: executeGitHubPullRequestRequestReview,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "request review", "pr reviewers"],
     label: "Request pull request review",
-    required: ["number"],
-  }),
-  buildCommand({
-    description: "Submit a pull request review.",
-    effect: "write",
-    extraProperties: {
-      body: BODY_ARGUMENT_SCHEMA,
-      event: {
-        type: "string",
-        enum: ["APPROVE", "COMMENT", "REQUEST_CHANGES"],
-        description: "Review event.",
-      },
-      number: PR_NUMBER_ARGUMENT_SCHEMA,
+    resultMode: "json",
+  },
+  {
+    activityPresentation: {
+      kind: "write",
+      title: "Submit pull request review",
     },
-    groupKey: "pull_request",
-    key: "submit_review",
-    label: "Submit pull request review",
-    required: ["body", "event", "number"],
-  }),
-  buildCommand({
-    description:
-      "Merge a pull request after exact head SHA, passing checks, confirmation, and change reason.",
-    effect: "write",
-    extraProperties: {
-      expectedHeadSha: SHA_ARGUMENT_SCHEMA,
-      mergeMethod: {
-        type: "string",
-        enum: ["merge", "squash", "rebase"],
-        description: "GitHub merge method.",
-      },
-      number: PR_NUMBER_ARGUMENT_SCHEMA,
-    },
-    groupKey: "pull_request",
-    key: "merge",
-    label: "Merge pull request",
-    required: ["expectedHeadSha", "mergeMethod", "number"],
-    safety: "destructive",
-  }),
-]
-
-const issueCommands = [
-  ...[
-    ["search", "Search issues", "Search issues in selected repositories."],
-    ["get", "Get issue", "Read issue metadata."],
-    ["list_comments", "List issue comments", "List comments for an issue."],
-  ].map(([key, label, description]) =>
-    buildCommand({
-      description,
-      extraProperties:
-        key === "search"
-          ? {
-              query: QUERY_ARGUMENT_SCHEMA,
-            }
-          : {
-              number: {
-                type: "integer",
-                minimum: 1,
-                description: "GitHub issue number.",
-              },
-            },
-      groupKey: "issue",
-      key,
-      label,
-      required: [key === "search" ? "query" : "number"],
-    }),
-  ),
-  ...[
-    ["create", "Create issue", "Create an issue."],
-    ["comment", "Comment on issue", "Create an issue comment."],
-    ["update", "Update issue", "Update issue title or body."],
-    ["close", "Close issue", "Close an issue."],
-    ["reopen", "Reopen issue", "Reopen an issue."],
-    ["add_labels", "Add issue labels", "Add labels to an issue."],
-    ["remove_labels", "Remove issue labels", "Remove labels from an issue."],
-  ].map(([key, label, description]) =>
-    buildCommand({
-      description,
-      effect: "write",
-      extraProperties: {
-        body: BODY_ARGUMENT_SCHEMA,
-        number: {
-          type: "integer",
-          minimum: 1,
-          description: "GitHub issue number.",
-        },
-        title: {
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        body: PR_BODY_ARGUMENT_SCHEMA,
+        event: {
           type: "string",
-          minLength: 1,
-          description: "Issue title.",
+          enum: ["APPROVE", "REQUEST_CHANGES", "COMMENT"],
         },
-      },
-      groupKey: "issue",
-      key,
-      label,
-    }),
-  ),
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+      }),
+      required: ["owner", "repo", "number", "event"],
+      type: "object",
+    },
+    commandKey: "pull_request.submit_review",
+    commandPath: ["pull_request", "submit_review"],
+    description: "Submit an approve, request-changes, or comment review.",
+    effect: "write",
+    exampleArguments: {
+      event: "APPROVE",
+      number: 7,
+      owner: "acme",
+      repo: "web-app",
+    },
+    execute: executeGitHubPullRequestSubmitReview,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "submit review", "approve pr"],
+    label: "Submit pull request review",
+    resultMode: "json",
+  },
+  {
+    activityPresentation: { kind: "write", title: "Merge pull request" },
+    argumentsSchema: {
+      additionalProperties: false,
+      properties: pullRequestRepositoryProperties({
+        commitMessage: { type: "string", minLength: 1 },
+        commitTitle: { type: "string", minLength: 1 },
+        mergeMethod: { type: "string", enum: ["merge", "squash", "rebase"] },
+        number: PR_NUMBER_ARGUMENT_SCHEMA,
+        sha: { type: "string", minLength: 1 },
+      }),
+      required: ["owner", "repo", "number"],
+      type: "object",
+    },
+    commandKey: "pull_request.merge",
+    commandPath: ["pull_request", "merge"],
+    description:
+      "Merge a pull request and return GitHub's error message if merge is blocked.",
+    effect: "write",
+    exampleArguments: {
+      mergeMethod: "squash",
+      number: 7,
+      owner: "acme",
+      repo: "web-app",
+    },
+    execute: executeGitHubPullRequestMerge,
+    inputMode: "json",
+    intentKeywords: ["github pull request", "merge pr"],
+    label: "Merge pull request",
+    resultMode: "json",
+  },
 ]
 
 export const githubIntegrationDefinition: IntegrationDefinition = {
@@ -711,41 +997,55 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
     "Connect GitHub so the assistant can inspect selected repositories, work on branches, and prepare pull requests.",
   runtimeSurface: {
     commandGroups: [
-      group({
-        commands: repositoryCommands,
-        description:
-          "Repository discovery, file reads, and runtime worktree lifecycle commands.",
+      {
+        commands: [
+          repositoryListCommand,
+          repositoryGetCommand,
+          repositorySearchCommand,
+          repositoryCheckoutCommand,
+        ],
+        description: "Repository discovery and checkout commands.",
         groupKey: "repository",
-        intentKeywords: ["github repository", "repo", "checkout", "commit"],
+        groupPath: ["repository"],
+        intentKeywords: ["github repository", "repo", "checkout"],
         label: "Repository",
-      }),
-      group({
-        commands: branchCommands,
-        description:
-          "Branch listing, checkout, pull, creation, push, and deletion commands.",
+      },
+      {
+        commands: [
+          branchListRemoteCommand,
+          branchGetRemoteCommand,
+          branchCheckoutRemoteCommand,
+          branchPublishCommand,
+          branchDeleteRemoteCommand,
+        ],
+        description: "Remote branch discovery and cleanup commands.",
         groupKey: "branch",
-        intentKeywords: ["github branch", "checkout branch", "push branch"],
+        groupPath: ["branch"],
+        intentKeywords: ["github branch", "remote branch"],
         label: "Branch",
-      }),
-      group({
+      },
+      {
+        commands: [remoteFetchCommand, remotePullCommand, remotePushCommand],
+        description:
+          "Remote fetch, pull, and push commands for checked-out repositories.",
+        groupKey: "remote",
+        groupPath: ["remote"],
+        intentKeywords: ["github remote", "git fetch", "git pull", "git push"],
+        label: "Remote",
+      },
+      {
         commands: pullRequestCommands,
         description:
-          "Pull request discovery, comments, review, update, close, reopen, and merge commands.",
+          "Pull request read, update, review, comment, and merge commands.",
         groupKey: "pull_request",
-        intentKeywords: ["github pull request", "github pr", "merge pr"],
+        groupPath: ["pull_request"],
+        intentKeywords: ["github pull request", "pr", "merge"],
         label: "Pull Request",
-      }),
-      group({
-        commands: issueCommands,
-        description: "Issue discovery and lower-priority issue write commands.",
-        groupKey: "issue",
-        intentKeywords: ["github issue", "issue comment", "issue labels"],
-        label: "Issue",
-      }),
+      },
     ],
     rootCommands: [],
     toolDescription:
-      "Use GitHub commands to inspect selected repositories, work on branches, and prepare pull requests through the managed GitHub App integration.",
+      "GitHub is connected through the managed GitHub App integration. Runtime commands are only advertised after their executors are implemented.",
     toolName: "github",
   },
   settingsPath: (orgSlug) => `/${orgSlug}/settings/agent/integrations/github`,

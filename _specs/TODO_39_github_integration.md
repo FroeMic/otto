@@ -2,7 +2,7 @@
 
 ## Goal
 
-Add GitHub as a workspace-managed integration that lets Otto inspect and safely act on selected repositories, issues, pull requests, checks, workflow runs, and repository metadata through the existing managed integration runtime surface.
+Add GitHub as a workspace-managed integration that lets Otto discover selected repositories, check them out into a tenant runtime worktree, move code between the local filesystem and GitHub, and manage pull requests through the existing managed integration runtime surface.
 
 The integration should use a GitHub App installation model, not personal access tokens and not a generic user OAuth token, because Otto needs repository-scoped permissions, selected-repository installs, server-to-server execution, and installation webhooks without projecting GitHub credentials into tenant runtimes.
 
@@ -12,9 +12,9 @@ The integration should use a GitHub App installation model, not personal access 
 - Add a platform-owned GitHub App configuration and workspace installation lifecycle.
 - Store workspace-bound GitHub App installation metadata and selected repository state in the control plane.
 - Mint short-lived GitHub installation access tokens in the control plane or gateway when executing integration commands.
-- Add read-oriented runtime commands for repositories, issues, pull requests, commits, files, checks, and workflow runs.
+- Add runtime commands for repository discovery/checkout, remote fetch/pull/push, remote branch operations, and pull-request lifecycle.
 - Add a controlled repository checkout and pull-request workflow so Otto can clone selected repositories, edit/test code in a tenant runtime worktree, push a branch, and create a pull request.
-- Add a first safe issue/PR metadata write command set only after the read surface and installation lifecycle are verified.
+- Defer GitHub issues until the repository, remote, branch, and pull-request workflow is complete.
 - Add webhook ingestion for installation and repository events after the install/read surface is stable.
 - Keep all commands exposed through the existing `otto-integrations` runtime metatool pattern.
 
@@ -60,9 +60,10 @@ References:
 - Add user OAuth only as an optional later layer for installer verification, user attribution, or user-scoped actions.
 - Store installation metadata and selected repository cache in control-plane tables tied to `tenant_integrations`.
 - Keep short-lived installation tokens server-side and prefer mint-on-demand with an in-memory or expiry-bounded cache.
-- Use repository allowlists and command capability states before executing any repo-specific command.
-- Treat checkout, branch push, and pull-request creation as a first-class target workflow, but put it behind a dedicated code workspace safety layer instead of exposing raw Git credentials to the model.
-- Keep writes narrow and explicit, with command-specific confirmation inputs and change reasons.
+- Use repository allowlists before executing any repo-specific command.
+- Treat checkout, remote push/pull, remote branch operations, and pull-request lifecycle as the first-class target workflow.
+- Do not add command-level `confirm` or `changeReason` gates in the first implementation. Normal model/tool approval and runtime permissions are the control layer for now.
+- Keep hard safety boundaries in code: selected repositories only, no arbitrary hosts, no token leakage, and no paths outside the managed checkout root.
 
 ## Product Model
 
@@ -259,55 +260,22 @@ When app permissions are expanded, installed organizations may need to approve n
 
 Expose commands through the existing managed integration command registry. Use explicit arguments instead of natural-language path parsing.
 
-### Phase 1 Read Commands
+The GitHub integration command boundary is intentionally narrow:
 
-- `repository.list`
-- `repository.get`
-- `repository.search`
-- `issue.search`
-- `issue.get`
-- `issue.list_comments`
-- `pull_request.search`
-- `pull_request.get`
-- `pull_request.list_files`
-- `pull_request.list_reviews`
-- `check.list_for_ref`
-- `workflow_run.list`
-- `workflow_run.get`
-- `commit.list`
-- `commit.get`
-- `content.get_file`
-
-Read command constraints:
-
-- require `owner` and `repo` for repo-scoped calls
-- reject repos not enabled for the workspace
-- bound page sizes and returned body size
-- summarize or truncate large file diffs and file contents
-- include provider URLs for user inspection
+- GitHub commands cover operations that cross between the local runtime filesystem and GitHub, or operations that require GitHub API state.
+- Local-only work stays local after checkout: file edits, `git status`, `git log`, `git diff`, `git add`, `git commit`, and `git reset`.
+- The command catalog must not advertise placeholders. A command is exposed only when its executor and tests land in the same slice.
+- Do not require command-level `confirm` or `changeReason` gates in the first implementation. Normal model/tool approval and runtime permissions are the control layer for now.
+- Keep hard safety boundaries in code: selected repositories only, no arbitrary hosts, no token leakage, and no paths outside the managed checkout root.
 
 ### Repository Command Group
 
-Repository commands own selected-repository discovery and local runtime worktree lifecycle.
-
-Read commands:
+Repository commands own selected-repository discovery and checkout.
 
 - `repository.list`
 - `repository.get`
 - `repository.search`
-- `repository.list_tree`
-- `repository.get_file`
-- `repository.compare`
-
-Runtime worktree commands:
-
 - `repository.checkout`
-- `repository.fetch`
-- `repository.pull`
-- `repository.status`
-- `repository.diff`
-- `repository.commit`
-- `repository.cleanup_worktree`
 
 Repository command constraints:
 
@@ -315,60 +283,51 @@ Repository command constraints:
 - create worktrees only under the dedicated runtime repository root
 - never expose a raw installation token to the model
 - never store an authenticated remote URL containing a token
-- reject clone/fetch/pull/push operations for repos outside the workspace allowlist
-- run `repository.pull` in fast-forward-only mode by default
-- require a clean or explicitly acknowledged dirty worktree before pull
-- require `confirm: true` and `changeReason` before `repository.commit`
-- keep `repository.cleanup_worktree` local to the runtime worktree and require confirmation when it discards uncommitted changes
+- reject checkout for repos outside the workspace allowlist
+
+### Remote Command Group
+
+Remote commands own network git operations between the checked-out worktree and GitHub.
+
+- `remote.fetch`
+- `remote.pull`
+- `remote.push`
+
+Remote command constraints:
+
+- operate only inside managed GitHub checkout roots
+- use short-lived GitHub App installation credentials without exposing tokens
+- never store an authenticated remote URL containing a token
+- reject repos outside the workspace allowlist
+- run `remote.pull` in fast-forward-only mode by default
 
 ### Branch Command Group
 
-Branch commands own branch lifecycle and movement.
+Branch commands own remote branch discovery and branch lifecycle operations that need GitHub credentials.
 
-Read commands:
-
-- `branch.list`
-- `branch.get`
-- `branch.compare`
-
-Local/runtime commands:
-
-- `branch.checkout`
-- `branch.pull`
-
-Write commands:
-
-- `branch.create`
-- `branch.push`
-- `branch.delete`
+- `branch.list_remote`
+- `branch.get_remote`
+- `branch.checkout_remote`
+- `branch.publish`
+- `branch.delete_remote`
 
 Branch command constraints:
 
-- create branches with a safe prefix such as `assistant/<short-task-slug>` by default
-- require an explicit base branch or base SHA for `branch.create`
-- reject protected branches for push and delete unless a later admin policy explicitly allows them
-- require a clean or explicitly acknowledged dirty worktree before `branch.push`
-- require `confirm: true` and `changeReason` before `branch.push`
-- require `confirm: true`, `changeReason`, and an exact branch name before `branch.delete`
-- only delete assistant-created branches by default; deleting user-created branches requires a separate explicit adoption step
-- audit checkout, pull, create, push, and delete separately
+- `branch.checkout_remote` creates a local tracking branch from `origin/<branch>`
+- `branch.publish` pushes a local branch to GitHub and sets upstream
+- reject protected branch deletion unless a later admin policy explicitly allows it
+- audit checkout, publish, and delete separately
 
 ### Pull Request Command Group
 
 Pull request commands own PR metadata, review activity, and merge lifecycle.
 
-Read commands:
-
 - `pull_request.list`
-- `pull_request.search`
 - `pull_request.get`
 - `pull_request.list_files`
 - `pull_request.list_reviews`
 - `pull_request.list_comments`
 - `pull_request.list_checks`
-
-Write commands:
-
 - `pull_request.create`
 - `pull_request.update`
 - `pull_request.close`
@@ -384,36 +343,16 @@ Write commands:
 
 Pull request command constraints:
 
-- create pull requests only from assistant-created branches or explicitly adopted branches
-- create draft pull requests by default in the first implementation
-- require `confirm: true` and `changeReason` for create, update, close, reopen, draft-state changes, comments, review requests, review submission, and merge
-- require current head SHA for merge to avoid merging a stale branch
-- reject merge when required checks are failing, missing, or stale unless a later workspace policy explicitly allows override
+- create pull requests from branches that are available on GitHub
 - support explicit merge method values only: `merge`, `squash`, or `rebase`
 - return base branch, head branch, diff summary, checks summary, provider URL, and provider object id
+- propagate exact GitHub merge failure messages for checks, reviews, conflicts, permissions, stale branches, and branch protection
 - audit PR create, update, close, reopen, comment, review request, review submission, and merge separately
-- do not expose a `pull_request.delete` command because GitHub pull requests are closed, not deleted; use `pull_request.close` plus `branch.delete` for the source branch cleanup workflow
+- do not expose a `pull_request.delete` command because GitHub pull requests are closed, not deleted; use `pull_request.close` plus `branch.delete_remote` for source branch cleanup
 
-### Issue Command Group
+### Deferred Issue Command Group
 
-Issue commands are useful but lower priority than the repository, branch, and pull-request coding workflow.
-
-Write commands:
-
-- `issue.create`
-- `issue.comment`
-- `issue.update`
-- `issue.close`
-- `issue.reopen`
-- `issue.add_labels`
-- `issue.remove_labels`
-
-Issue command constraints:
-
-- require `confirm: true` and `changeReason` for create, update, close, reopen, and label changes
-- reject archived or disabled repositories
-- return the provider URL and provider object id
-- audit actor, workspace, repository, command, arguments summary, and provider response metadata
+Issue commands are intentionally not part of v1.
 
 ### Later Commands
 
@@ -484,38 +423,36 @@ Webhook route requirements:
 - Add workspace integration UI for connected account, repo list, refresh, disconnect, and repair states.
 - Verify no GitHub credentials are written to tenant runtime config.
 
-### Phase 2: Read Command Surface
+### Phase 2: Runtime Command Auth And Repository Commands
 
-- Add the Phase 1 read commands.
-- Add command schema tests and execution tests with mocked GitHub API responses.
+- Remove all placeholder GitHub commands from the advertised runtime surface.
+- Add GitHub App installation auth resolution to command execution.
+- Add `repository.list`, `repository.get`, `repository.search`, and `repository.checkout`.
+- Add command schema tests and execution tests with mocked GitHub API responses for each command as it lands.
 - Add rate-limit and permission-error normalization.
 - Add runtime smoke tests through `find_integration_commands` and `execute_integration_command`.
-- Ship as read-only first.
+- Verify runtime command discovery only exposes commands with real executors.
 
-### Phase 3: Repository And Branch Workflow
+### Phase 3: Remote And Branch Workflow
 
 - Add a tenant runtime repository root with clear ownership and cleanup policy.
-- Add repository checkout/fetch/pull/status/diff/commit helpers that use short-lived installation tokens without leaking them to commands, remotes, logs, or transcripts.
-- Add branch list/get/compare/create/checkout/pull/push/delete helpers with allowlist, protected-branch, and branch-adoption enforcement.
-- Add runtime smoke tests that clone a selected test repo, edit a file, run a harmless command, create a branch, commit, and push an assistant-created branch.
+- Add `remote.fetch`, `remote.pull`, and `remote.push` helpers that use short-lived installation tokens without leaking them to commands, remotes, logs, or transcripts.
+- Add `branch.list_remote`, `branch.get_remote`, `branch.checkout_remote`, `branch.publish`, and `branch.delete_remote`.
+- Add runtime smoke tests that clone a selected test repo, edit a file, run local git commands, commit locally, and push a branch.
 - Canary against one selected test repo before enabling this for normal workspaces.
 
 ### Phase 4: Pull Request Workflow
 
-- Add pull request list/search/get/files/reviews/comments/checks reads.
+- Add pull request list/get/files/reviews/comments/checks reads.
 - Add pull request create/update/close/reopen/draft-state/comment/update-comment/delete-comment/review-request/submit-review commands.
-- Add guarded pull request merge with exact head SHA, required-check handling, merge method selection, and explicit confirmation.
+- Add pull request merge with required-check handling, merge method selection, and exact GitHub failure propagation.
 - Add capability defaults and workspace toggles for PR write and merge groups.
 - Add audit assertions for every PR write command.
 - Add runtime smoke tests that create a draft PR from an assistant-created branch, update it, mark it ready, close/reopen it, and merge only in a disposable test repo.
 
-### Phase 5: Issue Workflow
+### Phase 5: Deferred Issue Workflow
 
-- Add issue create/comment/update/close/reopen/label commands one group at a time.
-- Require `confirm` and `changeReason`.
-- Add capability defaults and workspace toggles for issue write groups.
-- Add audit assertions for writes.
-- Canary against one selected test repo.
+- Revisit issue commands after the code workflow is usable end to end.
 
 ### Phase 6: Webhook Ingress
 
@@ -536,26 +473,22 @@ Webhook route requirements:
 - A workspace admin can connect GitHub by installing Otto's GitHub App.
 - The setup callback verifies the installation before binding it to the workspace.
 - The integration detail page shows the connected GitHub account and selected repository inventory.
-- Runtime command discovery lists GitHub read commands only when the integration is connected.
-- A read command can fetch repository, issue, PR, checks, workflow run, and file metadata for an enabled repository.
+- Runtime command discovery lists only GitHub commands with real executors.
+- A repository command can list, get, search, and check out enabled repositories.
 - Commands reject repositories outside the selected workspace allowlist.
 - No GitHub secrets or installation tokens appear in tenant runtime env, tenant runtime files, logs, or session transcripts.
-- Otto can check out an enabled repository into a dedicated runtime repo root, make code edits through normal runtime tools, commit changes, push an assistant-created branch without exposing credentials, and create a draft pull request.
-- Repository, branch, and pull-request command groups cover the normal lifecycle: checkout, fetch, pull, status, diff, commit, create branch, checkout branch, push branch, delete branch, create PR, update PR, close/reopen PR, mark draft/ready, comment, request review, and merge.
+- Otto can check out an enabled repository into a dedicated runtime repo root, make code edits and commits through normal runtime tools, push a branch without exposing credentials, and create a pull request.
+- Repository, remote, branch, and pull-request command groups cover the normal lifecycle: checkout, fetch, pull, push, remote branch listing, remote checkout, branch publish/delete, create PR, update PR, close/reopen PR, mark draft/ready, comment, request review, and merge.
 - Permission, suspension, and disconnected-install failures return repairable integration errors.
-- Repository commit, branch push/delete, pull-request creation/update/close/reopen/merge, and issue write commands require explicit confirmation and a change reason.
 - Webhook support verifies signatures and dedupes deliveries before processing events.
 - Relevant unit/integration tests pass for auth binding, install callback verification, repository allowlists, command execution, checkout/pull/push token safety, PR creation/update/close/merge, branch deletion safety, and webhook signature verification.
 
 ## Open Questions
 
-- Should the first shipped slice be read-only, or should `issue.create` and `issue.comment` ship with the initial read surface?
 - Should repository selection mirror GitHub's installation selection only, or should Otto maintain an additional workspace-level repository allowlist?
 - Should code worktrees live under a user-visible workspace folder or under an operator/runtime-only repository root with explicit UI links back to GitHub?
 - Should the first pull-request workflow create draft PRs by default?
-- Should branch push require a fresh user confirmation every time, or can a session-scoped approval cover repeated pushes to the same assistant-created branch?
 - Should pull-request merge be disabled by default until a workspace explicitly enables the merge capability?
-- Should branch delete be allowed only for assistant-created branches, or should explicit branch adoption be enough for user-created branches?
 - Is GitHub App user OAuth required in Phase 1 to verify the setup callback robustly, or can installation verification be safely completed through app APIs plus signed workspace state?
 - Should webhook event storage keep only normalized metadata, or should selected raw payloads be retained for debugging with a short TTL?
 - Which GitHub rate-limit and secondary-rate-limit backoff policy should the integration framework standardize for provider commands?
@@ -565,7 +498,8 @@ Webhook route requirements:
 
 - [x] Integration model selected: GitHub App installation.
 - [x] Risk and phase plan documented.
-- [x] Runtime command catalog registered.
+- [x] Placeholder runtime commands removed from the advertised catalog.
+- [x] Runtime command catalog registered with real executors only.
 - [x] GitHub App installation-token helper added.
 - [ ] GitHub App operator configuration created.
 - [x] Framework auth binding added.
@@ -573,15 +507,15 @@ Webhook route requirements:
 - [x] Install lifecycle implemented.
 - [x] First repository inventory projection implemented.
 - [ ] Repository selection management UI implemented.
-- [ ] Read command surface implemented.
-- [ ] Repository command group implemented.
-- [ ] Branch command group implemented.
-- [ ] Pull-request command group implemented.
-- [ ] Runtime repository checkout implemented.
-- [ ] Runtime repository commit implemented.
-- [ ] Branch push and delete implemented.
-- [ ] Pull-request create/update/close/reopen implemented.
-- [ ] Pull-request merge implemented.
-- [ ] Safe write command surface implemented.
+- [x] Repository command group implemented.
+- [x] Remote command group implemented.
+- [x] Branch command group implemented.
+- [x] Pull-request command group implemented.
+- [x] Runtime repository checkout implemented.
+- [x] Remote push implemented.
+- [x] Remote branch delete implemented.
+- [x] Pull-request create/update/close/reopen implemented.
+- [x] Pull-request merge implemented.
+- [x] Safe write command surface implemented.
 - [ ] Webhook ingress implemented.
 - [ ] Production canary completed.

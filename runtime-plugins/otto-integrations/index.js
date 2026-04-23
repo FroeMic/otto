@@ -1,4 +1,7 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
+import { spawn } from "node:child_process";
+import { access, mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const PLUGIN_CONFIG_SCHEMA = {
@@ -490,6 +493,20 @@ async function executeIntegrationCommand(api, params) {
         ? params.params
         : {};
 
+  if (integrationKey === "github") {
+    const localGitCommandKey = getGitHubLocalGitCommandKey({
+      commandKey,
+      commandPath,
+    });
+
+    if (localGitCommandKey) {
+      return executeGitHubLocalGitCommand(api, {
+        argumentsObject,
+        commandKey: localGitCommandKey,
+      });
+    }
+  }
+
   const response = await requestControlPlane(api, {
     method: "POST",
     path: "/api/internal/runtime/integrations/execute",
@@ -516,6 +533,368 @@ async function executeIntegrationCommand(api, params) {
     ok: true,
     result: response.data,
   };
+}
+
+const GITHUB_LOCAL_GIT_COMMANDS = new Set([
+  "repository.checkout",
+  "remote.fetch",
+  "remote.pull",
+  "remote.push",
+  "branch.checkout_remote",
+  "branch.publish",
+]);
+
+function getGitHubLocalGitCommandKey(input) {
+  const value = input.commandKey || input.commandPath.join(".");
+
+  return GITHUB_LOCAL_GIT_COMMANDS.has(value) ? value : "";
+}
+
+async function executeGitHubLocalGitCommand(api, input) {
+  const owner = readGitHubSafeName(input.argumentsObject.owner, "owner");
+  const repo = readGitHubSafeName(input.argumentsObject.repo, "repo");
+  const branch = readGitHubBranchName(input.argumentsObject.branch, "branch");
+  const localBranch = readGitHubBranchName(
+    input.argumentsObject.localBranch,
+    "localBranch",
+  );
+  const access = await requestGitHubGitAccess(api, { owner, repo });
+  const repoPath = getGitHubRepositoryPath({ owner, repo });
+
+  await mkdir(path.dirname(repoPath), { recursive: true, mode: 0o700 });
+
+  switch (input.commandKey) {
+    case "repository.checkout":
+      return checkoutGitHubRepository({
+        access,
+        branch,
+        repoPath,
+      });
+    case "remote.fetch":
+      return withGitHubCredentials(access, (env) =>
+        runGit(["fetch", "--prune", "origin"], { cwd: repoPath, env }),
+      ).then(() => ({
+        ok: true,
+        command: input.commandKey,
+        path: repoPath,
+        repository: access.fullName,
+      }));
+    case "remote.pull":
+      return pullGitHubRepository({
+        access,
+        branch,
+        rebase: input.argumentsObject.rebase === true,
+        repoPath,
+      });
+    case "remote.push":
+      return pushGitHubRepository({
+        access,
+        branch,
+        repoPath,
+      });
+    case "branch.checkout_remote":
+      return checkoutGitHubRemoteBranch({
+        access,
+        branch,
+        localBranch,
+        repoPath,
+      });
+    case "branch.publish":
+      return pushGitHubRepository({
+        access,
+        branch,
+        repoPath,
+      }).then((result) => ({
+        ...result,
+        command: input.commandKey,
+        published: true,
+      }));
+    default:
+      return {
+        ok: false,
+        error: `Unsupported GitHub local git command: ${input.commandKey}`,
+      };
+  }
+}
+
+async function checkoutGitHubRepository(input) {
+  const branch = input.branch || input.access.defaultBranch || "";
+  const exists = await pathExists(path.join(input.repoPath, ".git"));
+
+  if (!exists) {
+    await withGitHubCredentials(input.access, (env) =>
+      runGit(
+        [
+          "clone",
+          "--origin",
+          "origin",
+          ...(branch ? ["--branch", branch] : []),
+          input.access.cloneUrl,
+          input.repoPath,
+        ],
+        { env },
+      ),
+    );
+  } else {
+    await withGitHubCredentials(input.access, async (env) => {
+      await runGit(["remote", "set-url", "origin", input.access.cloneUrl], {
+        cwd: input.repoPath,
+        env,
+      });
+      await runGit(["fetch", "--prune", "origin"], {
+        cwd: input.repoPath,
+        env,
+      });
+      if (branch) {
+        await runGit(["checkout", branch], { cwd: input.repoPath, env });
+        await runGit(["pull", "--ff-only", "origin", branch], {
+          cwd: input.repoPath,
+          env,
+        });
+      }
+    });
+  }
+
+  const currentBranch = await getCurrentGitBranch(input.repoPath);
+
+  return {
+    ok: true,
+    branch: currentBranch,
+    command: "repository.checkout",
+    path: input.repoPath,
+    repository: input.access.fullName,
+  };
+}
+
+async function checkoutGitHubRemoteBranch(input) {
+  if (!input.branch) {
+    throw new Error("branch.checkout_remote requires a non-empty branch.");
+  }
+
+  const targetBranch = input.localBranch || input.branch;
+
+  await withGitHubCredentials(input.access, async (env) => {
+    await runGit(["fetch", "--prune", "origin"], {
+      cwd: input.repoPath,
+      env,
+    });
+    await runGit(["checkout", "-B", targetBranch, `origin/${input.branch}`], {
+      cwd: input.repoPath,
+      env,
+    });
+  });
+
+  return {
+    ok: true,
+    branch: targetBranch,
+    command: "branch.checkout_remote",
+    path: input.repoPath,
+    remoteBranch: input.branch,
+    repository: input.access.fullName,
+  };
+}
+
+async function pullGitHubRepository(input) {
+  const branch = input.branch || (await getCurrentGitBranch(input.repoPath));
+  const pullArgs = [
+    "pull",
+    input.rebase ? "--rebase" : "--ff-only",
+    "origin",
+    branch,
+  ];
+
+  await withGitHubCredentials(input.access, (env) =>
+    runGit(pullArgs, { cwd: input.repoPath, env }),
+  );
+
+  return {
+    ok: true,
+    branch,
+    command: "remote.pull",
+    path: input.repoPath,
+    repository: input.access.fullName,
+  };
+}
+
+async function pushGitHubRepository(input) {
+  const branch = input.branch || (await getCurrentGitBranch(input.repoPath));
+
+  await withGitHubCredentials(input.access, (env) =>
+    runGit(["push", "-u", "origin", branch], {
+      cwd: input.repoPath,
+      env,
+    }),
+  );
+
+  return {
+    ok: true,
+    branch,
+    command: "remote.push",
+    path: input.repoPath,
+    repository: input.access.fullName,
+  };
+}
+
+async function requestGitHubGitAccess(api, input) {
+  const response = await requestControlPlane(api, {
+    body: input,
+    method: "POST",
+    path: "/api/internal/runtime/integrations/github/git-access",
+  });
+
+  if (!response.ok) {
+    throw new Error(response.error || "GitHub git access failed.");
+  }
+
+  if (
+    !response.data ||
+    typeof response.data.cloneUrl !== "string" ||
+    typeof response.data.defaultBranch !== "string" ||
+    typeof response.data.fullName !== "string" ||
+    typeof response.data.owner !== "string" ||
+    typeof response.data.repo !== "string" ||
+    typeof response.data.token !== "string"
+  ) {
+    throw new Error("GitHub git access response was malformed.");
+  }
+
+  return response.data;
+}
+
+async function withGitHubCredentials(access, callback) {
+  const askpassPath = path.join(
+    "/tmp",
+    `otto-github-askpass-${process.pid}-${Date.now()}-${Math.random()
+      .toString(16)
+      .slice(2)}.sh`,
+  );
+  const script = [
+    "#!/bin/sh",
+    'case "$1" in',
+    '  *Username*) printf "%s" "x-access-token" ;;',
+    `  *Password*) printf "%s" "${escapeShellDoubleQuoted(access.token)}" ;;`,
+    "  *) printf '%s' '' ;;",
+    "esac",
+    "",
+  ].join("\n");
+
+  await writeFile(askpassPath, script, { mode: 0o700 });
+
+  try {
+    return await callback({
+      GIT_ASKPASS: askpassPath,
+      GIT_TERMINAL_PROMPT: "0",
+    });
+  } finally {
+    await rm(askpassPath, { force: true });
+  }
+}
+
+async function getCurrentGitBranch(repoPath) {
+  const result = await runGit(["branch", "--show-current"], { cwd: repoPath });
+  const branch = result.stdout.trim();
+
+  if (!branch) {
+    throw new Error("Could not determine the current git branch.");
+  }
+
+  return branch;
+}
+
+async function runGit(args, options = {}) {
+  return new Promise((resolve, reject) => {
+    const child = spawn("git", args, {
+      cwd: options.cwd,
+      env: {
+        ...process.env,
+        ...(options.env ?? {}),
+      },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    let stdout = "";
+    let stderr = "";
+
+    child.stdout.on("data", (chunk) => {
+      stdout += chunk.toString("utf8");
+    });
+    child.stderr.on("data", (chunk) => {
+      stderr += chunk.toString("utf8");
+    });
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolve({ stdout, stderr });
+        return;
+      }
+
+      reject(
+        new Error(
+          sanitizeGitOutput(stderr || stdout || `git ${args[0]} failed.`),
+        ),
+      );
+    });
+  });
+}
+
+async function pathExists(filePath) {
+  try {
+    await access(filePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function getGitHubRepositoryPath(input) {
+  return path.join(resolveGitHubReposRoot(), input.owner, input.repo);
+}
+
+function resolveGitHubReposRoot() {
+  const configured = normalizeString(process.env.OTTO_GITHUB_REPOS_ROOT);
+
+  return configured || "/home/node/.openclaw/repos";
+}
+
+function readGitHubSafeName(value, label) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    throw new Error(`${label} is required.`);
+  }
+
+  if (!/^[A-Za-z0-9_.-]+$/.test(normalized)) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return normalized;
+}
+
+function readGitHubBranchName(value, label) {
+  const normalized = normalizeString(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  if (
+    normalized.startsWith("/") ||
+    normalized.endsWith("/") ||
+    normalized.includes("..") ||
+    normalized.includes("\\") ||
+    /[\s~^:?*[\\\0]/.test(normalized)
+  ) {
+    throw new Error(`${label} is invalid.`);
+  }
+
+  return normalized;
+}
+
+function escapeShellDoubleQuoted(value) {
+  return value.replace(/["\\$`]/g, "\\$&");
+}
+
+function sanitizeGitOutput(value) {
+  return value.replace(/https:\/\/x-access-token:[^@\s]+@github\.com/g, "https://github.com");
 }
 
 function buildIntegrationDetailPath(integrationKey) {

@@ -71,7 +71,10 @@ function getRequestPathname(request: Request) {
   }
 }
 
-function truncateForLog(value: string, maxLength = AUDIO_PROXY_ERROR_BODY_LOG_LIMIT) {
+function truncateForLog(
+  value: string,
+  maxLength = AUDIO_PROXY_ERROR_BODY_LOG_LIMIT,
+) {
   return value.length > maxLength ? `${value.slice(0, maxLength)}…` : value
 }
 

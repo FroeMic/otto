@@ -114,6 +114,155 @@ describe("GitHub installation state", () => {
     })
   })
 
+  it("lists enabled repositories for a connected installation", async () => {
+    const selectBuilder = {
+      from: vi.fn(() => selectBuilder),
+      innerJoin: vi.fn(() => selectBuilder),
+      limit: vi.fn(() =>
+        Promise.resolve([
+          {
+            archived: false,
+            defaultBranch: "main",
+            disabled: false,
+            fullName: "acme/web-app",
+            githubRepositoryId: "123",
+            isPrivate: true,
+            name: "web-app",
+            ownerLogin: "acme",
+            selectedByInstallation: true,
+          },
+        ]),
+      ),
+      orderBy: vi.fn(() => selectBuilder),
+      where: vi.fn(() => selectBuilder),
+    }
+    getDb.mockReturnValue({
+      select: vi.fn(() => selectBuilder),
+    })
+
+    const { listEnabledGitHubRepositoriesForTenantIntegration } =
+      await import("./github-installations")
+
+    const repositories =
+      await listEnabledGitHubRepositoriesForTenantIntegration({
+        limit: 25,
+        tenantIntegrationId: "tenant-integration-1",
+      })
+
+    assert.deepEqual(repositories, [
+      {
+        archived: false,
+        defaultBranch: "main",
+        disabled: false,
+        fullName: "acme/web-app",
+        githubRepositoryId: "123",
+        isPrivate: true,
+        name: "web-app",
+        ownerLogin: "acme",
+        selectedByInstallation: true,
+      },
+    ])
+  })
+
+  it("returns repository details for an enabled repository", async () => {
+    const selectBuilder = {
+      from: vi.fn(() => selectBuilder),
+      innerJoin: vi.fn(() => selectBuilder),
+      limit: vi.fn(() =>
+        Promise.resolve([
+          {
+            archived: false,
+            defaultBranch: "main",
+            disabled: false,
+            fullName: "acme/web-app",
+            githubRepositoryId: "123",
+            isPrivate: true,
+            name: "web-app",
+            ownerLogin: "acme",
+            selectedByInstallation: true,
+          },
+        ]),
+      ),
+      where: vi.fn(() => selectBuilder),
+    }
+    getDb.mockReturnValue({
+      select: vi.fn(() => selectBuilder),
+    })
+
+    const { getEnabledGitHubRepositoryDetailsForTenantIntegration } =
+      await import("./github-installations")
+
+    const repository =
+      await getEnabledGitHubRepositoryDetailsForTenantIntegration({
+        owner: "Acme",
+        repo: "Web-App",
+        tenantIntegrationId: "tenant-integration-1",
+      })
+
+    assert.deepEqual(repository, {
+      archived: false,
+      defaultBranch: "main",
+      disabled: false,
+      fullName: "acme/web-app",
+      githubRepositoryId: "123",
+      isPrivate: true,
+      name: "web-app",
+      ownerLogin: "acme",
+      selectedByInstallation: true,
+    })
+  })
+
+  it("searches enabled repositories for a connected installation", async () => {
+    const selectBuilder = {
+      from: vi.fn(() => selectBuilder),
+      innerJoin: vi.fn(() => selectBuilder),
+      limit: vi.fn(() =>
+        Promise.resolve([
+          {
+            archived: false,
+            defaultBranch: "main",
+            disabled: false,
+            fullName: "acme/web-app",
+            githubRepositoryId: "123",
+            isPrivate: true,
+            name: "web-app",
+            ownerLogin: "acme",
+            selectedByInstallation: true,
+          },
+        ]),
+      ),
+      orderBy: vi.fn(() => selectBuilder),
+      where: vi.fn(() => selectBuilder),
+    }
+    getDb.mockReturnValue({
+      select: vi.fn(() => selectBuilder),
+    })
+
+    const { searchEnabledGitHubRepositoriesForTenantIntegration } =
+      await import("./github-installations")
+
+    const repositories =
+      await searchEnabledGitHubRepositoriesForTenantIntegration({
+        limit: 10,
+        query: "web",
+        tenantIntegrationId: "tenant-integration-1",
+      })
+
+    assert.deepEqual(repositories, [
+      {
+        archived: false,
+        defaultBranch: "main",
+        disabled: false,
+        fullName: "acme/web-app",
+        githubRepositoryId: "123",
+        isPrivate: true,
+        name: "web-app",
+        ownerLogin: "acme",
+        selectedByInstallation: true,
+      },
+    ])
+  })
+
   it("upserts GitHub repositories for an installation", async () => {
     const values: Record<string, unknown>[] = []
     const insertBuilder = {

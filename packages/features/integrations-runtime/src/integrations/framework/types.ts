@@ -1,4 +1,5 @@
 import type { ConnectedApiCredentialRecord } from "../../db/api-credentials"
+import type { ConnectedGitHubInstallationRecord } from "../../db/github-installations"
 import type { ConnectedOauthAccessRecord } from "../../db/oauth"
 import type { AgentCapability } from "../../lib/agent-capabilities"
 import type { OAuthProviderDefinition } from "../../lib/oauth/providers/types"
@@ -267,6 +268,17 @@ export type IntegrationExecutionContext = {
     | (ConnectedOauthAccessRecord & {
         apiKey: never
         kind: "oauth"
+      })
+    | (ConnectedGitHubInstallationRecord & {
+        accessToken: never
+        apiKey: never
+        getAccessToken: () => Promise<{
+          expiresAt: string
+          permissions: Record<string, string>
+          repositorySelection: string
+          token: string
+        }>
+        kind: "github_app_installation"
       })
     | null
   tenantIntegrationId: string | null
