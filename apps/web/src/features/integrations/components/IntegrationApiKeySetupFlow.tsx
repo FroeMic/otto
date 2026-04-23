@@ -35,6 +35,7 @@ import {
   discoverWorkspaceIntegrationSetup,
 } from "@/features/integrations/api/integrations"
 import type {
+  WorkspaceIntegrationCapabilityRow,
   WorkspaceIntegrationDetail,
   WorkspaceIntegrationSetupDiscoverResponse,
 } from "@/features/integrations/types"
@@ -51,6 +52,24 @@ type SetupResource =
 
 type CapabilityRecommendation =
   WorkspaceIntegrationSetupDiscoverResponse["capabilityRecommendations"][number]
+
+type ClickableUrlPart =
+  | {
+      text: string
+      type: "text"
+    }
+  | {
+      text: string
+      type: "url"
+    }
+
+export interface ApiKeySetupInitialState {
+  defaultResourceKey: string
+  discovery: WorkspaceIntegrationSetupDiscoverResponse | null
+  enabledCapabilityKeys: string[]
+  host: string
+  selectedResourceKeys: string[]
+}
 
 const capabilityGroupLabels: Record<string, string> = {
   annotation: "Annotations",
@@ -77,6 +96,199 @@ function buildCredentialHelpUrl(template: string | undefined, host: string) {
   } catch {
     return null
   }
+}
+
+function getRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+}
+
+function getString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function getStringArray(value: unknown) {
+  return Array.isArray(value)
+    ? value.flatMap((entry) => {
+        const text = getString(entry)
+
+        return text ? [text] : []
+      })
+    : []
+}
+
+function getSetupStateSetupRecord(
+  setupState: WorkspaceIntegrationDetail["setupState"],
+) {
+  return getRecord(getRecord(setupState)?.setup)
+}
+
+function getSetupStateResources(
+  setupState: WorkspaceIntegrationDetail["setupState"],
+): SetupResource[] {
+  const setupRecord = getSetupStateSetupRecord(setupState)
+  const resources = setupRecord?.resources
+
+  if (!Array.isArray(resources)) {
+    return []
+  }
+
+  return resources.flatMap((resource) => {
+    const record = getRecord(resource)
+    const id = getString(record?.id)
+    const key = getString(record?.key)
+    const label = getString(record?.label)
+    const type = getString(record?.type)
+
+    if (!record || !id || !key || !label || !type) {
+      return []
+    }
+
+    return [
+      {
+        id,
+        key,
+        label,
+        metadata: getRecord(record.metadata) ?? undefined,
+        parentKey: getString(record.parentKey) ?? undefined,
+        selectedByDefault:
+          typeof record.selectedByDefault === "boolean"
+            ? record.selectedByDefault
+            : undefined,
+        type,
+      },
+    ]
+  })
+}
+
+function getCapabilityRecommendationStatus(
+  capability: WorkspaceIntegrationCapabilityRow,
+): CapabilityRecommendation["status"] {
+  if (capability.status === "needs_attention") {
+    return "unavailable"
+  }
+
+  return capability.effect === "write" ? "available" : "recommended"
+}
+
+function buildInitialCapabilityRecommendations(
+  capabilities: WorkspaceIntegrationCapabilityRow[],
+): CapabilityRecommendation[] {
+  return capabilities.map((capability) => ({
+    capabilityKey: capability.capabilityKey,
+    defaultEnabled: capability.status === "enabled",
+    label: capability.label,
+    reason: capability.reason,
+    requiredScopes: [],
+    status: getCapabilityRecommendationStatus(capability),
+  }))
+}
+
+export function buildInitialApiKeySetupState(input: {
+  detail: WorkspaceIntegrationDetail
+  setupDefaultHost: string
+}): ApiKeySetupInitialState {
+  const setupStateRecord = getRecord(input.detail.setupState)
+  const setupRecord = getSetupStateSetupRecord(input.detail.setupState)
+  const resources = getSetupStateResources(input.detail.setupState)
+  const selectedResourceKeys = getStringArray(setupRecord?.selectedResourceKeys)
+  const fallbackSelectedResourceKeys =
+    selectedResourceKeys.length > 0
+      ? selectedResourceKeys
+      : resources
+          .filter((resource) => resource.selectedByDefault)
+          .map((resource) => resource.key)
+  const defaultResourceKey =
+    getString(setupRecord?.defaultResourceKey) ??
+    fallbackSelectedResourceKeys[0] ??
+    ""
+  const host = getString(setupStateRecord?.host) ?? input.setupDefaultHost
+
+  return {
+    defaultResourceKey,
+    discovery:
+      resources.length > 0
+        ? {
+            account: null,
+            capabilityRecommendations: buildInitialCapabilityRecommendations(
+              input.detail.capabilities,
+            ),
+            credential: {
+              detectedScopes: [],
+              warnings: [],
+            },
+            ok: true,
+            resources,
+            statePreview: setupStateRecord ?? {},
+            warnings: [],
+          }
+        : null,
+    enabledCapabilityKeys: input.detail.capabilities
+      .filter((capability) => capability.status === "enabled")
+      .map((capability) => capability.capabilityKey),
+    host,
+    selectedResourceKeys: fallbackSelectedResourceKeys,
+  }
+}
+
+export function extractClickableUrls(text: string): ClickableUrlPart[] {
+  const urlPattern = /https:\/\/[A-Za-z0-9.-]+(?::\d+)?/g
+  const parts: ClickableUrlPart[] = []
+  let lastIndex = 0
+
+  for (const match of text.matchAll(urlPattern)) {
+    const index = match.index ?? 0
+    const url = match[0]
+
+    if (index > lastIndex) {
+      parts.push({
+        text: text.slice(lastIndex, index),
+        type: "text",
+      })
+    }
+
+    parts.push({
+      text: url,
+      type: "url",
+    })
+    lastIndex = index + url.length
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      text: text.slice(lastIndex),
+      type: "text",
+    })
+  }
+
+  return parts.length > 0 ? parts : [{ text, type: "text" }]
+}
+
+interface HostHelpTextProps {
+  text: string
+  onHostSelect: (host: string) => void
+}
+
+function HostHelpText({ onHostSelect, text }: HostHelpTextProps) {
+  return (
+    <>
+      {extractClickableUrls(text).map((part, index) =>
+        part.type === "url" ? (
+          <button
+            className="underline underline-offset-3 hover:text-foreground"
+            key={`${part.text}-${index}`}
+            onClick={() => onHostSelect(part.text)}
+            type="button"
+          >
+            {part.text}
+          </button>
+        ) : (
+          <span key={`${part.text}-${index}`}>{part.text}</span>
+        ),
+      )}
+    </>
+  )
 }
 
 function getCapabilityBadgeVariant(status: CapabilityRecommendation["status"]) {
@@ -282,14 +494,24 @@ export function IntegrationApiKeySetupFlow({
   orgSlug,
 }: IntegrationApiKeySetupFlowProps) {
   const setup = detail.setup
-  const [host, setHost] = useState(setup?.host?.defaultValue ?? "")
+  const initialSetupState = buildInitialApiKeySetupState({
+    detail,
+    setupDefaultHost: setup?.host?.defaultValue ?? "",
+  })
+  const [host, setHost] = useState(() => initialSetupState.host)
   const [apiKey, setApiKey] = useState("")
   const [discovery, setDiscovery] =
-    useState<WorkspaceIntegrationSetupDiscoverResponse | null>(null)
-  const [selectedResourceKeys, setSelectedResourceKeys] = useState<string[]>([])
-  const [defaultResourceKey, setDefaultResourceKey] = useState("")
+    useState<WorkspaceIntegrationSetupDiscoverResponse | null>(
+      () => initialSetupState.discovery,
+    )
+  const [selectedResourceKeys, setSelectedResourceKeys] = useState<string[]>(
+    () => initialSetupState.selectedResourceKeys,
+  )
+  const [defaultResourceKey, setDefaultResourceKey] = useState(
+    () => initialSetupState.defaultResourceKey,
+  )
   const [enabledCapabilityKeys, setEnabledCapabilityKeys] = useState<string[]>(
-    [],
+    () => initialSetupState.enabledCapabilityKeys,
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
@@ -310,6 +532,7 @@ export function IntegrationApiKeySetupFlow({
   )
   const canSave =
     Boolean(discovery) &&
+    Boolean(apiKey.trim()) &&
     selectedResourceKeys.length > 0 &&
     Boolean(defaultResourceKey) &&
     enabledCapabilityKeys.length > 0
@@ -318,6 +541,13 @@ export function IntegrationApiKeySetupFlow({
     return null
   }
   const setupDefinition = setup
+
+  function handleHostChange(nextHost: string) {
+    setHost(nextHost)
+    setDiscovery(null)
+    setSelectedResourceKeys([])
+    setDefaultResourceKey("")
+  }
 
   function handleSelectedResourceKeysChange(next: string[]) {
     setSelectedResourceKeys(next)
@@ -429,14 +659,18 @@ export function IntegrationApiKeySetupFlow({
               <SettingsRowLabel>
                 <SettingsRowTitle>{setup.host.label}</SettingsRowTitle>
                 <SettingsRowDescription>
-                  {setup.host.helpText}
+                  {setup.host.helpText ? (
+                    <HostHelpText
+                      text={setup.host.helpText}
+                      onHostSelect={handleHostChange}
+                    />
+                  ) : null}
                 </SettingsRowDescription>
               </SettingsRowLabel>
               <Input
                 className="max-w-sm"
                 onChange={(event) => {
-                  setHost(event.target.value)
-                  setDiscovery(null)
+                  handleHostChange(event.target.value)
                 }}
                 placeholder={setup.host.placeholder}
                 value={host}
