@@ -26,6 +26,16 @@ const GENERIC_INTEGRATION_TOOL_NAMES = new Set([
   "get_integration_details",
 ])
 
+const MANAGED_CONFIG_TOOL_NAMES = new Set([
+  "patch_managed_file",
+  "read_managed_file",
+])
+
+const ENRICHABLE_TOOL_NAMES = new Set([
+  ...GENERIC_INTEGRATION_TOOL_NAMES,
+  ...MANAGED_CONFIG_TOOL_NAMES,
+])
+
 const TOOL_CALL_BLOCK_TYPES = new Set([
   "tool_call",
   "toolCall",
@@ -73,9 +83,9 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
       return event
     }
 
-    const genericToolName = getGenericIntegrationToolName(event)
+    const enrichableToolName = getEnrichableToolName(event)
 
-    if (!genericToolName || !event.sessionKey) {
+    if (!enrichableToolName || !event.sessionKey) {
       return event
     }
 
@@ -104,7 +114,13 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
           ? deriveFindIntegrationCommandsEnrichment(toolCall.args)
           : toolCall.name === "get_integration_details"
             ? deriveGetIntegrationDetailsEnrichment(toolCall.args)
-            : null
+            : toolCall.name === "read_managed_file" ||
+                toolCall.name === "patch_managed_file"
+              ? deriveManagedConfigFileEnrichment({
+                  args: toolCall.args,
+                  toolName: toolCall.name,
+                })
+              : null
 
     if (!enriched) {
       return event
@@ -116,7 +132,8 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
     }
 
     const summary =
-      shouldReplaceSummary(event.summary, genericToolName) && enriched.summary
+      shouldReplaceSummary(event.summary, enrichableToolName) &&
+      enriched.summary
         ? enriched.summary
         : event.summary
 
@@ -127,6 +144,34 @@ export function enrichWorkspaceChatMessageEventsWithTranscripts(input: {
       title: enriched.presentation.title,
     }
   })
+}
+
+function deriveManagedConfigFileEnrichment(input: {
+  args: Record<string, unknown>
+  toolName: string
+}) {
+  const filePath =
+    readString(input.args.filePath) ?? readString(input.args.path)
+
+  if (!filePath) {
+    return null
+  }
+
+  const title =
+    input.toolName === "patch_managed_file"
+      ? `update ${filePath}`
+      : `read ${filePath}`
+
+  return {
+    presentation: {
+      kind: input.toolName === "patch_managed_file" ? "write" : "read",
+      title,
+    } satisfies EnrichedActivityPresentation,
+    summary:
+      input.toolName === "patch_managed_file"
+        ? readString(input.args.summary)
+        : undefined,
+  }
 }
 
 function parseTranscriptToolCalls(jsonl: string) {
@@ -429,14 +474,14 @@ function resolveEventToolCallId(event: WorkspaceChatMessageEvent) {
   )
 }
 
-function getGenericIntegrationToolName(event: WorkspaceChatMessageEvent) {
+function getEnrichableToolName(event: WorkspaceChatMessageEvent) {
   const payload = asRecord(event.payload)
   const candidates = [readString(payload?.name), event.title]
 
   for (const candidate of candidates) {
     const normalized = candidate?.trim().toLowerCase()
 
-    if (normalized && GENERIC_INTEGRATION_TOOL_NAMES.has(normalized)) {
+    if (normalized && ENRICHABLE_TOOL_NAMES.has(normalized)) {
       return normalized
     }
   }

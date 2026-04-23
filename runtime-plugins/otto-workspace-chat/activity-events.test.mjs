@@ -135,6 +135,65 @@ test("normalizeWorkspaceChatRuntimeActivityEvent maps direct runtime callback pa
   assert.deepEqual(
     normalizeWorkspaceChatRuntimeActivityEvent({
       payload: {
+        args: { filePath: "TOOLS.md" },
+        phase: "start",
+        toolName: "read_managed_file",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "tool",
+    }),
+    {
+      payload: {
+        args: { filePath: "TOOLS.md" },
+        phase: "start",
+        toolName: "read_managed_file",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "running",
+      title: 'Read "TOOLS.md"',
+      type: "tool.started",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
+        args: { filePath: "TOOLS.md" },
+        itemId: "tool:call_managed_1",
+        kind: "tool",
+        name: "read_managed_file",
+        phase: "end",
+        status: "completed",
+        title: "read_managed_file",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      stream: "item",
+    }),
+    {
+      itemId: "tool:call_managed_1",
+      payload: {
+        args: { filePath: "TOOLS.md" },
+        itemId: "tool:call_managed_1",
+        kind: "tool",
+        name: "read_managed_file",
+        phase: "end",
+        status: "completed",
+        title: "read_managed_file",
+      },
+      runId: "run_1",
+      sessionKey: "session_1",
+      status: "completed",
+      title: "read TOOLS.md",
+      type: "item.completed",
+    },
+  );
+
+  assert.deepEqual(
+    normalizeWorkspaceChatRuntimeActivityEvent({
+      payload: {
         approvalId: "approval_1",
         message: "Waiting on approval",
         phase: "requested",
