@@ -37,6 +37,7 @@ import { handleWorkOsWebhookRequest } from "../webhooks/workos"
 import { projectWorkspaceChatAudioTranscriptsFromSessionTranscript } from "../workspace/chat-data"
 import { authenticateTenantRuntimeRequest } from "./auth"
 import { registerTenantRuntimeBridgeStatusRoutes } from "./bridge-status"
+import { handleGitHubGitAccessRuntimeRoute } from "./github-git-access"
 import { manageRuntimeIntegrationConnection } from "./integration-management"
 import { handleIntegrationWebhookRequest } from "./integration-webhooks"
 import {
@@ -508,6 +509,11 @@ export function registerRuntimeRoutes(app: Hono) {
       )
     }
   })
+
+  app.post(
+    "/api/internal/runtime/integrations/github/git-access",
+    handleGitHubGitAccessRuntimeRoute,
+  )
 
   app.post(OPENAI_RESPONSES_PROXY_PATH, async (context) => {
     try {
