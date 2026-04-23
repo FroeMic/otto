@@ -55,6 +55,7 @@ function readCommand(input: {
   commandKey: string
   commandPath: string[]
   description: string
+  exampleArguments?: Record<string, unknown>
   execute: IntegrationCommandExecute
   label: string
   properties?: Record<string, Record<string, unknown>>
@@ -75,6 +76,7 @@ function readCommand(input: {
     commandPath: input.commandPath,
     description: input.description,
     effect: "read",
+    exampleArguments: input.exampleArguments,
     execute: input.execute,
     inputMode: "json",
     label: input.label,
@@ -444,9 +446,32 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
                   target.organizationId,
                   "projects/",
                 ),
-              })
+              }).then(shapePostHogProjectList)
             },
             label: "List projects",
+            requiredProviderScopes: ["project:read"],
+          }),
+          readCommand({
+            commandKey: "workspace.list_environments",
+            commandPath: ["workspace", "list_environments"],
+            description:
+              "List PostHog environments for a configured or explicit project.",
+            execute: async ({ arguments: args, context }) => {
+              const target = requireProjectTarget(
+                args,
+                getPostHogAuth(context).state,
+              )
+
+              return requestPostHog(context, {
+                path: buildPostHogProjectPath(
+                  target.projectId,
+                  "environments/",
+                ),
+              }).then((payload) =>
+                shapePostHogEnvironmentList(payload, target.projectId),
+              )
+            },
+            label: "List environments",
             requiredProviderScopes: ["project:read"],
           }),
           readCommand({
@@ -464,7 +489,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
                   target.organizationId,
                   `projects/${encodeURIComponent(target.projectId)}/`,
                 ),
-              })
+              }).then(shapePostHogProject)
             },
             label: "Get project",
             requiredProviderScopes: ["project:read"],
@@ -513,6 +538,12 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
             commandKey: "query.hogql",
             commandPath: ["query", "hogql"],
             description: "Run a bounded read-only HogQL query.",
+            exampleArguments: {
+              maxRows: 14,
+              query:
+                "SELECT toDate(timestamp) AS day, count(DISTINCT person_id) AS daily_active_users FROM events WHERE timestamp >= now() - INTERVAL 7 DAY AND person_id IS NOT NULL GROUP BY day ORDER BY day ASC",
+              targetKey: "production",
+            },
             execute: async ({ arguments: args, context }) => {
               const target = requireEnvironmentTarget(
                 args,
@@ -871,7 +902,7 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
     discovery: {
       actionLabel: "Test and discover workspace",
       defaultResourceSelectionMode: "first",
-      resourceSelectionLabel: "PostHog projects Otto can use",
+      resourceSelectionLabel: "PostHog project environments Otto can use",
       supportsMultipleResources: true,
     },
     host: {
@@ -886,6 +917,118 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
   settingsPath: (orgSlug) =>
     `/${orgSlug}/settings/agent/integrations/posthog/status`,
   showInWorkspaceCatalog: true,
+}
+
+function shapePostHogProjectList(payload: unknown) {
+  const page = normalizePostHogListPayload(payload)
+
+  return {
+    count: page.count,
+    next: page.next,
+    previous: page.previous,
+    results: page.results.map(shapePostHogProject).filter(Boolean),
+  }
+}
+
+function shapePostHogProject(payload: unknown) {
+  if (!isRecord(payload)) {
+    return null
+  }
+
+  return {
+    completedSnippetOnboarding: getBoolean(
+      payload,
+      "completed_snippet_onboarding",
+    ),
+    id: getValueString(payload, "id"),
+    ingestedEvent: getBoolean(payload, "ingested_event"),
+    name: getValueString(payload, "name"),
+    organizationId: getValueString(payload, "organization"),
+    timezone: getValueString(payload, "timezone"),
+    uuid: getValueString(payload, "uuid"),
+  }
+}
+
+function shapePostHogEnvironmentList(payload: unknown, projectId: string) {
+  const page = normalizePostHogListPayload(payload)
+
+  return {
+    count: page.count,
+    next: page.next,
+    previous: page.previous,
+    projectId,
+    results: page.results.map(shapePostHogEnvironment).filter(Boolean),
+  }
+}
+
+function shapePostHogEnvironment(payload: unknown) {
+  if (!isRecord(payload)) {
+    return null
+  }
+
+  return {
+    id: getValueString(payload, "id"),
+    name: getValueString(payload, "name") ?? getValueString(payload, "label"),
+    projectId:
+      getValueString(payload, "project_id") ??
+      getValueString(payload, "project"),
+    uuid: getValueString(payload, "uuid"),
+  }
+}
+
+function normalizePostHogListPayload(payload: unknown) {
+  if (Array.isArray(payload)) {
+    return {
+      count: payload.length,
+      next: null,
+      previous: null,
+      results: payload.filter(isRecord),
+    }
+  }
+
+  if (isRecord(payload)) {
+    const results = Array.isArray(payload.results)
+      ? payload.results.filter(isRecord)
+      : []
+
+    return {
+      count: typeof payload.count === "number" ? payload.count : results.length,
+      next: payload.next ?? null,
+      previous: payload.previous ?? null,
+      results,
+    }
+  }
+
+  return {
+    count: 0,
+    next: null,
+    previous: null,
+    results: [],
+  }
+}
+
+function getValueString(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+
+  if (typeof value === "string" && value.trim()) {
+    return value.trim()
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value)
+  }
+
+  return null
+}
+
+function getBoolean(record: Record<string, unknown>, key: string) {
+  const value = record[key]
+
+  return typeof value === "boolean" ? value : null
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
 }
 
 function requireOrganizationTarget(
@@ -930,7 +1073,9 @@ function requireEnvironmentTarget(
   const target = requireProjectTarget(args, state)
 
   if (!target.environmentId) {
-    throw new Error("PostHog command requires an environmentId.")
+    throw new Error(
+      "PostHog command requires an environmentId. Re-run PostHog discovery in your workspace and select a project environment.",
+    )
   }
 
   return {
