@@ -73,10 +73,18 @@ describe("GitHub integration definition", () => {
       schema.properties.destinationPath,
       {
         description:
-          "Optional destination path relative to the runtime workspace root.",
+          "Optional checkout/worktree destination relative to the runtime workspace root. Use destinationPath, not path. Example: projects/business-autopilot-ai/repositories/otto.",
         minLength: 1,
         type: "string",
       },
+    )
+    assert.ok(
+      checkout.usageNotes?.some((note) =>
+        note.includes("pass destinationPath"),
+      ),
+    )
+    assert.ok(
+      checkout.usageNotes?.some((note) => note.includes("do not use path")),
     )
   })
 })
