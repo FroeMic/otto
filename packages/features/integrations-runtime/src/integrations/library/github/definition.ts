@@ -2,17 +2,12 @@ import type {
   IntegrationDefinition,
   IntegrationRuntimeCommandDefinition,
 } from "../../framework"
-
-import {
-  executeGitHubRepositoryGet,
-  executeGitHubRepositoryList,
-  executeGitHubRepositorySearch,
-} from "./commands/repository"
 import {
   executeGitHubBranchDeleteRemote,
   executeGitHubBranchGetRemote,
   executeGitHubBranchListRemote,
 } from "./commands/branch"
+import { executeGitHubTenantRuntimeGitCommand } from "./commands/local-git"
 import {
   executeGitHubPullRequestClose,
   executeGitHubPullRequestComment,
@@ -33,7 +28,11 @@ import {
   executeGitHubPullRequestUpdate,
   executeGitHubPullRequestUpdateComment,
 } from "./commands/pull-request"
-import { executeGitHubTenantRuntimeGitCommand } from "./commands/local-git"
+import {
+  executeGitHubRepositoryGet,
+  executeGitHubRepositoryList,
+  executeGitHubRepositorySearch,
+} from "./commands/repository"
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
@@ -162,7 +161,8 @@ const repositoryGetCommand: IntegrationRuntimeCommandDefinition = {
   },
   commandKey: "repository.get",
   commandPath: ["repository", "get"],
-  description: "Read cached metadata for a GitHub repository selected for this workspace.",
+  description:
+    "Read cached metadata for a GitHub repository selected for this workspace.",
   effect: "read",
   exampleArguments: {
     owner: "acme",
@@ -287,7 +287,8 @@ const branchDeleteRemoteCommand: IntegrationRuntimeCommandDefinition = {
   },
   commandKey: "branch.delete_remote",
   commandPath: ["branch", "delete_remote"],
-  description: "Delete a non-default remote GitHub branch from a selected repository.",
+  description:
+    "Delete a non-default remote GitHub branch from a selected repository.",
   effect: "write",
   exampleArguments: {
     branch: "feature/demo",
@@ -393,7 +394,8 @@ const remotePullCommand: IntegrationRuntimeCommandDefinition = {
   },
   commandKey: "remote.pull",
   commandPath: ["remote", "pull"],
-  description: "Pull a branch from origin for a selected checked-out repository.",
+  description:
+    "Pull a branch from origin for a selected checked-out repository.",
   effect: "write",
   exampleArguments: {
     branch: "main",
@@ -692,7 +694,12 @@ const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
     commandPath: ["pull_request", "update"],
     description: "Update pull request metadata.",
     effect: "write",
-    exampleArguments: { number: 7, owner: "acme", repo: "web-app", title: "Demo" },
+    exampleArguments: {
+      number: 7,
+      owner: "acme",
+      repo: "web-app",
+      title: "Demo",
+    },
     execute: executeGitHubPullRequestUpdate,
     inputMode: "json",
     intentKeywords: ["github pull request", "update pr", "edit pr"],
@@ -727,7 +734,10 @@ const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
     resultMode: "json",
   },
   {
-    activityPresentation: { kind: "write", title: "Update pull request comment" },
+    activityPresentation: {
+      kind: "write",
+      title: "Update pull request comment",
+    },
     argumentsSchema: {
       additionalProperties: false,
       properties: pullRequestRepositoryProperties({
@@ -754,7 +764,10 @@ const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
     resultMode: "json",
   },
   {
-    activityPresentation: { kind: "write", title: "Delete pull request comment" },
+    activityPresentation: {
+      kind: "write",
+      title: "Delete pull request comment",
+    },
     argumentsSchema: {
       additionalProperties: false,
       properties: pullRequestRepositoryProperties({
@@ -860,7 +873,10 @@ const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
     resultMode: "json",
   },
   {
-    activityPresentation: { kind: "write", title: "Request pull request review" },
+    activityPresentation: {
+      kind: "write",
+      title: "Request pull request review",
+    },
     argumentsSchema: {
       additionalProperties: false,
       properties: pullRequestRepositoryProperties({
@@ -888,7 +904,10 @@ const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
     resultMode: "json",
   },
   {
-    activityPresentation: { kind: "write", title: "Submit pull request review" },
+    activityPresentation: {
+      kind: "write",
+      title: "Submit pull request review",
+    },
     argumentsSchema: {
       additionalProperties: false,
       properties: pullRequestRepositoryProperties({
@@ -1007,7 +1026,8 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: [remoteFetchCommand, remotePullCommand, remotePushCommand],
-        description: "Remote fetch, pull, and push commands for checked-out repositories.",
+        description:
+          "Remote fetch, pull, and push commands for checked-out repositories.",
         groupKey: "remote",
         groupPath: ["remote"],
         intentKeywords: ["github remote", "git fetch", "git pull", "git push"],
@@ -1015,7 +1035,8 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
       },
       {
         commands: pullRequestCommands,
-        description: "Pull request read, update, review, comment, and merge commands.",
+        description:
+          "Pull request read, update, review, comment, and merge commands.",
         groupKey: "pull_request",
         groupPath: ["pull_request"],
         intentKeywords: ["github pull request", "pr", "merge"],

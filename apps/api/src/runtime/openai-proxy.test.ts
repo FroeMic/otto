@@ -96,7 +96,10 @@ describe("OpenAI audio transcription proxy diagnostics", () => {
     assert.equal(prepared.modelRepaired, true)
     assert.equal(prepared.diagnostics.headers.authorization, "[redacted]")
     assert.equal(prepared.diagnostics.multipart?.model, "undefined")
-    assert.equal(prepared.diagnostics.multipart?.resolvedModel, "gpt-4o-mini-transcribe")
+    assert.equal(
+      prepared.diagnostics.multipart?.resolvedModel,
+      "gpt-4o-mini-transcribe",
+    )
     assert.deepEqual(prepared.diagnostics.multipart?.fields, [
       {
         name: "model",
@@ -150,12 +153,14 @@ describe("OpenAI audio transcription proxy diagnostics", () => {
 
     assert.equal(prepared.modelRepaired, true)
     assert.equal(prepared.diagnostics.multipart?.model, "gpt-5.4")
-    assert.equal(prepared.diagnostics.multipart?.resolvedModel, "gpt-4o-mini-transcribe")
+    assert.equal(
+      prepared.diagnostics.multipart?.resolvedModel,
+      "gpt-4o-mini-transcribe",
+    )
 
     const rewritten = prepared.body as FormData
     assert.equal(rewritten.get("model"), "gpt-4o-mini-transcribe")
   })
-
 })
 
 describe("OpenAI runtime proxy stream logging", () => {

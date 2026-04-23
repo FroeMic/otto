@@ -1,9 +1,9 @@
 import { jsonNoStore } from "@otto/auth"
+import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
   getConnectedGitHubInstallationForTenantIntegration,
   getEnabledGitHubRepositoryDetailsForTenantIntegration,
 } from "@otto/feature-integrations-runtime/db/github-installations"
-import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import { tenantIntegrations } from "@otto/feature-integrations-runtime/db/schema"
 import {
   createGitHubAppJwt,
@@ -54,11 +54,15 @@ function normalizeGitHubName(value: unknown, label: string) {
 
 export async function createGitHubGitAccessForTenant(input: {
   body: GitHubGitAccessBody
-  createAccessToken?: (installation: NonNullable<GitHubGitAccessInstallation>) => Promise<{
+  createAccessToken?: (
+    installation: NonNullable<GitHubGitAccessInstallation>,
+  ) => Promise<{
     expiresAt: string
     token: string
   }>
-  getInstallation?: (tenantIntegrationId: string) => Promise<GitHubGitAccessInstallation>
+  getInstallation?: (
+    tenantIntegrationId: string,
+  ) => Promise<GitHubGitAccessInstallation>
   getRepository?: (input: {
     owner: string
     repo: string
@@ -74,7 +78,10 @@ export async function createGitHubGitAccessForTenant(input: {
     : await getConnectedGitHubTenantIntegrationId(input.tenantId)
 
   if (!tenantIntegrationId) {
-    throw new GitHubGitAccessError("GitHub is not connected in this workspace.", 404)
+    throw new GitHubGitAccessError(
+      "GitHub is not connected in this workspace.",
+      404,
+    )
   }
 
   const repository = input.getRepository
@@ -99,7 +106,10 @@ export async function createGitHubGitAccessForTenant(input: {
       })
 
   if (!installation) {
-    throw new GitHubGitAccessError("GitHub needs attention. Reconnect GitHub.", 409)
+    throw new GitHubGitAccessError(
+      "GitHub needs attention. Reconnect GitHub.",
+      409,
+    )
   }
 
   if (installation.suspendedAt) {
@@ -127,9 +137,9 @@ export async function createGitHubGitAccessForTenant(input: {
 export async function handleGitHubGitAccessRuntimeRoute(context: Context) {
   try {
     const { tenantId } = await authenticateTenantRuntimeRequest(context.req.raw)
-    const body = (await context.req.raw.json().catch(() => null)) as
-      | GitHubGitAccessBody
-      | null
+    const body = (await context.req.raw
+      .json()
+      .catch(() => null)) as GitHubGitAccessBody | null
 
     const access = await createGitHubGitAccessForTenant({
       body: body ?? {},
@@ -138,8 +148,7 @@ export async function handleGitHubGitAccessRuntimeRoute(context: Context) {
 
     return jsonNoStore(access)
   } catch (error) {
-    const status =
-      error instanceof GitHubGitAccessError ? error.status : 500
+    const status = error instanceof GitHubGitAccessError ? error.status : 500
     const message =
       error instanceof Error ? error.message : "GitHub git access failed."
 

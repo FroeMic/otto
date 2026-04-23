@@ -94,7 +94,9 @@ function getGitHubRuntimeConfig(env: NodeJS.ProcessEnv = process.env) {
   const privateKeyPem = env.GITHUB_APP_PRIVATE_KEY?.trim()
 
   if (!privateKeyPem) {
-    throw new Error("GITHUB_APP_PRIVATE_KEY is required to run GitHub commands.")
+    throw new Error(
+      "GITHUB_APP_PRIVATE_KEY is required to run GitHub commands.",
+    )
   }
 
   return {

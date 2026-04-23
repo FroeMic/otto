@@ -1,9 +1,9 @@
+import type { IntegrationCommandExecute } from "../../../framework"
 import {
   encodeGitHubPathSegment,
   encodeGitHubRefPath,
   githubJsonRequest,
 } from "../client"
-import type { IntegrationCommandExecute } from "../../../framework"
 
 import {
   readLimit,
@@ -22,8 +22,7 @@ type GitHubBranchResponse = {
 
 function normalizeBranch(value: GitHubBranchResponse) {
   return {
-    commitSha:
-      typeof value.commit?.sha === "string" ? value.commit.sha : null,
+    commitSha: typeof value.commit?.sha === "string" ? value.commit.sha : null,
     name: typeof value.name === "string" ? value.name : "",
     protected: value.protected === true,
   }

@@ -1,9 +1,9 @@
+import type { IntegrationCommandExecute } from "../../../framework"
 import {
   encodeGitHubPathSegment,
-  githubJsonRequest,
   type GitHubCommandAuth,
+  githubJsonRequest,
 } from "../client"
-import type { IntegrationCommandExecute } from "../../../framework"
 
 import {
   readLimit,
@@ -41,7 +41,8 @@ function repoPath(owner: string, repo: string) {
 
 function normalizePullRequest(value: GitHubPullRequestResponse) {
   return {
-    authorLogin: typeof value.user?.login === "string" ? value.user.login : null,
+    authorLogin:
+      typeof value.user?.login === "string" ? value.user.login : null,
     baseRef: typeof value.base?.ref === "string" ? value.base.ref : null,
     body: typeof value.body === "string" ? value.body : null,
     draft: value.draft === true,
@@ -279,7 +280,9 @@ export const executeGitHubPullRequestListChecks: IntegrationCommandExecute =
       typeof pullRequest.head?.sha === "string" ? pullRequest.head.sha : ""
 
     if (!headSha) {
-      throw new Error("pull_request.list_checks could not resolve the PR head SHA.")
+      throw new Error(
+        "pull_request.list_checks could not resolve the PR head SHA.",
+      )
     }
 
     const checks = await githubJsonRequest({
@@ -456,10 +459,9 @@ export const executeGitHubPullRequestClose: IntegrationCommandExecute = async ({
   context,
 }) => updatePullRequestState({ arguments_, context, state: "closed" })
 
-export const executeGitHubPullRequestReopen: IntegrationCommandExecute = async ({
-  arguments: arguments_,
-  context,
-}) => updatePullRequestState({ arguments_, context, state: "open" })
+export const executeGitHubPullRequestReopen: IntegrationCommandExecute =
+  async ({ arguments: arguments_, context }) =>
+    updatePullRequestState({ arguments_, context, state: "open" })
 
 async function updatePullRequestState(input: {
   arguments_: Record<string, unknown>
@@ -527,7 +529,11 @@ async function mutatePullRequestDraftState(input: {
     commandKey: input.commandKey,
     context: input.context,
   })
-  const number = readRequiredInteger(input.arguments_, "number", input.commandKey)
+  const number = readRequiredInteger(
+    input.arguments_,
+    "number",
+    input.commandKey,
+  )
   const repository = await requirePullRequestRepository({
     commandKey: input.commandKey,
     context: input.context,
@@ -646,7 +652,8 @@ export const executeGitHubPullRequestMerge: IntegrationCommandExecute = async ({
   const merge = await githubJsonRequest({
     auth,
     body: {
-      commit_message: readOptionalString(arguments_, "commitMessage") ?? undefined,
+      commit_message:
+        readOptionalString(arguments_, "commitMessage") ?? undefined,
       commit_title: readOptionalString(arguments_, "commitTitle") ?? undefined,
       merge_method: readOptionalString(arguments_, "mergeMethod") ?? undefined,
       sha: readOptionalString(arguments_, "sha") ?? undefined,
@@ -669,6 +676,8 @@ function assertGraphQLResult(result: unknown) {
     Array.isArray(result.errors) &&
     result.errors.length > 0
   ) {
-    throw new Error(`GitHub GraphQL request failed: ${JSON.stringify(result.errors)}`)
+    throw new Error(
+      `GitHub GraphQL request failed: ${JSON.stringify(result.errors)}`,
+    )
   }
 }
