@@ -3,6 +3,52 @@ import { describe, expect, it } from "vitest"
 import { parseTranscript } from "./transcript-parser"
 
 describe("parseTranscript", () => {
+  it("renders OpenClaw toolResult messages as tool result blocks", () => {
+    const transcriptJsonl = [
+      JSON.stringify({
+        id: "msg_tool_result",
+        message: {
+          content: [
+            {
+              text: '{\n  "ok": false,\n  "error": "Reconnect PostHog in your workspace."\n}',
+              type: "text",
+            },
+          ],
+          isError: true,
+          role: "toolResult",
+          timestamp: 1776938762824,
+          toolCallId: "call_123",
+          toolName: "execute_integration_command",
+        },
+        type: "message",
+      }),
+    ].join("\n")
+
+    const messages = parseTranscript(transcriptJsonl)
+
+    expect(messages).toEqual([
+      {
+        blocks: [
+          {
+            content:
+              '{\n  "ok": false,\n  "error": "Reconnect PostHog in your workspace."\n}',
+            isError: true,
+            name: "execute_integration_command",
+            toolCallId: "call_123",
+            type: "tool_result",
+          },
+        ],
+        id: "msg_tool_result",
+        kind: "tool_result",
+        model: null,
+        senderId: null,
+        senderName: null,
+        timestamp: 1776938762824,
+        usage: null,
+      },
+    ])
+  })
+
   it("keeps the raw OpenClaw audio user text visible", () => {
     const transcriptJsonl = [
       JSON.stringify({

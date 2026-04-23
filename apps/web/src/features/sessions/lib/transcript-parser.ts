@@ -252,10 +252,13 @@ type RawTranscriptLine = {
   id?: string
   message?: {
     content?: string | RawContentBlock[]
+    isError?: boolean
     model?: string
     provider?: string
     role?: string
     timestamp?: number
+    toolCallId?: string
+    toolName?: string
     usage?: {
       cost?: { total?: number }
       input?: number
@@ -381,13 +384,15 @@ export function parseTranscript(jsonl: string | null): ParsedMessage[] {
         continue
       }
 
-      if (role === "tool") {
+      if (role === "tool" || role === "toolResult" || role === "tool_result") {
         const toolResultContent = extractTextContent(msg.content)
         messages.push({
           blocks: [
             {
               content: toolResultContent,
-              isError: false,
+              isError: msg.isError === true,
+              name: msg.toolName,
+              toolCallId: msg.toolCallId,
               type: "tool_result",
             },
           ],
