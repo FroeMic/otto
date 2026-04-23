@@ -402,7 +402,6 @@ function ToolExchangeBlock({
     <Collapsible
       className="rounded-md border"
       data-tool-exchange-id={call.id ?? undefined}
-      defaultOpen={true}
     >
       <CollapsibleTrigger className="flex w-full items-center justify-between gap-3 p-2.5 text-sm">
         <div className="flex min-w-0 items-center gap-2">
