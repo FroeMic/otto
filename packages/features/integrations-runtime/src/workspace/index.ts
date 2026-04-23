@@ -282,7 +282,7 @@ export const workspaceIntegrationSetupResourceSchema = z.object({
 })
 
 export const workspaceIntegrationSetupDiscoverSchema = z.object({
-  apiKey: z.string().trim().min(1),
+  apiKey: z.string().trim().min(1).optional(),
   host: z.string().trim().min(1).optional(),
 })
 
@@ -307,7 +307,7 @@ export const workspaceIntegrationSetupDiscoverResponseSchema = z.object({
 })
 
 export const workspaceIntegrationSetupApplySchema = z.object({
-  apiKey: z.string().trim().min(1),
+  apiKey: z.string().trim().min(1).optional(),
   defaultResourceKey: z.string().trim().min(1).optional(),
   enabledCapabilityKeys: z.array(z.string().trim().min(1)).default([]),
   host: z.string().trim().min(1).optional(),

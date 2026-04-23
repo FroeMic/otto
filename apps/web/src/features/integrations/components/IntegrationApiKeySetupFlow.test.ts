@@ -4,6 +4,7 @@ import { describe, it } from "vitest"
 import type { WorkspaceIntegrationDetail } from "../types"
 import {
   buildInitialApiKeySetupState,
+  buildNextApiKeySetupStateFromDiscovery,
   extractClickableUrls,
 } from "./IntegrationApiKeySetupFlow"
 
@@ -62,6 +63,53 @@ describe("IntegrationApiKeySetupFlow helpers", () => {
         },
       ],
     )
+  })
+
+  it("keeps previously enabled capabilities when rediscovery returns defaults", () => {
+    const next = buildNextApiKeySetupStateFromDiscovery({
+      currentDefaultResourceKey: "product_app_production_env_1",
+      currentEnabledCapabilityKeys: ["query.hogql"],
+      currentSelectedResourceKeys: ["product_app_production_env_1"],
+      defaultResourceSelectionMode: "first",
+      discovery: {
+        account: null,
+        capabilityRecommendations: [
+          {
+            capabilityKey: "query.hogql",
+            defaultEnabled: false,
+            label: "Run HogQL",
+            reason: null,
+            requiredScopes: [],
+            status: "available",
+          },
+          {
+            capabilityKey: "feature_flag.create",
+            defaultEnabled: true,
+            label: "Create feature flag",
+            reason: null,
+            requiredScopes: [],
+            status: "available",
+          },
+        ],
+        credential: {
+          detectedScopes: [],
+          warnings: [],
+        },
+        ok: true,
+        resources: [
+          {
+            id: "env-1",
+            key: "product_app_production_env_1",
+            label: "Product App / Production",
+            type: "environment",
+          },
+        ],
+        statePreview: {},
+        warnings: [],
+      },
+    })
+
+    assert.deepEqual(next.enabledCapabilityKeys, ["query.hogql"])
   })
 })
 

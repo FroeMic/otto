@@ -442,6 +442,44 @@ describe("integrations routes", () => {
     })
   })
 
+  it("allows setup discovery to reuse a stored API key", async () => {
+    let observedApiKey: string | undefined | null = null
+    const app = createIntegrationsTestApp({
+      ...createDependencies(),
+      discoverWorkspaceIntegrationSetup: async (input) => {
+        observedApiKey = input.apiKey
+
+        return {
+          account: null,
+          capabilityRecommendations: [],
+          credential: {
+            detectedScopes: [],
+            warnings: [],
+          },
+          ok: true,
+          resources: [],
+          statePreview: {},
+          warnings: [],
+        }
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/posthog/setup/discover",
+      {
+        body: JSON.stringify({
+          host: "https://us.posthog.com",
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(observedApiKey, undefined)
+  })
+
   it("applies workspace integration setup", async () => {
     const app = createIntegrationsTestApp()
     const response = await app.request(
@@ -466,6 +504,39 @@ describe("integrations routes", () => {
       applyQueued: false,
       status: "connected",
     })
+  })
+
+  it("allows setup apply to reuse a stored API key", async () => {
+    let observedApiKey: string | undefined | null = null
+    const app = createIntegrationsTestApp({
+      ...createDependencies(),
+      applyWorkspaceIntegrationSetup: async (input) => {
+        observedApiKey = input.apiKey
+
+        return {
+          applyQueued: false,
+          status: "connected",
+        }
+      },
+    })
+    const response = await app.request(
+      "http://api.local/api/workspace/otto/integrations/posthog/setup/apply",
+      {
+        body: JSON.stringify({
+          defaultResourceKey: "product",
+          enabledCapabilityKeys: ["feature_flag.list"],
+          host: "https://us.posthog.com",
+          selectedResourceKeys: ["product"],
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      },
+    )
+
+    assert.equal(response.status, 200)
+    assert.equal(observedApiKey, undefined)
   })
 
   it("disconnects gandi as a workspace-managed integration", async () => {
