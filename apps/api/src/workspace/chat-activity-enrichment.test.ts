@@ -166,6 +166,61 @@ describe("enrichWorkspaceChatMessageEventsWithTranscripts", () => {
     })
   })
 
+  it("enriches managed file reads from the linked transcript tool call", () => {
+    const events = enrichWorkspaceChatMessageEventsWithTranscripts({
+      events: [
+        {
+          conversationId: "conv_1",
+          createdAt: "2026-04-23T08:16:25.205Z",
+          id: "evt_1",
+          itemId: "tool:call_5Tq0UvPbZB2Fplz68RM5PFvD|fc_0b6afa94",
+          messageId: "msg_1",
+          payload: {
+            kind: "tool",
+            name: "read_managed_file",
+            phase: "end",
+            title: "read_managed_file",
+          },
+          sequence: 1,
+          sessionKey: "agent:main:otto-workspace-chat:channel:workspace:conv_1",
+          status: "completed",
+          title: "read_managed_file",
+          type: "item.completed",
+        },
+      ],
+      transcriptJsonlBySessionKey: new Map([
+        [
+          "agent:main:otto-workspace-chat:channel:workspace:conv_1",
+          [
+            JSON.stringify({
+              message: {
+                content: [
+                  {
+                    arguments: {
+                      filePath: "USER.md",
+                    },
+                    id: "call_5Tq0UvPbZB2Fplz68RM5PFvD",
+                    name: "read_managed_file",
+                    type: "tool_call",
+                  },
+                ],
+                role: "assistant",
+                timestamp: 1,
+              },
+              type: "message",
+            }),
+          ].join("\n"),
+        ],
+      ]),
+    })
+
+    assert.equal(events[0]?.title, "read USER.md")
+    assert.deepEqual(events[0]?.payload.activityPresentation, {
+      kind: "read",
+      title: "read USER.md",
+    })
+  })
+
   it("humanizes get_integration_details events from the linked transcript tool call", () => {
     const events = enrichWorkspaceChatMessageEventsWithTranscripts({
       events: [

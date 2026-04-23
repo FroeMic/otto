@@ -480,6 +480,8 @@ async function getLatestTenantForOrganizationSlug(orgSlug: string) {
   const [tenant] = await db
     .select({
       ipv4: tenantServers.ipv4,
+      sshHost: tenantServers.sshHost,
+      sshPort: tenantServers.sshPort,
       organizationId: organizations.id,
       orgSlug: organizations.slug,
       serverId: tenantServers.id,
@@ -626,6 +628,8 @@ export async function getPlatformOrganizations(_input: {
       createdAt: tenants.createdAt,
       id: tenants.id,
       ipv4: tenantServers.ipv4,
+      sshHost: tenantServers.sshHost,
+      sshPort: tenantServers.sshPort,
       organizationId: tenants.organizationId,
       name: tenants.name,
       provisioningStrategy: tenantServers.provisioningStrategy,
@@ -821,6 +825,8 @@ export async function getPlatformOrganizations(_input: {
         ? {
             id: tenant.id,
             ipv4: tenant.ipv4,
+            sshHost: tenant.sshHost,
+            sshPort: tenant.sshPort,
             latestApplyRun: buildApplyRunSummary(
               latestApplyRunByTenantId.get(tenant.id),
             ),
@@ -1052,6 +1058,8 @@ export async function getPlatformOrganizationDetail(input: {
       createdAt: tenants.createdAt,
       id: tenants.id,
       ipv4: tenantServers.ipv4,
+      sshHost: tenantServers.sshHost,
+      sshPort: tenantServers.sshPort,
       name: tenants.name,
       provisioningStrategy: tenantServers.provisioningStrategy,
       serverStatus: tenantServers.status,
@@ -1250,6 +1258,8 @@ export async function getPlatformOrganizationDetail(input: {
     tenant: {
       id: tenant.id,
       ipv4: tenant.ipv4,
+      sshHost: tenant.sshHost,
+      sshPort: tenant.sshPort,
       latestApplyRun: buildApplyRunSummary(applyRunRows[0]),
       latestDesiredStateVersion,
       latestJob: buildJobSummary(recentJobRows[0], jobEventsByJobId),

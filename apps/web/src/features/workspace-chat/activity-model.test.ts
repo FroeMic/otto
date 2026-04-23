@@ -353,6 +353,21 @@ describe("workspace chat activity model", () => {
         title: "read_managed_file",
         type: "tool.completed",
       },
+      {
+        conversationId: "conv_1",
+        createdAt: "2026-04-12T10:00:02.000Z",
+        id: "evt_3",
+        itemId: "tool:call_3",
+        messageId: "msg_1",
+        payload: {
+          args: { filePath: "TOOLS.md" },
+          toolName: "read_managed_file",
+        },
+        sequence: 3,
+        status: "completed",
+        title: "read_managed_file",
+        type: "tool.completed",
+      },
     ])
 
     assert.deepEqual(
@@ -374,6 +389,13 @@ describe("workspace chat activity model", () => {
             title: "read MEMORY.md",
           },
           title: "read MEMORY.md",
+        },
+        {
+          presentation: {
+            kind: "read",
+            title: "read TOOLS.md",
+          },
+          title: "read TOOLS.md",
         },
       ],
     )

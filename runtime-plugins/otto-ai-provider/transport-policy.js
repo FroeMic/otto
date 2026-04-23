@@ -5,11 +5,16 @@ export function prepareOpenAiProxyExtraParams(ctx, env = process.env) {
   const extraParams = ctx?.extraParams ?? {};
   const { transport } = resolveOpenAiProxyTransport(env);
   const hasExplicitWarmup = typeof extraParams.openaiWsWarmup === "boolean";
+  const shouldDefaultTextVerbosity =
+    isGpt5ModelRef(resolveOpenAiProxyModelId(ctx)) &&
+    !Object.hasOwn(extraParams, "text_verbosity") &&
+    !Object.hasOwn(extraParams, "textVerbosity");
 
   return {
     ...extraParams,
     transport,
     ...(hasExplicitWarmup ? {} : { openaiWsWarmup: true }),
+    ...(shouldDefaultTextVerbosity ? { text_verbosity: "low" } : {}),
   };
 }
 
@@ -88,5 +93,19 @@ export function normalizeIdentityValue(value) {
   return normalized.length > MAX_IDENTITY_LENGTH
     ? normalized.slice(0, MAX_IDENTITY_LENGTH)
     : normalized;
+}
+
+function resolveOpenAiProxyModelId(ctx) {
+  if (typeof ctx?.modelId === "string") {
+    return ctx.modelId;
+  }
+  if (typeof ctx?.model?.id === "string") {
+    return ctx.model.id;
+  }
+  return "";
+}
+
+function isGpt5ModelRef(modelId) {
+  return /^gpt-5(?:[.-]|$)/i.test(modelId.trim());
 }
 import { resolveOpenAiProxyTransport } from "./transport.js";

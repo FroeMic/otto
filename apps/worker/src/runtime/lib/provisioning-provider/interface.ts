@@ -1,6 +1,14 @@
 import type { ProvisioningHost, ProvisioningProviderId } from "./types"
 
 export type CreateProvisioningHostInput = {
+  docker?: {
+    endpointHost: string
+    endpointMode: "container_name" | "published_port"
+    hostImage: string
+    networkName: string
+    sshPort: number
+    sshUsername: string
+  }
   hetzner?: {
     image: string
     labels: Record<string, string>

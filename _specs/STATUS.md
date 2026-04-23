@@ -921,12 +921,12 @@
 
 ## Next recommended step
 
-Execute Phase 2 from `_specs/TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md`:
+Execute the remaining Phase 3 + Phase 4 work from `_specs/TODO_38_provisioning_provider_abstraction_and_docker_tenant_labs.md`:
 
-- add per-tenant SSH endpoint metadata (`sshHost`, `sshPort`) in `tenant_servers` with Drizzle migration + metadata updates
-- keep `ipv4` as a compatibility fallback while wiring connection resolution precedence
-- update worker and API runtime connection resolution to prefer `sshHost/sshPort` over env/default fallback
-- add Docker-ready provider config schema wiring without enabling Docker host lifecycle yet
+- add tenant-lab compose/profile wiring so Docker-mode worker environments can run with Docker access by configuration, not ad-hoc local setup
+- add provider-tagged observability/event normalization updates for provisioning and teardown operations
+- run Docker-enabled integration smoke coverage for provision -> bootstrap/start/verify -> ready -> teardown
+- keep production pinned to Hetzner mode while Docker mode remains limited to designated lab/test environments
 
 ## Open questions
 

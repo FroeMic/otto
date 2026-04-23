@@ -59,6 +59,8 @@ describe("provisioning scheduled task setup", () => {
     process.env.DATABASE_URL =
       "postgres://postgres:postgres@localhost:5432/otto"
     process.env.SSH_AUTH_SOCK = "/tmp/agent.sock"
+    delete process.env.RUNTIME_DEPLOY_PRIVATE_KEY
+    delete process.env.RUNTIME_DEPLOY_PRIVATE_KEY_PATH
     const { __testing } = await import("../env")
     __testing.resetEnvCacheForTests()
     mocks.getDb.mockReturnValue(createReadyTenantDbMock())

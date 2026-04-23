@@ -31,6 +31,8 @@ export async function getTenantRuntimeConnection(
   const [tenantServer] = await db
     .select({
       ipv4: tenantServers.ipv4,
+      sshHost: tenantServers.sshHost,
+      sshPort: tenantServers.sshPort,
       serverStatus: tenantServers.status,
       sshUsername: tenantServers.sshUsername,
       tenantStatus: tenants.status,
@@ -40,8 +42,10 @@ export async function getTenantRuntimeConnection(
     .where(eq(tenantServers.tenantId, tenantId))
     .limit(1)
 
-  if (!tenantServer?.ipv4) {
-    throw new Error(`Tenant server IP is missing for ${context}`)
+  const host = tenantServer?.sshHost ?? tenantServer?.ipv4
+
+  if (!host) {
+    throw new Error(`Tenant server host is missing for ${context}`)
   }
 
   if (
@@ -54,8 +58,8 @@ export async function getTenantRuntimeConnection(
   const env = getApiEnv()
 
   return {
-    host: tenantServer.ipv4,
-    port: env.RUNTIME_SSH_PORT,
+    host,
+    port: tenantServer.sshPort ?? env.RUNTIME_SSH_PORT,
     username: tenantServer.sshUsername ?? env.RUNTIME_SSH_USERNAME,
   }
 }

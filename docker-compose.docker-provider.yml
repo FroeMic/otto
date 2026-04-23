@@ -1,0 +1,6 @@
+services:
+  worker:
+    environment:
+      TENANT_RUNTIME_PROVIDER: docker
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock

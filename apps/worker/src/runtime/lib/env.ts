@@ -136,6 +136,39 @@ const envSchema = z.object({
     .default(1800000),
   NEXT_PUBLIC_WORKOS_REDIRECT_URI: z.string().url().optional(),
   TENANT_RUNTIME_PROVIDER: z.enum(PROVISIONING_PROVIDER_ENV_VALUES).optional(),
+  TENANT_RUNTIME_DOCKER_CONTAINER_PREFIX: z
+    .string()
+    .default("managed-tenant-host"),
+  TENANT_RUNTIME_DOCKER_DOCKER_BIN: z.string().default("docker"),
+  TENANT_RUNTIME_DOCKER_HOST_IMAGE: z
+    .string()
+    .default("ghcr.io/froemic/otto-tenant-host:latest"),
+  TENANT_RUNTIME_DOCKER_NETWORK: z.string().default("otto-tenant-lab"),
+  TENANT_RUNTIME_DOCKER_ENDPOINT_MODE: z
+    .enum(["container_name", "published_port"])
+    .default("published_port"),
+  TENANT_RUNTIME_DOCKER_POLL_INTERVAL_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(1000),
+  TENANT_RUNTIME_DOCKER_SSH_HOST: z.string().default("127.0.0.1"),
+  TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(42999),
+  TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(42000),
+  TENANT_RUNTIME_DOCKER_SSH_USERNAME: z.string().default("root"),
+  TENANT_RUNTIME_DOCKER_STARTUP_TIMEOUT_MS: z.coerce
+    .number()
+    .int()
+    .positive()
+    .default(120000),
 })
 
 export type AppEnv = z.infer<typeof envSchema>
@@ -149,6 +182,7 @@ export function getEnv(): AppEnv {
 
   cachedEnv = envSchema.parse(process.env)
   validateRuntimeSshEnv(cachedEnv)
+  validateDockerProvisioningEnv(cachedEnv)
   return cachedEnv
 }
 
@@ -433,6 +467,17 @@ function resolveRuntimeSshAuthSource(env: AppEnv) {
   }
 
   return "none"
+}
+
+function validateDockerProvisioningEnv(env: AppEnv) {
+  if (
+    env.TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START >
+    env.TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END
+  ) {
+    throw new Error(
+      "TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_START must be less than or equal to TENANT_RUNTIME_DOCKER_SSH_PORT_RANGE_END",
+    )
+  }
 }
 
 function resolveControlPlaneSecret(

@@ -386,10 +386,7 @@ function normalizeItemEvent(event, payload) {
       readString(payload.progressText) ??
       readString(payload.meta) ??
       readString(payload.error),
-    title:
-      readString(payload.title) ??
-      readString(payload.name) ??
-      DEFAULT_ITEM_TITLE,
+    title: formatItemTitle(payload),
     type:
       phase === "start"
         ? "item.started"
@@ -401,6 +398,25 @@ function normalizeItemEvent(event, payload) {
             ? "item.failed"
             : "item.updated",
   });
+}
+
+function formatItemTitle(payload) {
+  const toolName = readString(payload.name) ?? readString(payload.toolName);
+  const filePath = readToolFilePath(payload);
+
+  if (toolName === "read_managed_file" && filePath) {
+    return `read ${filePath}`;
+  }
+
+  if (toolName === "patch_managed_file" && filePath) {
+    return `update ${filePath}`;
+  }
+
+  return (
+    readString(payload.title) ??
+    readString(payload.name) ??
+    DEFAULT_ITEM_TITLE
+  );
 }
 
 function normalizeLifecycleEvent(event, payload) {
@@ -533,7 +549,7 @@ function normalizeToolEvent(event, payload) {
 }
 
 function formatToolTitle(payload) {
-  const toolName = readString(payload.name);
+  const toolName = readString(payload.name) ?? readString(payload.toolName);
   const filePath = readToolFilePath(payload);
 
   if (toolName === "read_managed_file") {
@@ -552,7 +568,9 @@ function readToolFilePath(payload) {
     readString(payload.filePath) ??
     readString(readRecord(payload.params)?.filePath) ??
     readString(readRecord(payload.input)?.filePath) ??
+    readString(readRecord(payload.args)?.filePath) ??
     readString(readRecord(payload.arguments)?.filePath) ??
+    readString(readJsonRecord(readString(payload.args))?.filePath) ??
     readString(readJsonRecord(readString(payload.arguments))?.filePath)
   );
 }

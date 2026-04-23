@@ -118,6 +118,9 @@ function parseProvisionPayload(
   const providerServerId = payload.providerServerId
   const actionId = payload.actionId
   const ipv4 = payload.ipv4
+  const sshHost = payload.sshHost
+  const sshPort = payload.sshPort
+  const sshUsername = payload.sshUsername
 
   if (typeof tenantId !== "string" || tenantId.length === 0) {
     throw new Error("Provisioning job payload is missing tenantId")
@@ -133,6 +136,14 @@ function parseProvisionPayload(
       typeof providerServerId === "string" ? providerServerId : undefined,
     actionId: typeof actionId === "string" ? actionId : undefined,
     ipv4: typeof ipv4 === "string" ? ipv4 : undefined,
+    sshHost: typeof sshHost === "string" ? sshHost : undefined,
+    sshPort:
+      typeof sshPort === "number"
+        ? sshPort
+        : typeof sshPort === "string"
+          ? Number.parseInt(sshPort, 10)
+          : undefined,
+    sshUsername: typeof sshUsername === "string" ? sshUsername : undefined,
   }
 }
 
@@ -156,9 +167,12 @@ async function createServer(
   const createdServer = await createProviderServer(payload.tenantId, provider)
 
   await updateTenantServer(payload.tenantId, {
+    ipv4: createdServer.ipv4 ?? null,
     provider: provider.id,
     providerServerId: createdServer.id,
-    sshUsername: getEnv().RUNTIME_SSH_USERNAME,
+    sshHost: createdServer.host ?? createdServer.ipv4 ?? null,
+    sshPort: createdServer.sshPort ?? getEnv().RUNTIME_SSH_PORT,
+    sshUsername: createdServer.sshUsername ?? getEnv().RUNTIME_SSH_USERNAME,
     status: "creating_server",
   })
 
@@ -183,7 +197,11 @@ async function createServer(
     {
       ...payload,
       actionId: createdServer.actionId,
+      ipv4: createdServer.ipv4,
       providerServerId: createdServer.id,
+      sshHost: createdServer.host ?? createdServer.ipv4,
+      sshPort: createdServer.sshPort ?? getEnv().RUNTIME_SSH_PORT,
+      sshUsername: createdServer.sshUsername ?? getEnv().RUNTIME_SSH_USERNAME,
       step: PROVISIONING_STEPS.waitForHetznerAction,
     },
     new Date(Date.now() + getProvisioningDelayMs(provider)),
@@ -254,6 +272,8 @@ async function fetchServerIp(
   }
 
   const provider = getProvisioningProvider()
+  const defaultSshPort = getEnv().RUNTIME_SSH_PORT
+  const defaultSshUsername = getEnv().RUNTIME_SSH_USERNAME
   logStep(
     jobId,
     payload.tenantId,
@@ -261,31 +281,40 @@ async function fetchServerIp(
     `fetching IP for ${payload.providerServerId}`,
   )
   const server = await provider.getHost(payload.providerServerId)
+  const sshHost = server.host ?? server.ipv4
+  const sshPort = server.sshPort ?? defaultSshPort
+  const sshUsername = server.sshUsername ?? defaultSshUsername
 
-  if (!server.ipv4) {
+  if (!sshHost) {
     throw new Error(
-      `Provisioning provider ${provider.id} did not return an IPv4 address for server ${payload.providerServerId}`,
+      `Provisioning provider ${provider.id} did not return a runtime SSH host for server ${payload.providerServerId}`,
     )
   }
 
   await updateTenantServer(payload.tenantId, {
-    ipv4: server.ipv4,
+    ipv4: server.ipv4 ?? null,
+    sshHost,
+    sshPort,
+    sshUsername,
     status: "fetching_server_ip",
   })
 
   await appendJobEvent(
     jobId,
     "fetching_server_ip",
-    `Fetched ${provider.id} server IP`,
+    `Fetched ${provider.id} runtime endpoint`,
     {
-      ipv4: server.ipv4,
+      ipv4: server.ipv4 ?? null,
       provider: provider.id,
       providerServerId: payload.providerServerId,
+      sshHost,
+      sshPort,
+      sshUsername,
     },
   )
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} got ${provider.id} IP ${server.ipv4}`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} got ${provider.id} SSH endpoint ${sshHost}:${sshPort}`,
   )
   logRequeue(
     jobId,
@@ -298,6 +327,9 @@ async function fetchServerIp(
     {
       ...payload,
       ipv4: server.ipv4,
+      sshHost,
+      sshPort,
+      sshUsername,
       step: PROVISIONING_STEPS.waitForSsh,
     },
     new Date(Date.now() + getProvisioningDelayMs(provider)),
@@ -308,39 +340,37 @@ async function waitForSsh(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.ipv4) {
+  if (!payload.providerServerId) {
     throw new Error(
-      "Provisioning job cannot wait for SSH without an IPv4 address",
+      "Provisioning job cannot wait for SSH without provider server metadata",
     )
   }
 
   const provider = getProvisioningProvider()
+  const connection = resolveRuntimeSshConnection(payload)
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForSsh,
-    `waiting for SSH on ${payload.ipv4}`,
+    `waiting for SSH on ${connection.host}:${connection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_ssh",
   })
 
-  if (provider.id === "hetzner") {
+  if (provider.id !== "fake") {
     await appendJobEvent(
       jobId,
       "waiting_for_ssh",
-      "Waiting for SSH banner on Hetzner server",
+      `Waiting for SSH banner on ${provider.id} server`,
       {
-        ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
+        sshHost: connection.host,
+        sshPort: connection.port,
       },
     )
 
-    await sshClient.waitUntilReachable({
-      host: payload.ipv4,
-      port: getEnv().RUNTIME_SSH_PORT,
-      username: getEnv().RUNTIME_SSH_USERNAME,
-    })
+    await sshClient.waitUntilReachable(connection)
   }
 
   await appendJobEvent(
@@ -348,7 +378,8 @@ async function waitForSsh(
     "waiting_for_ssh",
     `${provider.id} server is reachable over SSH`,
     {
-      ipv4: payload.ipv4,
+      sshHost: connection.host,
+      sshPort: connection.port,
     },
   )
 
@@ -372,39 +403,37 @@ async function waitForHostBootstrap(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.ipv4 || !payload.providerServerId) {
+  if (!payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot wait for host bootstrap without server metadata",
     )
   }
 
   const provider = getProvisioningProvider()
+  const connection = resolveRuntimeSshConnection(payload)
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.waitForHostBootstrap,
-    `waiting for cloud-init and Docker on ${payload.ipv4}`,
+    `waiting for host bootstrap checks on ${connection.host}:${connection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   await updateTenantServer(payload.tenantId, {
     status: "waiting_for_host_bootstrap",
   })
 
-  if (provider.id === "hetzner") {
+  if (provider.id !== "fake") {
     await appendJobEvent(
       jobId,
       "waiting_for_host_bootstrap",
-      "Waiting for cloud-init and Docker on tenant server",
+      `Waiting for ${provider.id} host bootstrap checks`,
       {
-        ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
+        sshHost: connection.host,
+        sshPort: connection.port,
       },
     )
 
-    await runtimeManager.waitForHostBootstrap({
-      host: payload.ipv4,
-      port: getEnv().RUNTIME_SSH_PORT,
-      username: getEnv().RUNTIME_SSH_USERNAME,
-    })
+    await runtimeManager.waitForHostBootstrap(connection, provider.id)
   }
 
   await appendJobEvent(
@@ -412,8 +441,9 @@ async function waitForHostBootstrap(
     "waiting_for_host_bootstrap",
     "Tenant host bootstrap completed",
     {
-      ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
+      sshHost: connection.host,
+      sshPort: connection.port,
     },
   )
 
@@ -437,50 +467,54 @@ async function bootstrapRuntime(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.ipv4 || !payload.providerServerId) {
+  if (!payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot bootstrap runtime without server metadata",
     )
   }
 
   const provider = getProvisioningProvider()
+  const connection = resolveRuntimeSshConnection(payload)
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.bootstrapRuntime,
-    `bootstrapping runtime on ${payload.ipv4}`,
+    `bootstrapping runtime on ${connection.host}:${connection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   await updateTenantServer(payload.tenantId, {
     status: "bootstrapping_runtime",
   })
 
-  if (provider.id === "hetzner") {
+  if (provider.id !== "fake") {
     await appendJobEvent(
       jobId,
       "bootstrapping_runtime",
       "Applying initial runtime files over SSH",
       {
-        ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
+        sshHost: connection.host,
+        sshPort: connection.port,
       },
     )
 
-    const openAiCredential = await ensureTenantOpenAiCredential(
-      payload.tenantId,
-    )
-
-    if (openAiCredential.created) {
-      await appendJobEvent(
-        jobId,
-        "bootstrapping_runtime",
-        "Provisioned the initial tenant-specific OpenAI API key before runtime bootstrap",
-        {
-          apiKeyId: openAiCredential.apiKeyId,
-          projectId: openAiCredential.projectId,
-          serviceAccountId: openAiCredential.serviceAccountId,
-          tenantId: payload.tenantId,
-        },
+    if (provider.id === "hetzner") {
+      const openAiCredential = await ensureTenantOpenAiCredential(
+        payload.tenantId,
       )
+
+      if (openAiCredential.created) {
+        await appendJobEvent(
+          jobId,
+          "bootstrapping_runtime",
+          "Provisioned the initial tenant-specific OpenAI API key before runtime bootstrap",
+          {
+            apiKeyId: openAiCredential.apiKeyId,
+            projectId: openAiCredential.projectId,
+            serviceAccountId: openAiCredential.serviceAccountId,
+            tenantId: payload.tenantId,
+          },
+        )
+      }
     }
 
     const reconciledDesiredState = await reconcileDesiredStateForProvisioning({
@@ -525,34 +559,27 @@ async function bootstrapRuntime(
       versionMap: managedSkillVersionMap,
     })
 
-    await runtimeManager.bootstrapTenantRuntime(
-      {
-        host: payload.ipv4,
-        port: getEnv().RUNTIME_SSH_PORT,
-        username: getEnv().RUNTIME_SSH_USERNAME,
-      },
-      {
-        desiredStateVersion: desiredState.version,
-        gatewayToken,
-        tenantToken,
-        managedBootstrapFiles: managedConfig.files.map((file) => ({
-          contents: file.renderedContent,
-          filename: file.path,
-        })),
-        managedSkillFiles: managedSkillFiles.map((file) => ({
-          contents: file.contents,
-          filename: file.relativePath,
-          projectionMode: file.projectionMode,
-        })),
-        openClawConfig: buildOpenClawTenantConfig({
-          configJson: desiredState.configJson,
-          slackBotToken,
-          tenantId: payload.tenantId,
-        }),
+    await runtimeManager.bootstrapTenantRuntime(connection, {
+      desiredStateVersion: desiredState.version,
+      gatewayToken,
+      tenantToken,
+      managedBootstrapFiles: managedConfig.files.map((file) => ({
+        contents: file.renderedContent,
+        filename: file.path,
+      })),
+      managedSkillFiles: managedSkillFiles.map((file) => ({
+        contents: file.contents,
+        filename: file.relativePath,
+        projectionMode: file.projectionMode,
+      })),
+      openClawConfig: buildOpenClawTenantConfig({
+        configJson: desiredState.configJson,
         slackBotToken,
         tenantId: payload.tenantId,
-      },
-    )
+      }),
+      slackBotToken,
+      tenantId: payload.tenantId,
+    })
   }
 
   await appendJobEvent(
@@ -560,8 +587,9 @@ async function bootstrapRuntime(
     "bootstrapping_runtime",
     `${provider.id} runtime bootstrap completed`,
     {
-      ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
+      sshHost: connection.host,
+      sshPort: connection.port,
     },
   )
 
@@ -648,40 +676,38 @@ async function startRuntime(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.ipv4 || !payload.providerServerId) {
+  if (!payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot start runtime without server metadata",
     )
   }
 
   const provider = getProvisioningProvider()
+  const connection = resolveRuntimeSshConnection(payload)
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.startRuntime,
-    `starting OpenClaw runtime on ${payload.ipv4}`,
+    `starting OpenClaw runtime on ${connection.host}:${connection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   await updateTenantServer(payload.tenantId, {
     status: "starting_runtime",
   })
 
-  if (provider.id === "hetzner") {
+  if (provider.id !== "fake") {
     await appendJobEvent(
       jobId,
       "starting_runtime",
       "Starting OpenClaw container on tenant server",
       {
-        ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
         runtimeImage: getEnv().RUNTIME_OPENCLAW_IMAGE,
+        sshHost: connection.host,
+        sshPort: connection.port,
       },
     )
 
-    await runtimeManager.restartGateway({
-      host: payload.ipv4,
-      port: getEnv().RUNTIME_SSH_PORT,
-      username: getEnv().RUNTIME_SSH_USERNAME,
-    })
+    await runtimeManager.restartGateway(connection)
   }
 
   logRequeue(
@@ -704,39 +730,37 @@ async function verifyRuntime(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.ipv4 || !payload.providerServerId) {
+  if (!payload.providerServerId) {
     throw new Error(
       "Provisioning job cannot verify runtime without server metadata",
     )
   }
 
   const provider = getProvisioningProvider()
+  const connection = resolveRuntimeSshConnection(payload)
   logStep(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.verifyRuntime,
-    `verifying OpenClaw runtime on ${payload.ipv4}`,
+    `verifying OpenClaw runtime on ${connection.host}:${connection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   await updateTenantServer(payload.tenantId, {
     status: "verifying_runtime",
   })
 
-  if (provider.id === "hetzner") {
+  if (provider.id !== "fake") {
     await appendJobEvent(
       jobId,
       "verifying_runtime",
       "Checking OpenClaw gateway health",
       {
-        ipv4: payload.ipv4,
         providerServerId: payload.providerServerId,
+        sshHost: connection.host,
+        sshPort: connection.port,
       },
     )
 
-    await runtimeManager.checkGatewayHealth({
-      host: payload.ipv4,
-      port: getEnv().RUNTIME_SSH_PORT,
-      username: getEnv().RUNTIME_SSH_USERNAME,
-    })
+    await runtimeManager.checkGatewayHealth(connection)
   }
 
   await appendJobEvent(
@@ -744,8 +768,9 @@ async function verifyRuntime(
     "verifying_runtime",
     "OpenClaw runtime health check passed",
     {
-      ipv4: payload.ipv4,
       providerServerId: payload.providerServerId,
+      sshHost: connection.host,
+      sshPort: connection.port,
     },
   )
 
@@ -769,7 +794,9 @@ async function markServerReady(
   jobId: string,
   payload: ProvisionTenantServerPayload,
 ) {
-  if (!payload.providerServerId || !payload.ipv4) {
+  const runtimeConnection = resolveRuntimeSshConnection(payload)
+
+  if (!payload.providerServerId) {
     throw new Error("Provisioning job cannot complete without server metadata")
   }
 
@@ -778,7 +805,7 @@ async function markServerReady(
     jobId,
     payload.tenantId,
     PROVISIONING_STEPS.markServerReady,
-    `marking ready with IP ${payload.ipv4}`,
+    `marking ready with SSH endpoint ${runtimeConnection.host}:${runtimeConnection.port ?? getEnv().RUNTIME_SSH_PORT}`,
   )
   const db = getDb()
 
@@ -798,9 +825,13 @@ async function markServerReady(
     await tx
       .update(tenantServers)
       .set({
-        ipv4: payload.ipv4,
+        ipv4: payload.ipv4 ?? null,
         provider: provider.id,
         providerServerId: payload.providerServerId,
+        sshHost: runtimeConnection.host,
+        sshPort: runtimeConnection.port ?? getEnv().RUNTIME_SSH_PORT,
+        sshUsername:
+          runtimeConnection.username ?? getEnv().RUNTIME_SSH_USERNAME,
         status: "ready",
         updatedAt: new Date(),
       })
@@ -824,8 +855,10 @@ async function markServerReady(
   })
 
   await appendJobEvent(jobId, "ready", "Tenant server marked ready", {
-    ipv4: payload.ipv4,
+    ipv4: payload.ipv4 ?? null,
     providerServerId: payload.providerServerId,
+    sshHost: runtimeConnection.host,
+    sshPort: runtimeConnection.port,
   })
 
   const scheduledTasksRefreshJobId = await enqueueJob({
@@ -846,14 +879,16 @@ async function markServerReady(
   )
 
   await markJobSucceeded(jobId, {
-    ipv4: payload.ipv4,
+    ipv4: payload.ipv4 ?? null,
     provider: provider.id,
     providerServerId: payload.providerServerId,
     scheduledTasksRefreshJobId,
+    sshHost: runtimeConnection.host,
+    sshPort: runtimeConnection.port,
   })
 
   console.info(
-    `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${provider.id} server ${payload.providerServerId} (${payload.ipv4})`,
+    `[worker] job ${jobId} tenant ${payload.tenantId} ready on ${provider.id} server ${payload.providerServerId} (${runtimeConnection.host}:${runtimeConnection.port ?? getEnv().RUNTIME_SSH_PORT})`,
   )
 }
 
@@ -863,6 +898,8 @@ async function updateTenantServer(
     ipv4?: string | null
     provider?: string
     providerServerId?: string
+    sshHost?: string | null
+    sshPort?: number | null
     sshUsername?: string
     status: string
   },
@@ -877,6 +914,8 @@ async function updateTenantServer(
       ...(input.providerServerId
         ? { providerServerId: input.providerServerId }
         : {}),
+      ...(input.sshHost !== undefined ? { sshHost: input.sshHost } : {}),
+      ...(input.sshPort !== undefined ? { sshPort: input.sshPort } : {}),
       ...(input.sshUsername ? { sshUsername: input.sshUsername } : {}),
       status: input.status,
       updatedAt: new Date(),
@@ -936,6 +975,7 @@ async function reconcileDesiredStateForProvisioning(input: {
 }
 
 export const __testing = {
+  resolveRuntimeSshConnection,
   reconcileDesiredStateForProvisioning,
 }
 
@@ -1012,4 +1052,21 @@ function getProvisioningDelayMs(provider: ProvisioningProvider) {
 
 function getProvisioningProvider() {
   return resolveProvisioningProvider()
+}
+
+function resolveRuntimeSshConnection(payload: ProvisionTenantServerPayload) {
+  const env = getEnv()
+  const host = payload.sshHost ?? payload.ipv4
+
+  if (!host) {
+    throw new Error(
+      "Provisioning job cannot resolve tenant runtime SSH host from payload",
+    )
+  }
+
+  return {
+    host,
+    port: payload.sshPort ?? env.RUNTIME_SSH_PORT,
+    username: payload.sshUsername ?? env.RUNTIME_SSH_USERNAME,
+  } as const
 }
