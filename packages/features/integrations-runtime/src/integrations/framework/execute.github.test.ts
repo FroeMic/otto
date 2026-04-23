@@ -4,7 +4,7 @@ import { describe, it } from "vitest"
 import { executeRegisteredIntegrationCommand } from "./execute"
 
 describe("GitHub App integration execution", () => {
-  it("requires a connected tenant integration before running GitHub commands", async () => {
+  it("rejects GitHub commands that are not implemented", async () => {
     await assert.rejects(
       () =>
         executeRegisteredIntegrationCommand({
@@ -17,7 +17,7 @@ describe("GitHub App integration execution", () => {
           integrationKey: "github",
           tenantIntegrationId: null,
         }),
-      /GitHub is not connected in this workspace/,
+      /github does not support the repository\.list command/,
     )
   })
 })
