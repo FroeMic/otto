@@ -21,7 +21,7 @@ describe("GitHub integration definition", () => {
 
     assert.deepEqual(
       commands.map((command) => command.commandKey),
-      ["repository.list", "repository.get"],
+      ["repository.list", "repository.get", "repository.search"],
     )
     assert.ok(commands.every((command) => typeof command.execute === "function"))
   })

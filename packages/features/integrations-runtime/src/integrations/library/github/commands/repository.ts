@@ -1,6 +1,7 @@
 import {
   getEnabledGitHubRepositoryDetailsForTenantIntegration,
   listEnabledGitHubRepositoriesForTenantIntegration,
+  searchEnabledGitHubRepositoriesForTenantIntegration,
 } from "../../../../db/github-installations"
 import type { IntegrationCommandExecute } from "../../../framework"
 
@@ -27,12 +28,13 @@ function requireGitHubTenantIntegrationId(
 
 function readRequiredString(
   arguments_: Record<string, unknown>,
-  key: "owner" | "repo",
+  key: "owner" | "query" | "repo",
+  commandKey = "repository.get",
 ) {
   const value = arguments_[key]
 
   if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`repository.get requires a non-empty ${key}.`)
+    throw new Error(`${commandKey} requires a non-empty ${key}.`)
   }
 
   return value.trim()
@@ -72,5 +74,22 @@ export const executeGitHubRepositoryGet: IntegrationCommandExecute = async ({
 
   return {
     repository,
+  }
+}
+
+export const executeGitHubRepositorySearch: IntegrationCommandExecute = async ({
+  arguments: arguments_,
+  context,
+}) => {
+  const repositories =
+    await searchEnabledGitHubRepositoriesForTenantIntegration({
+      limit: readLimit(arguments_),
+      query: readRequiredString(arguments_, "query", "repository.search"),
+      tenantIntegrationId: requireGitHubTenantIntegrationId(context),
+    })
+
+  return {
+    repositories,
+    total: repositories.length,
   }
 }

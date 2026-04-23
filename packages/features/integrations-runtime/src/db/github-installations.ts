@@ -274,6 +274,54 @@ export async function listEnabledGitHubRepositoriesForTenantIntegration(input: {
     .limit(limit)
 }
 
+export async function searchEnabledGitHubRepositoriesForTenantIntegration(input: {
+  limit?: number
+  query: string
+  tenantIntegrationId: string
+}): Promise<GitHubRepositoryListRecord[]> {
+  const db = getDb()
+  const limit = Math.max(1, Math.min(input.limit ?? 50, 100))
+  const query = `%${input.query.trim().toLowerCase()}%`
+
+  return db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      defaultBranch: integrationGithubRepositories.defaultBranch,
+      disabled: integrationGithubRepositories.disabled,
+      fullName: integrationGithubRepositories.fullName,
+      githubRepositoryId: integrationGithubRepositories.githubRepositoryId,
+      isPrivate: integrationGithubRepositories.isPrivate,
+      name: integrationGithubRepositories.name,
+      ownerLogin: integrationGithubRepositories.ownerLogin,
+      selectedByInstallation:
+        integrationGithubRepositories.selectedByInstallation,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.tenantIntegrationId,
+          input.tenantIntegrationId,
+        ),
+        eq(integrationGithubRepositories.enabledForWorkspace, true),
+        sql`(
+          lower(${integrationGithubRepositories.fullName}) like ${query}
+          or lower(${integrationGithubRepositories.ownerLogin}) like ${query}
+          or lower(${integrationGithubRepositories.name}) like ${query}
+        )`,
+      ),
+    )
+    .orderBy(asc(integrationGithubRepositories.fullName))
+    .limit(limit)
+}
+
 export async function upsertGitHubRepositoriesForInstallation(input: {
   githubInstallationId: string
   repositories: GitHubRepositoryUpsertInput[]

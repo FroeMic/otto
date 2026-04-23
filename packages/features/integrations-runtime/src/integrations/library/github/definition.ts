@@ -6,6 +6,7 @@ import type {
 import {
   executeGitHubRepositoryGet,
   executeGitHubRepositoryList,
+  executeGitHubRepositorySearch,
 } from "./commands/repository"
 
 const LIMIT_ARGUMENT_SCHEMA = {
@@ -25,6 +26,12 @@ const REPO_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "GitHub repository name.",
+} as const
+
+const QUERY_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Repository search query.",
 } as const
 
 const repositoryListCommand: IntegrationRuntimeCommandDefinition = {
@@ -85,6 +92,36 @@ const repositoryGetCommand: IntegrationRuntimeCommandDefinition = {
   usageNotes: ["Only repositories selected for this workspace are available."],
 }
 
+const repositorySearchCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "search",
+    title: "Search repositories",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      limit: LIMIT_ARGUMENT_SCHEMA,
+      query: QUERY_ARGUMENT_SCHEMA,
+    },
+    required: ["query"],
+    type: "object",
+  },
+  commandKey: "repository.search",
+  commandPath: ["repository", "search"],
+  description: "Search GitHub repositories selected for this workspace.",
+  effect: "read",
+  exampleArguments: {
+    limit: 10,
+    query: "web",
+  },
+  execute: executeGitHubRepositorySearch,
+  inputMode: "json",
+  intentKeywords: ["github repository", "repo", "search repositories"],
+  label: "Search repositories",
+  resultMode: "json",
+  usageNotes: ["Only repositories selected for this workspace are returned."],
+}
+
 export const githubIntegrationDefinition: IntegrationDefinition = {
   agentCapabilities: [],
   auth: {
@@ -113,7 +150,11 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
   runtimeSurface: {
     commandGroups: [
       {
-        commands: [repositoryListCommand, repositoryGetCommand],
+        commands: [
+          repositoryListCommand,
+          repositoryGetCommand,
+          repositorySearchCommand,
+        ],
         description: "Repository discovery and checkout commands.",
         groupKey: "repository",
         groupPath: ["repository"],
