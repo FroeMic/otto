@@ -155,6 +155,13 @@
   - the integration should support multiple PostHog project/environment targets per workspace
   - runtime commands should prioritize direct product analytics workflows first, with bounded read-only HogQL as an escape hatch
   - selected write commands may be included in the first implementation, but must require explicit confirmation and change reasons
+- The next developer-workflow integration slice is now tracked in `_specs/TODO_39_github_integration.md`:
+  - `GitHub` should land as a workspace-managed hybrid integration using a platform-owned GitHub App installation model, not personal access tokens or generic OAuth as the primary auth path
+  - GitHub App installation metadata and selected repository cache should live in control-plane state tied to `tenant_integrations`
+  - installation access tokens should be minted server-side on demand and never projected into tenant runtime config, files, logs, or env
+  - the implementation should favor install lifecycle and read-only repository/issue/PR/check/workflow commands first, then prioritize complete repository, branch, and pull-request command groups for checkout/fetch/pull/status/diff/commit, branch create/checkout/pull/push/delete, and PR create/update/close/reopen/comment/review/merge before lower-value issue writes
+  - checkout and push must use a dedicated runtime repository root and a short-lived credential helper path so GitHub installation tokens never appear in model-authored commands, Git remotes, logs, workspace files, or session transcripts
+  - the GitHub setup callback must verify the installation before binding it to a workspace because GitHub's `installation_id` query parameter is not sufficient proof on its own
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
