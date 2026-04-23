@@ -4,41 +4,11 @@ import {
   searchEnabledGitHubRepositoriesForTenantIntegration,
 } from "../../../../db/github-installations"
 import type { IntegrationCommandExecute } from "../../../framework"
-
-function readLimit(arguments_: Record<string, unknown>) {
-  const value = arguments_.limit
-
-  return typeof value === "number" && Number.isFinite(value)
-    ? Math.max(1, Math.min(Math.trunc(value), 100))
-    : 50
-}
-
-function requireGitHubTenantIntegrationId(
-  context: Parameters<IntegrationCommandExecute>[0]["context"],
-) {
-  if (
-    context.auth?.kind !== "github_app_installation" ||
-    !context.tenantIntegrationId
-  ) {
-    throw new Error("GitHub is not connected in this workspace.")
-  }
-
-  return context.tenantIntegrationId
-}
-
-function readRequiredString(
-  arguments_: Record<string, unknown>,
-  key: "owner" | "query" | "repo",
-  commandKey = "repository.get",
-) {
-  const value = arguments_[key]
-
-  if (typeof value !== "string" || !value.trim()) {
-    throw new Error(`${commandKey} requires a non-empty ${key}.`)
-  }
-
-  return value.trim()
-}
+import {
+  readLimit,
+  readRequiredString,
+  requireGitHubTenantIntegrationId,
+} from "./shared"
 
 export const executeGitHubRepositoryList: IntegrationCommandExecute = async ({
   arguments: arguments_,
@@ -61,8 +31,8 @@ export const executeGitHubRepositoryGet: IntegrationCommandExecute = async ({
 }) => {
   const repository =
     await getEnabledGitHubRepositoryDetailsForTenantIntegration({
-      owner: readRequiredString(arguments_, "owner"),
-      repo: readRequiredString(arguments_, "repo"),
+      owner: readRequiredString(arguments_, "owner", "repository.get"),
+      repo: readRequiredString(arguments_, "repo", "repository.get"),
       tenantIntegrationId: requireGitHubTenantIntegrationId(context),
     })
 
