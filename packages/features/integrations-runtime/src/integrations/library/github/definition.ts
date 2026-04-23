@@ -33,6 +33,7 @@ import {
   executeGitHubPullRequestUpdate,
   executeGitHubPullRequestUpdateComment,
 } from "./commands/pull-request"
+import { executeGitHubTenantRuntimeGitCommand } from "./commands/local-git"
 
 const LIMIT_ARGUMENT_SCHEMA = {
   type: "integer",
@@ -63,6 +64,12 @@ const BRANCH_ARGUMENT_SCHEMA = {
   type: "string",
   minLength: 1,
   description: "Remote branch name.",
+} as const
+
+const LOCAL_BRANCH_ARGUMENT_SCHEMA = {
+  type: "string",
+  minLength: 1,
+  description: "Optional local branch name to create or update.",
 } as const
 
 const PR_NUMBER_ARGUMENT_SCHEMA = {
@@ -297,6 +304,206 @@ const branchDeleteRemoteCommand: IntegrationRuntimeCommandDefinition = {
     "Only repositories selected for this workspace are available.",
     "The default branch cannot be deleted.",
   ],
+}
+
+const repositoryCheckoutCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Check out repository",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "repository.checkout",
+  commandPath: ["repository", "checkout"],
+  description:
+    "Clone or update a selected GitHub repository in the tenant runtime checkout root.",
+  effect: "write",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github repository", "checkout repository", "clone repo"],
+  label: "Check out repository",
+  resultMode: "json",
+  usageNotes: [
+    "Runs inside the tenant runtime so the checked-out files are available to the agent.",
+    "Only repositories selected for this workspace are available.",
+  ],
+}
+
+const remoteFetchCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Fetch remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.fetch",
+  commandPath: ["remote", "fetch"],
+  description: "Fetch and prune origin for a selected checked-out repository.",
+  effect: "write",
+  exampleArguments: {
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git fetch", "fetch origin"],
+  label: "Fetch remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const remotePullCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Pull remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      rebase: {
+        type: "boolean",
+        description: "Use git pull --rebase instead of --ff-only.",
+      },
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.pull",
+  commandPath: ["remote", "pull"],
+  description: "Pull a branch from origin for a selected checked-out repository.",
+  effect: "write",
+  exampleArguments: {
+    branch: "main",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git pull", "pull origin"],
+  label: "Pull remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const remotePushCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Push remote",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "remote.push",
+  commandPath: ["remote", "push"],
+  description: "Push the current or named local branch to origin.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github remote", "git push", "push branch"],
+  label: "Push remote",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const branchCheckoutRemoteCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Check out remote branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      localBranch: LOCAL_BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo", "branch"],
+    type: "object",
+  },
+  commandKey: "branch.checkout_remote",
+  commandPath: ["branch", "checkout_remote"],
+  description:
+    "Fetch and check out a remote branch into the tenant runtime worktree.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github branch", "checkout remote branch"],
+  label: "Check out remote branch",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
+}
+
+const branchPublishCommand: IntegrationRuntimeCommandDefinition = {
+  activityPresentation: {
+    kind: "write",
+    title: "Publish branch",
+  },
+  argumentsSchema: {
+    additionalProperties: false,
+    properties: {
+      branch: BRANCH_ARGUMENT_SCHEMA,
+      owner: OWNER_ARGUMENT_SCHEMA,
+      repo: REPO_ARGUMENT_SCHEMA,
+    },
+    required: ["owner", "repo"],
+    type: "object",
+  },
+  commandKey: "branch.publish",
+  commandPath: ["branch", "publish"],
+  description: "Publish the current or named local branch to GitHub origin.",
+  effect: "write",
+  exampleArguments: {
+    branch: "feature/demo",
+    owner: "acme",
+    repo: "web-app",
+  },
+  execute: executeGitHubTenantRuntimeGitCommand,
+  inputMode: "json",
+  intentKeywords: ["github branch", "publish branch", "push branch"],
+  label: "Publish branch",
+  resultMode: "json",
+  usageNotes: ["Runs inside the tenant runtime checkout root."],
 }
 
 const pullRequestCommands: IntegrationRuntimeCommandDefinition[] = [
@@ -776,6 +983,7 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
           repositoryListCommand,
           repositoryGetCommand,
           repositorySearchCommand,
+          repositoryCheckoutCommand,
         ],
         description: "Repository discovery and checkout commands.",
         groupKey: "repository",
@@ -787,6 +995,8 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
         commands: [
           branchListRemoteCommand,
           branchGetRemoteCommand,
+          branchCheckoutRemoteCommand,
+          branchPublishCommand,
           branchDeleteRemoteCommand,
         ],
         description: "Remote branch discovery and cleanup commands.",
@@ -794,6 +1004,14 @@ export const githubIntegrationDefinition: IntegrationDefinition = {
         groupPath: ["branch"],
         intentKeywords: ["github branch", "remote branch"],
         label: "Branch",
+      },
+      {
+        commands: [remoteFetchCommand, remotePullCommand, remotePushCommand],
+        description: "Remote fetch, pull, and push commands for checked-out repositories.",
+        groupKey: "remote",
+        groupPath: ["remote"],
+        intentKeywords: ["github remote", "git fetch", "git pull", "git push"],
+        label: "Remote",
       },
       {
         commands: pullRequestCommands,
