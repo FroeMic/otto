@@ -150,6 +150,62 @@ describe("PostHog integration setup", () => {
       /could not discover PostHog environments/,
     )
   })
+
+  it("normalizes numeric PostHog project ids for runtime command targets", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
+      const requestUrl = String(url)
+
+      if (requestUrl.endsWith("/api/users/@me/")) {
+        return jsonResponse({ email: "product@example.com", uuid: "user-1" })
+      }
+
+      if (requestUrl.endsWith("/api/organizations/")) {
+        return jsonResponse({
+          results: [{ id: "org-1", name: "Acme" }],
+        })
+      }
+
+      if (requestUrl.endsWith("/api/organizations/org-1/projects/")) {
+        return jsonResponse({
+          results: [
+            {
+              id: 153607,
+              name: "Product App",
+              uuid: "019d5d1e-9bf0-0000-8180-70407ec31564",
+            },
+          ],
+        })
+      }
+
+      if (requestUrl.endsWith("/api/projects/153607/environments/")) {
+        return jsonResponse({
+          results: [
+            {
+              id: 42,
+              name: "Production",
+            },
+          ],
+        })
+      }
+
+      return jsonResponse({ detail: "unexpected request" }, 500)
+    })
+
+    const result = await discoverPostHogIntegrationSetup({
+      apiKey: "phx_secret",
+      host: "https://eu.posthog.com",
+    })
+
+    assert.deepEqual(result.statePreview.targets, [
+      {
+        environmentId: "42",
+        key: "product_app_production_42",
+        label: "Product App / Production",
+        organizationId: "org-1",
+        projectId: "153607",
+      },
+    ])
+  })
 })
 
 function jsonResponse(payload: unknown, status = 200) {

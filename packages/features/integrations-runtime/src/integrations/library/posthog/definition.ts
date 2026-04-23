@@ -8,6 +8,8 @@ import {
   buildPostHogOrganizationPath,
   buildPostHogProjectPath,
   getPostHogAuth,
+  PostHogApiError,
+  type PostHogIntegrationState,
   prepareHogQlQuery,
   requestPostHog,
   resolvePostHogTarget,
@@ -457,19 +459,28 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
             description:
               "List PostHog environments for a configured or explicit project.",
             execute: async ({ arguments: args, context }) => {
-              const target = requireProjectTarget(
-                args,
-                getPostHogAuth(context).state,
-              )
+              const auth = getPostHogAuth(context)
+              const target = requireProjectTarget(args, auth.state)
 
-              return requestPostHog(context, {
-                path: buildPostHogProjectPath(
-                  target.projectId,
-                  "environments/",
-                ),
-              }).then((payload) =>
-                shapePostHogEnvironmentList(payload, target.projectId),
-              )
+              try {
+                return await requestPostHog(context, {
+                  path: buildPostHogProjectPath(
+                    target.projectId,
+                    "environments/",
+                  ),
+                }).then((payload) =>
+                  shapePostHogEnvironmentList(payload, target.projectId),
+                )
+              } catch (error) {
+                if (isDeprecatedPostHogEnvironmentsError(error)) {
+                  return shapeConfiguredPostHogEnvironmentList(
+                    auth.state,
+                    target.projectId,
+                  )
+                }
+
+                throw error
+              }
             },
             label: "List environments",
             requiredProviderScopes: ["project:read"],
@@ -974,6 +985,39 @@ function shapePostHogEnvironment(payload: unknown) {
       getValueString(payload, "project"),
     uuid: getValueString(payload, "uuid"),
   }
+}
+
+function shapeConfiguredPostHogEnvironmentList(
+  state: PostHogIntegrationState,
+  projectId: string,
+) {
+  const results = state.targets
+    .filter((target) => target.projectId === projectId)
+    .map((target) => ({
+      id: target.environmentId ?? target.projectId ?? target.key,
+      name: target.label,
+      projectId: target.projectId ?? null,
+      source: target.environmentId ? "configured_environment" : "project",
+      uuid: target.environmentId ?? null,
+    }))
+
+  return {
+    count: results.length,
+    next: null,
+    previous: null,
+    projectId,
+    results,
+  }
+}
+
+function isDeprecatedPostHogEnvironmentsError(error: unknown) {
+  return (
+    error instanceof PostHogApiError &&
+    error.status === 403 &&
+    /Multiple environments per project are no longer available/i.test(
+      error.message,
+    )
+  )
 }
 
 function normalizePostHogListPayload(payload: unknown) {
