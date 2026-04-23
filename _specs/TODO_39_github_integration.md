@@ -499,7 +499,7 @@ Webhook route requirements:
 - [x] Integration model selected: GitHub App installation.
 - [x] Risk and phase plan documented.
 - [x] Placeholder runtime commands removed from the advertised catalog.
-- [ ] Runtime command catalog registered with real executors only.
+- [x] Runtime command catalog registered with real executors only.
 - [x] GitHub App installation-token helper added.
 - [ ] GitHub App operator configuration created.
 - [x] Framework auth binding added.
@@ -507,15 +507,15 @@ Webhook route requirements:
 - [x] Install lifecycle implemented.
 - [x] First repository inventory projection implemented.
 - [ ] Repository selection management UI implemented.
-- [ ] Repository command group implemented.
-- [ ] Remote command group implemented.
-- [ ] Branch command group implemented.
-- [ ] Pull-request command group implemented.
-- [ ] Runtime repository checkout implemented.
-- [ ] Remote push implemented.
-- [ ] Remote branch delete implemented.
-- [ ] Pull-request create/update/close/reopen implemented.
-- [ ] Pull-request merge implemented.
-- [ ] Safe write command surface implemented.
+- [x] Repository command group implemented.
+- [x] Remote command group implemented.
+- [x] Branch command group implemented.
+- [x] Pull-request command group implemented.
+- [x] Runtime repository checkout implemented.
+- [x] Remote push implemented.
+- [x] Remote branch delete implemented.
+- [x] Pull-request create/update/close/reopen implemented.
+- [x] Pull-request merge implemented.
+- [x] Safe write command surface implemented.
 - [ ] Webhook ingress implemented.
 - [ ] Production canary completed.

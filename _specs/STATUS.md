@@ -163,8 +163,11 @@
   - checkout and push must use a dedicated runtime repository root and a short-lived credential helper path so GitHub installation tokens never appear in model-authored commands, Git remotes, logs, workspace files, or session transcripts
   - the GitHub setup callback must verify the installation before binding it to a workspace because GitHub's `installation_id` query parameter is not sufficient proof on its own
   - first implementation slices on `plan/github-integration` now register the GitHub integration catalog, the `github_app_installation` framework auth binding, GitHub App JWT/installation-token helpers, GitHub installation/repository database state, signed GitHub App install start/callback routes, repository sync, and a basic workspace settings page that can connect/reconnect/disconnect and show account plus repository count
-  - the active follow-up on `feature/github-real-command-surface` removes all placeholder GitHub runtime commands; future GitHub commands should only be advertised when their real executor and tests land in the same slice
+  - the active follow-up on `feature/github-real-command-surface` removes all placeholder GitHub runtime commands and now advertises the real repository, remote, branch, and pull-request command groups
+  - GitHub API-backed commands now cover repository list/get/search, remote branch list/get/delete, and pull-request list/get/files/comments/reviews/checks/create/update/comment/review/close/reopen/draft/merge operations
+  - tenant-runtime Git commands now cover repository checkout, remote fetch/pull/push, remote branch checkout, and branch publish through a runtime-only git-access broker plus temporary credential helper
   - the revised GitHub command boundary is: repository discovery/checkout, remote fetch/pull/push, remote branch operations, and pull-request lifecycle; local file edits and local git commands such as status, diff, add, commit, reset, and log stay outside the integration once a repo is checked out
+  - remaining GitHub work is live canary verification against a selected test repository, repository selection management polish in the workspace UI, webhook ingress, and optional higher-risk GitHub workflows
 - The target apex workspace routing rule is now explicit:
   - the new browser-facing workspace should mount at `/{workspaceSlug}` and nested `/{workspaceSlug}/...` routes, not under `/app`
   - `apps/web` should treat reserved public and system paths as server-owned and return the workspace shell for non-reserved slug-shaped paths
