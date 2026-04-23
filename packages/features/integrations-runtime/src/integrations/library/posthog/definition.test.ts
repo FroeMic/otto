@@ -47,8 +47,8 @@ describe("PostHog integration definition", () => {
       "taxonomy.action.list",
       "taxonomy.event_definition.list",
       "taxonomy.property_definition.list",
+      "workspace.get_configured_targets",
       "workspace.get_project",
-      "workspace.list_environments",
       "workspace.list_projects",
     ]);
   });
@@ -109,30 +109,13 @@ describe("PostHog integration definition", () => {
     assert.equal(JSON.stringify(result).includes("phc_public_project_token"), false);
   });
 
-  it("lists shaped project environments", async () => {
-    const fetch = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          results: [
-            {
-              id: 42,
-              name: "Production",
-              project_id: 153607,
-              uuid: "env-uuid",
-            },
-          ],
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          status: 200,
-        },
-      ),
-    );
+  it("returns configured target state without calling PostHog", async () => {
+    const fetch = vi
+      .spyOn(globalThis, "fetch")
+      .mockRejectedValue(new Error("unexpected fetch"));
     const command = collectCommands(
       posthogIntegrationDefinition.runtimeSurface!,
-    ).find((entry) => entry.commandKey === "workspace.list_environments");
+    ).find((entry) => entry.commandKey === "workspace.get_configured_targets");
 
     assert.ok(command);
 
@@ -142,63 +125,61 @@ describe("PostHog integration definition", () => {
     });
 
     assert.deepEqual(result, {
-      count: 1,
-      next: null,
-      previous: null,
-      projectId: "project-1",
-      results: [
+      defaultTargetKey: "production",
+      host: "https://us.posthog.com",
+      targets: [
         {
-          id: "42",
-          name: "Production",
-          projectId: "153607",
-          uuid: "env-uuid",
+          environmentId: "env-1",
+          key: "production",
+          label: "Production",
+          organizationId: "org-1",
+          projectId: "project-1",
         },
       ],
     });
-    assert.equal(
-      String(fetch.mock.calls[0]?.[0]),
-      "https://us.posthog.com/api/projects/project-1/environments/",
-    );
+    assert.equal(fetch.mock.calls.length, 0);
   });
 
-  it("falls back to configured targets when PostHog no longer exposes project environments", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          detail:
-            "Multiple environments per project are no longer available. Please contact support if you need assistance.",
-        }),
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          status: 403,
-        },
-      ),
-    );
+  it("normalizes configured target state through auth parsing", async () => {
     const command = collectCommands(
       posthogIntegrationDefinition.runtimeSurface!,
-    ).find((entry) => entry.commandKey === "workspace.list_environments");
+    ).find((entry) => entry.commandKey === "workspace.get_configured_targets");
 
     assert.ok(command);
 
     const result = await command.execute({
       arguments: {},
-      context: buildPostHogContext(),
+      context: buildPostHogContext({
+        state: {
+          defaultTargetKey: "production",
+          host: " https://us.posthog.com ",
+          targets: [
+            {
+              environmentId: " env-1 ",
+              key: " production ",
+              label: " Production ",
+              organizationId: " org-1 ",
+              projectId: " project-1 ",
+            },
+            {
+              key: "",
+              label: "Ignored",
+            },
+          ],
+        },
+      }),
     });
 
     assert.deepEqual(result, {
-      count: 1,
-      next: null,
-      previous: null,
-      projectId: "project-1",
-      results: [
+      defaultTargetKey: "production",
+      host: "https://us.posthog.com",
+      targets: [
         {
-          id: "env-1",
-          name: "Production",
+          environmentId: "env-1",
+          key: "production",
+          label: "Production",
+          organizationId: "org-1",
           projectId: "project-1",
-          source: "configured_environment",
-          uuid: "env-1",
         },
       ],
     });
@@ -344,7 +325,7 @@ describe("PostHog integration definition", () => {
   });
 });
 
-function buildPostHogContext() {
+function buildPostHogContext(input?: { state?: Record<string, unknown> }) {
   return {
     auth: {
       accessToken: undefined as never,
@@ -355,7 +336,7 @@ function buildPostHogContext() {
       kind: "api_key" as const,
       metadata: {},
       providerKey: "posthog",
-      state: {
+      state: input?.state ?? {
         defaultTargetKey: "production",
         host: "https://us.posthog.com",
         targets: [

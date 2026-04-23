@@ -8,8 +8,6 @@ import {
   buildPostHogOrganizationPath,
   buildPostHogProjectPath,
   getPostHogAuth,
-  PostHogApiError,
-  type PostHogIntegrationState,
   prepareHogQlQuery,
   requestPostHog,
   resolvePostHogTarget,
@@ -432,6 +430,26 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
     commandGroups: [
       {
         commands: [
+          {
+            argumentsSchema: {
+              additionalProperties: false,
+              properties: {},
+              required: [],
+              type: "object",
+            },
+            commandKey: "workspace.get_configured_targets",
+            commandPath: ["workspace", "get_configured_targets"],
+            description:
+              "Read Otto's configured PostHog host, default target, and target ids, including environmentId when present.",
+            effect: "read",
+            execute: async ({ context }) => {
+              return getPostHogAuth(context).state
+            },
+            inputMode: "json",
+            label: "Get configured targets",
+            requiredProviderScopes: ["project:read"],
+            resultMode: "json",
+          },
           readCommand({
             commandKey: "workspace.list_projects",
             commandPath: ["workspace", "list_projects"],
@@ -451,38 +469,6 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
               }).then(shapePostHogProjectList)
             },
             label: "List projects",
-            requiredProviderScopes: ["project:read"],
-          }),
-          readCommand({
-            commandKey: "workspace.list_environments",
-            commandPath: ["workspace", "list_environments"],
-            description:
-              "List PostHog environments for a configured or explicit project.",
-            execute: async ({ arguments: args, context }) => {
-              const auth = getPostHogAuth(context)
-              const target = requireProjectTarget(args, auth.state)
-
-              try {
-                return await requestPostHog(context, {
-                  path: buildPostHogProjectPath(
-                    target.projectId,
-                    "environments/",
-                  ),
-                }).then((payload) =>
-                  shapePostHogEnvironmentList(payload, target.projectId),
-                )
-              } catch (error) {
-                if (isDeprecatedPostHogEnvironmentsError(error)) {
-                  return shapeConfiguredPostHogEnvironmentList(
-                    auth.state,
-                    target.projectId,
-                  )
-                }
-
-                throw error
-              }
-            },
-            label: "List environments",
             requiredProviderScopes: ["project:read"],
           }),
           readCommand({
@@ -548,7 +534,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           readCommand({
             commandKey: "query.hogql",
             commandPath: ["query", "hogql"],
-            description: "Run a bounded read-only HogQL query.",
+            description:
+              "Run a bounded read-only HogQL query using the configured target's environmentId unless explicitly overridden.",
             exampleArguments: {
               maxRows: 14,
               query:
@@ -607,7 +594,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           listEnvironmentResourceCommand({
             commandKey: "insight.list",
             commandPath: ["insight", "list"],
-            description: "List insights in a PostHog environment.",
+            description:
+              "List insights in the configured target's PostHog environment unless explicitly overridden.",
             label: "List insights",
             path: "insights/",
             requiredProviderScopes: ["insight:read"],
@@ -615,7 +603,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           getEnvironmentResourceCommand({
             commandKey: "insight.get",
             commandPath: ["insight", "get"],
-            description: "Read one PostHog insight.",
+            description:
+              "Read one PostHog insight from the configured target's environment unless explicitly overridden.",
             idLabel: "PostHog insight id.",
             label: "Get insight",
             path: (id) => `insights/${encodeURIComponent(id)}/`,
@@ -650,7 +639,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           listEnvironmentResourceCommand({
             commandKey: "dashboard.list",
             commandPath: ["dashboard", "list"],
-            description: "List dashboards in a PostHog environment.",
+            description:
+              "List dashboards in the configured target's PostHog environment unless explicitly overridden.",
             label: "List dashboards",
             path: "dashboards/",
             requiredProviderScopes: ["dashboard:read"],
@@ -658,7 +648,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           getEnvironmentResourceCommand({
             commandKey: "dashboard.get",
             commandPath: ["dashboard", "get"],
-            description: "Read one PostHog dashboard.",
+            description:
+              "Read one PostHog dashboard from the configured target's environment unless explicitly overridden.",
             idLabel: "PostHog dashboard id.",
             label: "Get dashboard",
             path: (id) => `dashboards/${encodeURIComponent(id)}/`,
@@ -667,7 +658,8 @@ export const posthogIntegrationDefinition: IntegrationDefinition = {
           getEnvironmentResourceCommand({
             commandKey: "dashboard.run_insights",
             commandPath: ["dashboard", "run_insights"],
-            description: "Run the insights on one PostHog dashboard.",
+            description:
+              "Run the insights on one PostHog dashboard in the configured target's environment unless explicitly overridden.",
             idLabel: "PostHog dashboard id.",
             label: "Run dashboard insights",
             path: (id) => `dashboards/${encodeURIComponent(id)}/run_insights/`,
@@ -958,66 +950,6 @@ function shapePostHogProject(payload: unknown) {
     timezone: getValueString(payload, "timezone"),
     uuid: getValueString(payload, "uuid"),
   }
-}
-
-function shapePostHogEnvironmentList(payload: unknown, projectId: string) {
-  const page = normalizePostHogListPayload(payload)
-
-  return {
-    count: page.count,
-    next: page.next,
-    previous: page.previous,
-    projectId,
-    results: page.results.map(shapePostHogEnvironment).filter(Boolean),
-  }
-}
-
-function shapePostHogEnvironment(payload: unknown) {
-  if (!isRecord(payload)) {
-    return null
-  }
-
-  return {
-    id: getValueString(payload, "id"),
-    name: getValueString(payload, "name") ?? getValueString(payload, "label"),
-    projectId:
-      getValueString(payload, "project_id") ??
-      getValueString(payload, "project"),
-    uuid: getValueString(payload, "uuid"),
-  }
-}
-
-function shapeConfiguredPostHogEnvironmentList(
-  state: PostHogIntegrationState,
-  projectId: string,
-) {
-  const results = state.targets
-    .filter((target) => target.projectId === projectId)
-    .map((target) => ({
-      id: target.environmentId ?? target.projectId ?? target.key,
-      name: target.label,
-      projectId: target.projectId ?? null,
-      source: target.environmentId ? "configured_environment" : "project",
-      uuid: target.environmentId ?? null,
-    }))
-
-  return {
-    count: results.length,
-    next: null,
-    previous: null,
-    projectId,
-    results,
-  }
-}
-
-function isDeprecatedPostHogEnvironmentsError(error: unknown) {
-  return (
-    error instanceof PostHogApiError &&
-    error.status === 403 &&
-    /Multiple environments per project are no longer available/i.test(
-      error.message,
-    )
-  )
 }
 
 function normalizePostHogListPayload(payload: unknown) {

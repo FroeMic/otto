@@ -119,10 +119,11 @@ PostHog state shape:
 
 ### `workspace`
 
+- `workspace.get_configured_targets`
 - `workspace.list_projects`
 - `workspace.get_project`
 
-Purpose: project and environment discovery.
+Purpose: inspect Otto's configured PostHog host and execution targets, then read PostHog project metadata.
 
 ### `taxonomy`
 
@@ -136,7 +137,7 @@ Purpose: help Otto understand event names, properties, and product-defined actio
 
 - `query.hogql`
 
-Purpose: bounded read-only HogQL query escape hatch.
+Purpose: bounded read-only HogQL query escape hatch using the configured target's `environmentId` unless explicitly overridden.
 
 Guardrails:
 
@@ -154,11 +155,15 @@ Guardrails:
 - `insight.create`
 - `insight.update`
 
+Purpose: read and manage insights in the configured target's environment unless explicitly overridden.
+
 ### `dashboard`
 
 - `dashboard.list`
 - `dashboard.get`
 - `dashboard.run_insights`
+
+Purpose: read dashboards and run dashboard insights in the configured target's environment unless explicitly overridden.
 
 ### `feature_flag`
 
