@@ -25,14 +25,18 @@ describe("GitHub REST client", () => {
       method: "GET",
       path: "/repos/acme/web-app",
     })
+    const fetchCalls = fetchMock.mock.calls as unknown as [
+      string,
+      { headers: Record<string, string> },
+    ][]
 
     assert.deepEqual(result, { ok: true })
     assert.equal(
-      fetchMock.mock.calls[0]?.[0],
+      fetchCalls[0]?.[0],
       "https://api.github.com/repos/acme/web-app",
     )
     assert.equal(
-      fetchMock.mock.calls[0]?.[1]?.headers.Authorization,
+      fetchCalls[0]?.[1]?.headers.Authorization,
       "Bearer secret-token",
     )
   })
