@@ -253,6 +253,89 @@ describe("integrations routes", () => {
     })
   })
 
+  it("accepts github as a workspace-managed integration in the route payloads", async () => {
+    const app = createIntegrationsTestApp({
+      ...createDependencies(),
+      getWorkspaceIntegrationDetail: async ({ integrationKey, orgSlug }) => ({
+        availableSections: ["status", "capabilities"],
+        capabilities: [],
+        connection: {
+          availableActions: ["connect"],
+          connectUrl: `/api/workspace/${orgSlug}/integrations/github/install/start`,
+          integrationKey: "github",
+          label: "GitHub",
+          message: "GitHub is available.",
+          recommendedAction: "connect",
+          requiresUserAction: true,
+          selectedAction: "connect",
+          status: {
+            connected: false,
+            connectionStatus: null,
+            enabled: false,
+            integrationStatus: null,
+            needsAttention: false,
+          },
+          workspaceUrl: `/${orgSlug}/settings/agent/integrations/${integrationKey}/status`,
+        },
+        integration: {
+          categoryLabel: "Code",
+          description:
+            "Repository, branch, issue, and pull request automation.",
+          iconSrc: "/integrations/github.svg",
+          key: "github",
+          label: "GitHub",
+          managementMode: "workspace_managed",
+          pageDescription:
+            "Connect GitHub so the assistant can work with selected repositories.",
+        },
+        settings: null,
+        setup: null,
+        setupState: null,
+        summary: null,
+      }),
+      listWorkspaceIntegrations: async ({ orgSlug }) => [
+        {
+          categoryLabel: "Code",
+          connected: false,
+          description:
+            "Repository, branch, issue, and pull request automation.",
+          iconSrc: "/integrations/github.svg",
+          key: "github",
+          label: "GitHub",
+          managementMode: "workspace_managed",
+          needsAttention: false,
+          settingsPath: `/${orgSlug}/settings/agent/integrations/github/status`,
+        },
+      ],
+    })
+
+    const listResponse = await app.request(
+      "http://api.local/api/workspace/otto/integrations",
+    )
+    const detailResponse = await app.request(
+      "http://api.local/api/workspace/otto/integrations/github",
+    )
+
+    assert.equal(listResponse.status, 200)
+    assert.equal(detailResponse.status, 200)
+    assert.deepEqual(await listResponse.json(), {
+      integrations: [
+        {
+          categoryLabel: "Code",
+          connected: false,
+          description:
+            "Repository, branch, issue, and pull request automation.",
+          iconSrc: "/integrations/github.svg",
+          key: "github",
+          label: "GitHub",
+          managementMode: "workspace_managed",
+          needsAttention: false,
+          settingsPath: "/otto/settings/agent/integrations/github/status",
+        },
+      ],
+    })
+  })
+
   it("returns the integrations catalog payload", async () => {
     const app = createIntegrationsTestApp()
     const response = await app.request(

@@ -410,6 +410,11 @@ export async function getRuntimeIntegrationConnectionActionForTenant(input: {
         ? `${baseUrl}/oauth/start/integration/linear?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`
         : null
       break
+    case "github":
+      connectUrl = baseUrl
+        ? `${baseUrl}/api/workspace/${encodeURIComponent(tenantContext.organizationSlug)}/integrations/github/install/start`
+        : null
+      break
     case "slack":
       connectUrl = baseUrl
         ? `${baseUrl}/oauth/start/integration/slack?orgSlug=${encodeURIComponent(tenantContext.organizationSlug)}`

@@ -292,6 +292,102 @@ export const tenantIntegrationCapabilityStates = pgTable(
   }),
 )
 
+export const integrationGithubInstallations = pgTable(
+  "integration_github_installations",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    tenantIntegrationId: uuid("tenant_integration_id")
+      .references(() => tenantIntegrations.id, { onDelete: "cascade" })
+      .notNull(),
+    tenantId: uuid("tenant_id")
+      .references(() => tenants.id, { onDelete: "cascade" })
+      .notNull(),
+    installationId: varchar("installation_id", { length: 64 }).notNull(),
+    accountId: varchar("account_id", { length: 64 }).notNull(),
+    accountLogin: varchar("account_login", { length: 255 }).notNull(),
+    accountType: varchar("account_type", { length: 64 }).notNull(),
+    appId: varchar("app_id", { length: 64 }).notNull(),
+    appSlug: varchar("app_slug", { length: 255 }),
+    repositorySelection: varchar("repository_selection", {
+      length: 32,
+    }).notNull(),
+    permissionsJson: jsonb("permissions_json")
+      .$type<Record<string, string>>()
+      .default({})
+      .notNull(),
+    eventsJson: jsonb("events_json").$type<string[]>().default([]).notNull(),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    connectedAt: timestamp("connected_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastWebhookAt: timestamp("last_webhook_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    installationUniqueIdx: uniqueIndex(
+      "integration_github_installations_tenant_id_installation_id_idx",
+    ).on(table.tenantId, table.installationId),
+    tenantIdx: index("integration_github_installations_tenant_id_idx").on(
+      table.tenantId,
+    ),
+    tenantIntegrationUniqueIdx: uniqueIndex(
+      "integration_github_installations_tenant_integration_id_idx",
+    ).on(table.tenantIntegrationId),
+  }),
+)
+
+export const integrationGithubRepositories = pgTable(
+  "integration_github_repositories",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    githubInstallationId: uuid("github_installation_id")
+      .references(() => integrationGithubInstallations.id, {
+        onDelete: "cascade",
+      })
+      .notNull(),
+    githubRepositoryId: varchar("github_repository_id", {
+      length: 64,
+    }).notNull(),
+    ownerLogin: varchar("owner_login", { length: 255 }).notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    fullName: varchar("full_name", { length: 512 }).notNull(),
+    isPrivate: boolean("is_private").default(false).notNull(),
+    defaultBranch: varchar("default_branch", { length: 255 }),
+    archived: boolean("archived").default(false).notNull(),
+    disabled: boolean("disabled").default(false).notNull(),
+    selectedByInstallation: boolean("selected_by_installation")
+      .default(true)
+      .notNull(),
+    enabledForWorkspace: boolean("enabled_for_workspace")
+      .default(true)
+      .notNull(),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    fullNameIdx: index("integration_github_repositories_full_name_idx").on(
+      table.fullName,
+    ),
+    installationIdx: index(
+      "integration_github_repositories_installation_id_idx",
+    ).on(table.githubInstallationId),
+    installationRepositoryUniqueIdx: uniqueIndex(
+      "integration_github_repositories_installation_repository_id_idx",
+    ).on(table.githubInstallationId, table.githubRepositoryId),
+  }),
+)
+
 export const integrationOauthSessions = pgTable(
   "integration_oauth_sessions",
   {

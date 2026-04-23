@@ -282,6 +282,9 @@ export type IntegrationAuthBinding =
       kind: "api_key"
     }
   | {
+      kind: "github_app_installation"
+    }
+  | {
       kind: "oauth"
       provider: OAuthProviderDefinition
     }

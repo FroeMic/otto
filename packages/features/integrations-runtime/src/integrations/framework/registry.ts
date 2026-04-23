@@ -1,6 +1,7 @@
 import type { OAuthProviderDefinition } from "../../lib/oauth/providers/types"
 import { braveIntegrationDefinition } from "../library/brave/definition"
 import { gandiIntegrationDefinition } from "../library/gandi/definition"
+import { githubIntegrationDefinition } from "../library/github/definition"
 import { linearIntegrationDefinition } from "../library/linear/definition"
 import { posthogIntegrationDefinition } from "../library/posthog/definition"
 import { slackIntegrationDefinition } from "../library/slack/definition"
@@ -10,6 +11,7 @@ import type { IntegrationDefinition } from "./types"
 const registry = [
   braveIntegrationDefinition,
   gandiIntegrationDefinition,
+  githubIntegrationDefinition,
   linearIntegrationDefinition,
   posthogIntegrationDefinition,
   slackIntegrationDefinition,

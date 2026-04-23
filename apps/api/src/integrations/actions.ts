@@ -57,6 +57,21 @@ function recordFromUnknown(value: unknown) {
   return {}
 }
 
+function getWorkspaceIntegrationLabel(providerKey: string) {
+  switch (providerKey) {
+    case "github":
+      return "GitHub"
+    case "linear":
+      return "Linear"
+    case "posthog":
+      return "PostHog"
+    case "slack":
+      return "Slack"
+    default:
+      return "Gandi"
+  }
+}
+
 export function buildDisconnectedDesiredStateConfig(input: {
   configJson: unknown
   providerKey: string
@@ -137,6 +152,7 @@ export async function disconnectWorkspaceIntegration(input: {
 
   if (
     providerKey !== "gandi" &&
+    providerKey !== "github" &&
     providerKey !== "linear" &&
     providerKey !== "posthog" &&
     providerKey !== "slack"
@@ -166,15 +182,7 @@ export async function disconnectWorkspaceIntegration(input: {
 
     if (!integration?.connectedAt || integration.disconnectedAt) {
       throw new Error(
-        `${
-          providerKey === "slack"
-            ? "Slack"
-            : providerKey === "linear"
-              ? "Linear"
-              : providerKey === "posthog"
-                ? "PostHog"
-                : "Gandi"
-        } is not connected in this workspace.`,
+        `${getWorkspaceIntegrationLabel(providerKey)} is not connected in this workspace.`,
       )
     }
 

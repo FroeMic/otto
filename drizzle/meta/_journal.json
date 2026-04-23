@@ -428,6 +428,13 @@
       "when": 1776792000000,
       "tag": "0061_add_tenant_server_ssh_endpoints",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1776938400000,
+      "tag": "0062_github_integration_state",
+      "breakpoints": true
     }
   ]
 }

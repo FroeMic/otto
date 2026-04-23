@@ -1,5 +1,7 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
 import {
+  integrationGithubInstallations,
+  integrationGithubRepositories,
   jobRuns,
   tenantIntegrationCapabilityStates,
   tenantIntegrationState,
@@ -43,7 +45,7 @@ export interface WorkspaceIntegrationCatalogEntry {
   connected: boolean
   description: string
   iconSrc: string | null
-  key: "brave" | "gandi" | "linear" | "posthog" | "slack"
+  key: "brave" | "gandi" | "github" | "linear" | "posthog" | "slack"
   label: string
   managementMode: "platform_managed" | "workspace_managed"
   needsAttention: boolean
@@ -55,7 +57,7 @@ export interface WorkspaceManagedIntegrationSummary {
   disconnectedAt: string | null
   lastError: string | null
   lastErrorAt: string | null
-  providerKey: "brave" | "gandi" | "linear" | "posthog" | "slack"
+  providerKey: "brave" | "gandi" | "github" | "linear" | "posthog" | "slack"
   status: string | null
 }
 
@@ -121,6 +123,7 @@ async function getManagedIntegrationSummary(input: {
     providerKey: integration.providerKey as
       | "brave"
       | "gandi"
+      | "github"
       | "linear"
       | "posthog"
       | "slack",
@@ -318,6 +321,7 @@ export async function listWorkspaceIntegrations(input: {
       if (
         definition.key !== "brave" &&
         definition.key !== "gandi" &&
+        definition.key !== "github" &&
         definition.key !== "linear" &&
         definition.key !== "posthog" &&
         definition.key !== "slack"
@@ -354,7 +358,9 @@ export async function getWorkspaceIntegrationDetail(input: {
 
   if (
     !definition ||
-    !["brave", "gandi", "linear", "posthog", "slack"].includes(definition.key)
+    !["brave", "gandi", "github", "linear", "posthog", "slack"].includes(
+      definition.key,
+    )
   ) {
     return null
   }
@@ -424,6 +430,7 @@ export async function getWorkspaceIntegrationDetail(input: {
           integrationKey: definition.key as
             | "brave"
             | "gandi"
+            | "github"
             | "linear"
             | "posthog"
             | "slack",
@@ -442,7 +449,13 @@ export async function getWorkspaceIntegrationDetail(input: {
       categoryLabel: definition.categoryLabel,
       description: definition.description,
       iconSrc: definition.iconSrc,
-      key: definition.key as "brave" | "gandi" | "linear" | "posthog" | "slack",
+      key: definition.key as
+        | "brave"
+        | "gandi"
+        | "github"
+        | "linear"
+        | "posthog"
+        | "slack",
       label: definition.label,
       managementMode: getIntegrationManagementMode(definition),
       pageDescription: definition.pageDescription,
@@ -454,8 +467,80 @@ export async function getWorkspaceIntegrationDetail(input: {
         }
       : null,
     setup: definition.setup ?? null,
-    setupState,
+    setupState:
+      definition.key === "github"
+        ? await getGitHubIntegrationSetupState({
+            tenantId,
+          })
+        : setupState,
     summary,
+  }
+}
+
+async function getGitHubIntegrationSetupState(input: {
+  tenantId: string
+}): Promise<Record<string, unknown> | null> {
+  const db = getDb()
+  const [installation] = await db
+    .select({
+      accountLogin: integrationGithubInstallations.accountLogin,
+      accountType: integrationGithubInstallations.accountType,
+      installationId: integrationGithubInstallations.installationId,
+      repositorySelection: integrationGithubInstallations.repositorySelection,
+    })
+    .from(integrationGithubInstallations)
+    .innerJoin(
+      tenantIntegrations,
+      eq(
+        tenantIntegrations.id,
+        integrationGithubInstallations.tenantIntegrationId,
+      ),
+    )
+    .where(
+      and(
+        eq(tenantIntegrations.tenantId, input.tenantId),
+        eq(tenantIntegrations.providerKey, "github"),
+      ),
+    )
+    .limit(1)
+
+  if (!installation) {
+    return null
+  }
+
+  const repositories = await db
+    .select({
+      archived: integrationGithubRepositories.archived,
+      disabled: integrationGithubRepositories.disabled,
+      enabledForWorkspace: integrationGithubRepositories.enabledForWorkspace,
+      fullName: integrationGithubRepositories.fullName,
+      isPrivate: integrationGithubRepositories.isPrivate,
+    })
+    .from(integrationGithubRepositories)
+    .innerJoin(
+      integrationGithubInstallations,
+      eq(
+        integrationGithubInstallations.id,
+        integrationGithubRepositories.githubInstallationId,
+      ),
+    )
+    .where(
+      and(
+        eq(
+          integrationGithubInstallations.installationId,
+          installation.installationId,
+        ),
+        eq(integrationGithubInstallations.tenantId, input.tenantId),
+      ),
+    )
+
+  return {
+    accountLogin: installation.accountLogin,
+    accountType: installation.accountType,
+    installationId: installation.installationId,
+    repositories,
+    repositoryCount: repositories.length,
+    repositorySelection: installation.repositorySelection,
   }
 }
 
