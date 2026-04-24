@@ -17,7 +17,7 @@ The image also includes Otto helper processes under `/app/otto-helpers`:
 - `cron-sync-watcher.mjs` to push scheduled-task snapshots
 - `runtime-bridge-reporter.mjs` to report tenant bridge liveness, gateway health, and enabled Otto plugin ids back to the control plane
 
-OpenClaw `2026.4.21` resolves bundled plugins from `/app/dist/extensions` in the
+OpenClaw `2026.4.22` resolves bundled plugins from `/app/dist/extensions` in the
 published image. Copying Otto-owned plugins into `/app/extensions` leaves them
 undiscoverable at runtime.
 
@@ -36,7 +36,7 @@ docker build -f runtime-image/Dockerfile -t otto/openclaw-runtime:local .
 Or use the publish helper:
 
 ```bash
-IMAGE_REVISION=4 ./publish-runtime-image.sh
+IMAGE_REVISION=1 ./publish-runtime-image.sh
 ```
 
 To pin a specific upstream OpenClaw base image:
@@ -44,15 +44,15 @@ To pin a specific upstream OpenClaw base image:
 ```bash
 docker build \
   -f runtime-image/Dockerfile \
-  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21 \
-  -t ghcr.io/froemic/otto-openclaw:2026.4.21.4 .
+  --build-arg OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.22 \
+  -t ghcr.io/froemic/otto-openclaw:2026.4.22.1 .
 ```
 
 With the helper:
 
 ```bash
-IMAGE_REVISION=4 \
-OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.21 \
+IMAGE_REVISION=1 \
+OPENCLAW_BASE_IMAGE=ghcr.io/openclaw/openclaw:2026.4.22 \
 ./publish-runtime-image.sh
 ```
 
@@ -73,7 +73,7 @@ export GHCR_TOKEN=<github-personal-access-token-or-actions-token>
 Then publish:
 
 ```bash
-IMAGE_REVISION=4 ./publish-runtime-image.sh
+IMAGE_REVISION=1 ./publish-runtime-image.sh
 ```
 
 For a local-only build without pushing:
@@ -87,7 +87,7 @@ IMAGE_TAG=dev-local PUSH_IMAGE=0 LOAD_IMAGE=1 ./publish-runtime-image.sh
 Point the control plane at the published custom image:
 
 ```bash
-RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.21.4
+RUNTIME_OPENCLAW_IMAGE=ghcr.io/froemic/otto-openclaw:2026.4.22.1
 ```
 
 Tenant provisioning and later `apply_tenant_config` runs will then pull this

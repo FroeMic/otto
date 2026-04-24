@@ -116,6 +116,121 @@ documented here.
   instead of generic attached-file prompt text, so uploaded `.m4a` files can use
   the same runtime transcription path as recorded voice notes.
 
+## Current Follow-On Target: OpenClaw 2026.4.22
+
+This spec originally tracked the `2026.4.21` runtime-baseline move. As of
+April 24, 2026, the active follow-on target is the next stable upstream release
+`2026.4.22`, while preserving the `2026.4.21.4` Otto-side compatibility
+hotfixes already carried in this repo.
+
+Verified upstream release signal:
+
+- GitHub latest release: `v2026.4.22`, published April 23, 2026
+- npm latest dist-tag: `openclaw@2026.4.22`
+
+Current Otto baseline and proposed tags for this slice:
+
+- Current runtime default in repo: `ghcr.io/openclaw/openclaw:2026.4.22`
+- Current custom image baseline: `ghcr.io/froemic/otto-openclaw:2026.4.22.1`
+- Proposed upstream target: `ghcr.io/openclaw/openclaw:2026.4.22`
+- Proposed custom image target: `ghcr.io/froemic/otto-openclaw:2026.4.22.1`
+- Rollback image for this slice: `ghcr.io/froemic/otto-openclaw:2026.4.21.4`
+
+Primary `2026.4.22` review areas before bumping defaults:
+
+- OpenAI Responses behavior, especially the new native `web_search` fallback for
+  direct OpenAI models when web search is enabled and no managed provider is
+  pinned. Otto must keep managed-provider behavior stable when Brave, Gemini,
+  Kimi, or Perplexity are configured.
+- GPT-5 prompt-overlay changes moving into shared provider runtime. Otto's
+  `openai-proxy/gpt-5.4` default path must not pick up duplicate or conflicting
+  overlay behavior.
+- Bundled plugin startup changes, especially native Jiti loading and runtime
+  dependency repair behavior. Otto's packaged plugins must still load from
+  `/app/dist/extensions` without repeated repair loops.
+- Session and status behavior changes that could affect workspace-visible
+  surfaces, especially session list/title derivation and runner/status metadata.
+- Live-config re-read changes in bundled OpenAI/Codex/plugin paths that could
+  alter Otto's runtime behavior after config apply without a restart.
+
+Follow-on implementation plan:
+
+### Phase A: Delta Review
+
+- [ ] Review the upstream diff from `v2026.4.21..v2026.4.22` in the local
+  OpenClaw checkout.
+- [ ] Map each `2026.4.22` release note into:
+  - Otto-impacting now
+  - safe to ignore for this slice
+  - canary-only verification
+- [ ] Record any new Otto-owned compatibility patches needed before a version
+  bump.
+
+### Phase B: Mechanical Bump
+
+- [x] Update `runtime-image/Dockerfile` to
+  `ghcr.io/openclaw/openclaw:2026.4.22`.
+- [x] Update `publish-runtime-image.sh` defaults to the `2026.4.22` upstream
+  image and set `IMAGE_REVISION=1` for the new custom image line.
+- [x] Update `apps/worker/src/runtime/lib/env.ts` default
+  `RUNTIME_OPENCLAW_IMAGE`.
+- [x] Update runtime image docs/examples to `2026.4.22.1`.
+- [x] Update managed runtime plugin package versions to `2026.4.22.1`.
+- [x] Update tests or snapshots that assert runtime image versions.
+
+### Phase C: Local Verification
+
+- [x] Re-run the focused tests and builds already used for `2026.4.21`:
+  - runtime plugins
+  - `apps/api`
+  - `apps/worker`
+  - `packages/features/runtime-core`
+  - scheduled-task sync
+  - session sync and audio transcript projection
+- [ ] Build the custom image locally on top of `2026.4.22`.
+- [ ] Verify `openclaw --version` reports `2026.4.22`.
+- [ ] Verify managed plugin manifests still resolve from `/app/dist/extensions`.
+- [ ] Boot a tenant-like runtime locally and confirm:
+  - `/healthz` succeeds
+  - no repeated bundled dependency repair loop appears
+  - gateway/plugin status looks healthy
+
+Current branch implementation note:
+
+- `codex/openclaw-2026-4-22-upgrade` now carries the mechanical `2026.4.22.1`
+  bump for runtime defaults, publish helper defaults, runtime image docs, and
+  managed runtime plugin package versions.
+- Focused verification completed on this branch:
+  - `bun test apps/worker/src/runtime/lib/env.test.ts`
+  - `bun test apps/api/src/platform/routes.test.ts`
+  - `bun run build` in `apps/api`
+  - `bun run build` in `apps/worker`
+- The worker env test now explicitly clears ambient `RUNTIME_OPENCLAW_IMAGE`
+  before asserting the repo default so local shell env does not hide regressions.
+
+### Phase D: Single-Tenant Canary
+
+- [ ] Canary `openai-proxy/gpt-5.4` text, tool, and audio turns.
+- [ ] Canary web search with:
+  - no managed provider pinned
+  - a managed provider pinned
+- [ ] Canary workspace chat text, attachments, recorded voice note, and uploaded
+  audio/video media context.
+- [ ] Canary session sync and transcript projection.
+- [ ] Canary scheduled-task create/list/run visibility.
+- [ ] Canary owner-only command behavior from workspace chat.
+- [ ] Canary any enabled reused channel paths, especially Slack threaded sends if
+  Slack is active on the tenant.
+
+### Phase E: Publish Or Roll Back
+
+- [ ] Publish `ghcr.io/froemic/otto-openclaw:2026.4.22.1`.
+- [ ] Refresh exactly one tenant runtime onto the new image.
+- [ ] Record image digest, tenant slug, tests run, and observed regressions.
+- [ ] If the canary fails, roll the tenant back to
+  `ghcr.io/froemic/otto-openclaw:2026.4.21.4` and document the blocker before
+  broader rollout.
+
 ## Risk Register
 
 ### OpenAI Proxy
