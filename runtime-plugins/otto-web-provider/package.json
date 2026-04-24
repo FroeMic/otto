@@ -1,6 +1,6 @@
 {
   "name": "otto-web-provider",
-  "version": "2026.4.21.4",
+  "version": "2026.4.22.1",
   "private": true,
   "description": "Otto managed web-search runtime plugin",
   "type": "module",

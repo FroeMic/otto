@@ -259,6 +259,11 @@
   - `apps/worker` build now externalizes `ssh2` like `apps/api` to avoid bundling `ssh2`'s native `cpu-features.node` dependency
   - remaining rollout work is live canary only: boot a tenant-like runtime, verify gateway/plugin readiness, canary OpenAI proxy/workspace chat/session transcript/scheduled-task/channel paths, then publish and refresh exactly one tenant before broader rollout
   - target custom image remains `ghcr.io/froemic/otto-openclaw:2026.4.21.4`; rollback remains `ghcr.io/froemic/otto-openclaw:2026.4.15.3`
+  - a new follow-on plan now targets the latest stable upstream `2026.4.22`, verified from both GitHub latest release `v2026.4.22` dated April 23, 2026 and npm `latest` dist-tag `openclaw@2026.4.22`
+  - implementation branch `codex/openclaw-2026-4-22-upgrade` now carries the mechanical bump to repo defaults: upstream runtime default `2026.4.22`, custom image/docs target `2026.4.22.1`, and managed runtime plugin package versions `2026.4.22.1`
+  - the `2026.4.22` plan treats `ghcr.io/froemic/otto-openclaw:2026.4.21.4` as the rollback floor and proposes `ghcr.io/froemic/otto-openclaw:2026.4.22.1` as the first custom image target
+  - the main `2026.4.22` review items are OpenAI Responses native `web_search` fallback behavior, GPT-5 shared prompt-overlay changes, bundled plugin startup/Jiti loading behavior, live config re-read semantics, and workspace-visible session/status changes
+  - focused verification already passed on the branch for `apps/worker` env defaults, `apps/api` platform route version assertions, and `apps/api` / `apps/worker` builds; tenant-like image boot and live canary remain outstanding
 - The first raw OpenAI usage-ingestion foundation now exists:
   - recurring provider metering, settlement, and OAuth refresh work now runs as queue-backed scheduler/child jobs instead of only as in-process worker scans
   - the worker now runs internal resource lanes (`runtime`, `integrations`, `metering`, `settlement`) so maintenance polling no longer has to serialize behind tenant runtime jobs
@@ -822,11 +827,16 @@
 
 ## Next recommended implementation step
 
-- Continue `TODO_36_openai_proxy_native_quality_rewrite.md` by:
-  - publishing a new runtime image that includes the provider force switch
-  - deploy with `OTTO_OPENAI_PROXY_TRANSPORT=websocket` for a canary tenant runtime, recreate/restart the tenant runtime, and confirm logs show `[otto-ai-provider] transport resolved` with `transport: "websocket"`
-  - run one long/tool-heavy workspace turn and verify no `terminated` SSE event is emitted on the tenant path
-  - keep `OTTO_OPENAI_PROXY_TRANSPORT=sse` as the explicit rollback branch
+- Continue `TODO_27_openclaw_runtime_upgrade.md` with the new `2026.4.22`
+  follow-on slice by:
+  - reviewing the upstream diff from `v2026.4.21..v2026.4.22` in the local OpenClaw checkout and mapping which changes are Otto-relevant
+  - keeping the completed mechanical bump on `codex/openclaw-2026-4-22-upgrade` as the baseline: `runtime-image/Dockerfile`, `publish-runtime-image.sh`, `apps/worker/src/runtime/lib/env.ts`, runtime-image docs, managed runtime plugin versions, and the touched version assertions already point at `2026.4.22.1`
+  - extending verification from the already-passing worker/API tests and builds to the remaining runtime plugin, scheduled-task, session-sync, and audio transcript gates where needed
+  - booting a tenant-like local runtime on `2026.4.22` and verifying `/healthz`, packaged plugin loading, and absence of repeated bundled dependency repair loops
+  - publishing exactly one `2026.4.22.x` custom image and canarying exactly one tenant, with `ghcr.io/froemic/otto-openclaw:2026.4.21.4` kept as the explicit rollback image
+- Keep `TODO_36_openai_proxy_native_quality_rewrite.md` folded into that canary by:
+  - explicitly checking whether `2026.4.22` changes the current SSE vs WebSocket transport outcome on `openai-proxy/gpt-5.4`
+  - verifying native OpenAI `web_search` fallback does not bypass Otto-managed search-provider behavior when a managed provider is pinned
 - Then continue `TODO_11_runtime_release_rollout.md` on the platform operator surface by:
   - adding the runtime release schema migration and DB-backed active release record
   - replacing `RUNTIME_OPENCLAW_IMAGE` as the runtime source of truth
