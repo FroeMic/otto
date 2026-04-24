@@ -6,6 +6,7 @@ import {
   GITHUB_LOCAL_GIT_COMMANDS,
   validateGitHubLocalGitArguments,
 } from "./github-local-git-arguments.mjs";
+import { buildGitHubCheckoutResult } from "./github-local-git-result.mjs";
 
 const DEFAULT_TIMEOUT_MS = 15_000;
 const PLUGIN_CONFIG_SCHEMA = {
@@ -657,14 +658,14 @@ async function checkoutGitHubRepository(input) {
   }
 
   const currentBranch = await getCurrentGitBranch(input.repoPath);
+  const verification = await verifyGitHubCheckout(input.repoPath);
 
-  return {
-    ok: true,
+  return buildGitHubCheckoutResult({
     branch: currentBranch,
-    command: "repository.checkout",
-    path: input.repoPath,
+    repoPath: input.repoPath,
     repository: input.access.fullName,
-  };
+    verification,
+  });
 }
 
 async function checkoutGitHubRemoteBranch(input) {
@@ -800,6 +801,17 @@ async function getCurrentGitBranch(repoPath) {
   }
 
   return branch;
+}
+
+async function verifyGitHubCheckout(repoPath) {
+  const result = await runGit(["rev-parse", "--is-inside-work-tree"], {
+    cwd: repoPath,
+  });
+
+  return {
+    insideWorkTree: result.stdout.trim() === "true",
+    verified: true,
+  };
 }
 
 async function runGit(args, options = {}) {
