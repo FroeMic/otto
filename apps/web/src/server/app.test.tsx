@@ -34,8 +34,14 @@ describe("web app", () => {
     expect(response.status).toBe(200)
     expect(text).toContain("An AI employee for your team.")
     expect(text).toContain(
-      "Otto helps founder-led software businesses handle onboarding, support, handoffs, and follow-through in one place.",
+      "Get an AI agent for your team that works like a coworker in Slack and connects to the tools you already use.",
     )
+    expect(text).toContain("What task do you want to automate?")
+    expect(text).toContain("Why teams use Otto")
+    expect(text).toContain("Works where you already work. Connect to Slack.")
+    expect(text).toContain("Secure gateway for the tools you already use.")
+    expect(text).toContain("Try for free with 1000 credits")
+    expect(text).toContain("Try for free")
     expect(text).toContain('aria-label="Otto avatar"')
     expect(text).toContain("/assets/workspace.css")
     expect(text).toContain("/assets/landing.js")
@@ -43,6 +49,9 @@ describe("web app", () => {
     expect(text).not.toContain("How it works")
     expect(text).not.toContain("Pricing")
     expect(text).not.toContain("Security")
+    expect(text).not.toContain(
+      "/?prompt=We%20have%20users%2C%20but%20onboarding%20and%20support%20are%20still%20manual%20and%20fragmented.",
+    )
     expect(text).not.toContain(
       "Describe the business you are trying to run. Otto will qualify the next step.",
     )

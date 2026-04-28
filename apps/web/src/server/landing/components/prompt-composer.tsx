@@ -7,7 +7,7 @@ import { capturePostHogBrowserEvent } from "@/client/posthog"
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"
 
-import { landingExamplePrompts } from "../content/home"
+import { landingBenefitChips } from "../content/home"
 import {
   mergeLandingPromptTranscript,
   shouldSubmitLandingPromptFromKeydown,
@@ -23,7 +23,7 @@ export interface LandingPromptComposerProps {
 
 export function LandingPromptComposer({
   className,
-  examplesHeading = "Try one of these",
+  examplesHeading = "Why teams use Otto",
   prompt,
   returnTo = "/",
 }: LandingPromptComposerProps) {
@@ -46,7 +46,7 @@ export function LandingPromptComposer({
 
 export function LandingPromptComposerClient({
   className,
-  examplesHeading = "Try one of these",
+  examplesHeading = "Why teams use Otto",
   prompt,
   returnTo = "/",
 }: LandingPromptComposerProps) {
@@ -94,7 +94,7 @@ export function LandingPromptComposerClient({
                 event.currentTarget.form?.requestSubmit()
               }
             }}
-            placeholder="Describe the software business you want to launch or run..."
+            placeholder="What task do you want to automate?"
             value={currentPrompt}
           />
 
@@ -149,14 +149,13 @@ export function LandingPromptComposerClient({
           {examplesHeading}
         </p>
         <div className="flex flex-wrap justify-center gap-3">
-          {landingExamplePrompts.map((examplePrompt) => (
-            <a
-              className="inline-flex rounded-full border border-border/70 bg-background px-4 py-2 text-sm text-muted-foreground transition-colors hover:border-foreground/25 hover:text-foreground"
-              href={`/?prompt=${encodeURIComponent(examplePrompt)}#start`}
-              key={examplePrompt}
+          {landingBenefitChips.map((chip) => (
+            <span
+              className="inline-flex rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs text-muted-foreground sm:text-sm"
+              key={chip}
             >
-              {examplePrompt}
-            </a>
+              {chip}
+            </span>
           ))}
         </div>
       </div>

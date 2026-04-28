@@ -521,7 +521,8 @@ export function createApp(env: FrontendEnv = getEnv()) {
             viewer={viewer}
           />
         ),
-        description: "An AI employee for founder-led software teams.",
+        description:
+          "Get an AI agent for your team that works in Slack and connects to the tools you already use.",
         loadLandingScript: true,
         path: "/",
         title: "Otto",
