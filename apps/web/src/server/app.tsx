@@ -521,8 +521,7 @@ export function createApp(env: FrontendEnv = getEnv()) {
             viewer={viewer}
           />
         ),
-        description:
-          "Otto helps founders turn product momentum into a functioning software business.",
+        description: "An AI employee for founder-led software teams.",
         loadLandingScript: true,
         path: "/",
         title: "Otto",
