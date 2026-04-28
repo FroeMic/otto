@@ -32,16 +32,21 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Build the product. Otto helps build the business.")
+    expect(text).toContain("An AI employee for your team.")
     expect(text).toContain(
-      "Building software is getting solved. Running the business is not.",
+      "Otto helps founder-led software businesses handle onboarding, support, handoffs, and follow-through in one place.",
     )
-    expect(text).toContain("Where founders get stuck")
+    expect(text).toContain('aria-label="Otto avatar"')
     expect(text).toContain("/assets/workspace.css")
     expect(text).toContain("/assets/landing.js")
+    expect(text).not.toContain("Product")
+    expect(text).not.toContain("How it works")
+    expect(text).not.toContain("Pricing")
+    expect(text).not.toContain("Security")
     expect(text).not.toContain(
       "Describe the business you are trying to run. Otto will qualify the next step.",
     )
+    expect(text).not.toContain("Where founders get stuck")
     expect(text).not.toContain("__OTTO_POSTHOG__")
   })
 

@@ -1,10 +1,9 @@
 import { CaretUpDown } from "@phosphor-icons/react/ssr"
 import type { PropsWithChildren, ReactNode } from "react"
 
+import { OttoAvatar } from "@/components/OttoAvatar"
 import { buttonVariants } from "@/shared/button-variants"
 import { cn } from "@/shared/cn"
-
-import { landingFooterColumns, landingPrimaryNavigation } from "../content/home"
 
 export interface LandingPageShellProps extends PropsWithChildren {
   footerPromptSlot?: ReactNode
@@ -26,7 +25,7 @@ export interface LandingHeaderViewer {
 function OttoMark() {
   return (
     <span className="inline-flex items-center gap-3">
-      <span className="size-4 rounded-full bg-[radial-gradient(circle_at_30%_30%,#8ba7ff_0%,#6f7df4_42%,#ff875f_100%)]" />
+      <OttoAvatar className="size-8 rounded-md border border-border/70" />
       <span className="font-semibold tracking-tight text-foreground">Otto</span>
     </span>
   )
@@ -45,18 +44,6 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
         <a href="/" className="inline-flex items-center">
           <OttoMark />
         </a>
-
-        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
-          {landingPrimaryNavigation.map((item) => (
-            <a
-              className="transition-colors hover:text-foreground"
-              href={item.href}
-              key={item.href}
-            >
-              {item.label}
-            </a>
-          ))}
-        </nav>
 
         {viewer ? (
           <div className="flex items-center gap-2">
@@ -229,43 +216,45 @@ export interface LandingFooterProps {
 
 export function LandingFooter({ promptSlot }: LandingFooterProps) {
   return (
-    <footer className="border-t border-border/65 pb-16 pt-24">
-      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-10 px-6 md:px-10 lg:px-12">
+    <footer className="border-t border-border/65 pb-10 pt-10">
+      <div className="relative mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 md:px-10 lg:px-12">
         {promptSlot ? (
           <div className="flex justify-center">{promptSlot}</div>
         ) : null}
 
-        <div className="rounded-lg border border-border/70 bg-background px-8 py-10 shadow-[0_12px_36px_rgba(15,23,42,0.05)]">
-          <div className="grid gap-10 md:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
-            <div className="flex flex-col gap-4">
-              <a href="/" className="inline-flex items-center">
-                <OttoMark />
-              </a>
-              <p className="max-w-xs text-sm leading-6 text-muted-foreground">
-                Otto helps founders turn product momentum into a functioning
-                software business.
-              </p>
-            </div>
+        <div className="flex flex-col items-center justify-between gap-4 rounded-lg border border-border/70 bg-background px-6 py-6 text-center shadow-[0_12px_36px_rgba(15,23,42,0.05)] sm:flex-row sm:text-left">
+          <div className="flex flex-col gap-3">
+            <a
+              href="/"
+              className="inline-flex items-center justify-center sm:justify-start"
+            >
+              <OttoMark />
+            </a>
+            <p className="max-w-md text-sm leading-6 text-muted-foreground">
+              Otto gives founder-led software teams one operating layer for the
+              business work around the product.
+            </p>
+          </div>
 
-            {landingFooterColumns.map((column) => (
-              <div className="flex flex-col gap-4" key={column.title}>
-                <h2 className="text-sm font-medium text-foreground">
-                  {column.title}
-                </h2>
-                <ul className="flex flex-col gap-3 text-sm text-muted-foreground">
-                  {column.links.map((link) => (
-                    <li key={link.href + link.label}>
-                      <a
-                        className="transition-colors hover:text-foreground"
-                        href={link.href}
-                      >
-                        {link.label}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div className="flex items-center gap-3">
+            <a
+              className={cn(
+                buttonVariants({ size: "default", variant: "outline" }),
+                "rounded-full border-border/75 bg-transparent px-4 shadow-none",
+              )}
+              href="/login?mode=sign-in"
+            >
+              Log in
+            </a>
+            <a
+              className={cn(
+                buttonVariants({ size: "default" }),
+                "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
+              )}
+              href="/login"
+            >
+              Get started
+            </a>
           </div>
         </div>
       </div>
