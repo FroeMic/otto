@@ -30,15 +30,15 @@ export function LandingHomePage({
               An AI employee for your team.
             </h1>
             <p className="max-w-3xl text-lg leading-8 text-muted-foreground sm:text-xl">
-              Otto helps founder-led software businesses handle onboarding,
-              support, handoffs, and follow-through in one place.
+              Get an AI agent for your team that works like a coworker in Slack
+              and connects to the tools you already use.
             </p>
           </div>
 
           {/* biome-ignore lint/correctness/useUniqueElementIds: static SSR anchor target for marketing navigation */}
           <div className="mx-auto w-full max-w-4xl" id="start">
             <LandingPromptComposer
-              examplesHeading="Or start with one of these"
+              examplesHeading="Why teams use Otto"
               prompt={finalPrompt}
             />
           </div>

@@ -236,25 +236,30 @@ export function LandingFooter({ promptSlot }: LandingFooterProps) {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <a
-              className={cn(
-                buttonVariants({ size: "default", variant: "outline" }),
-                "rounded-full border-border/75 bg-transparent px-4 shadow-none",
-              )}
-              href="/login?mode=sign-in"
-            >
-              Log in
-            </a>
-            <a
-              className={cn(
-                buttonVariants({ size: "default" }),
-                "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
-              )}
-              href="/login"
-            >
-              Get started
-            </a>
+          <div className="flex flex-col items-center gap-2 sm:items-end">
+            <p className="text-xs font-medium text-muted-foreground">
+              Try for free with 1000 credits
+            </p>
+            <div className="flex items-center gap-3">
+              <a
+                className={cn(
+                  buttonVariants({ size: "default", variant: "outline" }),
+                  "rounded-full border-border/75 bg-transparent px-4 shadow-none",
+                )}
+                href="/login?mode=sign-in"
+              >
+                Log in
+              </a>
+              <a
+                className={cn(
+                  buttonVariants({ size: "default" }),
+                  "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
+                )}
+                href="/login"
+              >
+                Try for free
+              </a>
+            </div>
           </div>
         </div>
       </div>
