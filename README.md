@@ -1,3 +1,5 @@
+# Otto – Your team's AI employee
+
 A managed control plane for [OpenClaw](https://github.com/openclaw/openclaw) agent runtimes. Customers get a fully-managed AI agent they can connect to Slack, WhatsApp, and other channels — the operator handles all infrastructure, updates, security, and integrity; customers just use it.
 
 - Zero ops for customers — no runtime maintenance, no updates to manage
