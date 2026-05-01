@@ -62,6 +62,8 @@ The system has three planes. The **control plane** (`apps/api`, `apps/web`, `app
 
 5. **Fleet-wide updates** — Because all runtime config originates from the control plane, updating a model, adding a default skill, or changing system behavior for all tenants is a control-plane change followed by an apply cycle — no per-tenant manual work.
 
+6. **Single tool, any integration** — The agent exposes one tool (`execute_integration_command`) that covers every connected integration. Commands are dynamically discoverable at runtime via `find_integration_commands` — the agent can search what's available and call it without hardcoded tool definitions per service. Adding a new integration to the control plane makes it immediately available to the agent.
+
 ## Repository Layout
 
 **apps/**
