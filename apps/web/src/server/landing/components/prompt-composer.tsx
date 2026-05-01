@@ -62,11 +62,11 @@ export function LandingPromptComposerClient({
       className={cn("mx-auto flex w-full max-w-4xl flex-col gap-4", className)}
     >
       <form
-        action="/api/public/intake"
+        action="/waitlist"
         className="rounded-xl border border-border/70 bg-background p-4 shadow-[0_18px_48px_rgba(15,23,42,0.08)]"
-        method="post"
+        method="get"
         onSubmit={() => {
-          capturePostHogBrowserEvent("landing_prompt_submitted", {
+          capturePostHogBrowserEvent("landing_waitlist_started", {
             promptLength: currentPrompt.trim().length,
             returnTo,
           })
@@ -135,7 +135,7 @@ export function LandingPromptComposerClient({
                     )}
                     type="submit"
                   >
-                    Get started
+                    Join the Waitlist
                   </button>
                 </>
               )}

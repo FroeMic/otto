@@ -151,6 +151,30 @@ export const publicIntakeSessions = pgTable(
   }),
 )
 
+export const waitlistSignups = pgTable(
+  "waitlist_signups",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    name: text("name").notNull(),
+    email: varchar("email", { length: 320 }).notNull(),
+    company: text("company").notNull(),
+    useCase: text("use_case").notNull(),
+    heardAbout: text("heard_about").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => ({
+    createdAtIdx: index("waitlist_signups_created_at_idx").on(
+      table.createdAt,
+    ),
+    emailUniqueIdx: uniqueIndex("waitlist_signups_email_idx").on(table.email),
+  }),
+)
+
 export const workspaceOnboardingRuns = pgTable(
   "workspace_onboarding_runs",
   {

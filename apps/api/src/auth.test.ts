@@ -46,6 +46,46 @@ describe("native auth routes", () => {
     )
   })
 
+  it("redirects public sign-up attempts back to the waitlist", async () => {
+    const app = new Hono()
+
+    registerAuthRoutes(app, {
+      buildAuthorizationUrl: async () => {
+        throw new Error("should not start a sign-up flow")
+      },
+      clearWorkspaceSessionCookie: () => "wos-session=; Path=/; Max-Age=0",
+      exchangeCodeForSession: async () => {
+        throw new Error("not used")
+      },
+      getConfig: () => ({
+        cookiePassword: "a".repeat(32),
+        enabled: true,
+        publicBaseUrl: "https://getyourotto.com",
+      }),
+      getLogoutUrlFromSessionCookie: async () =>
+        "https://example.workos.com/logout",
+      getPostAuthRedirectPath: async ({ defaultReturnTo }) => defaultReturnTo,
+      readAuthFlowState: (input) =>
+        Promise.resolve({
+          returnTo: `/decoded/${input.sealedState}`,
+        }),
+      sealAuthFlowState: async () => "signed-state",
+      setWorkspaceSessionCookie: () =>
+        "wos-session=sealed; Path=/; HttpOnly; SameSite=Lax; Secure",
+    })
+
+    const response = await app.request(
+      "https://api.getyourotto.com/auth/sign-up?returnTo=/acme",
+      { redirect: "manual" },
+    )
+
+    assert.equal(response.status, 302)
+    assert.equal(
+      response.headers.get("location"),
+      "https://getyourotto.com/waitlist",
+    )
+  })
+
   it("completes the callback, stores the session cookie, and redirects to the original returnTo", async () => {
     const app = new Hono()
     const sealedState = await sealAuthFlowState({

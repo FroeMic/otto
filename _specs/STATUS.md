@@ -83,6 +83,7 @@
   - first-time users should get a workspace automatically during post-auth bootstrap
   - the first unlocked workspace should be gated by a business-first onboarding run, waitlist state, and provisioning readiness
   - the original business brief should reappear as the first prefilled prompt in the unlocked Agent view
+  - interim public account creation is now paused: public sign-up CTAs point to a waitlist form, `/auth/sign-up` redirects to `/waitlist`, and public waitlist submissions persist to `waitlist_signups`
 - Snapshot-based onboarding provisioning has been removed again:
   - onboarding and platform provisioning now queue only the legacy `provision_tenant_server` job
   - snapshot bake, snapshot provisioning, and snapshot operator surfaces are no longer part of the active codebase

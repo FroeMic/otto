@@ -1,5 +1,9 @@
 import { getDb } from "@otto/feature-integrations-runtime/db/client"
-import { publicIntakeSessions } from "@otto/feature-integrations-runtime/db/schema"
+import {
+  publicIntakeSessions,
+  waitlistSignups,
+} from "@otto/feature-integrations-runtime/db/schema"
+import { sql } from "drizzle-orm"
 
 import { getControlPlaneOpenAiAdminApiKey } from "../env"
 
@@ -27,6 +31,44 @@ export async function createPublicIntakeSession(input: {
   }
 
   return session
+}
+
+export async function createWaitlistSignup(input: {
+  company: string
+  email: string
+  heardAbout: string
+  name: string
+  useCase: string
+}) {
+  const db = getDb()
+  const [signup] = await db
+    .insert(waitlistSignups)
+    .values({
+      company: input.company,
+      email: input.email,
+      heardAbout: input.heardAbout,
+      name: input.name,
+      useCase: input.useCase,
+    })
+    .onConflictDoUpdate({
+      set: {
+        company: input.company,
+        heardAbout: input.heardAbout,
+        name: input.name,
+        updatedAt: sql`now()`,
+        useCase: input.useCase,
+      },
+      target: waitlistSignups.email,
+    })
+    .returning({
+      id: waitlistSignups.id,
+    })
+
+  if (!signup) {
+    throw new Error("Failed to create waitlist signup")
+  }
+
+  return signup
 }
 
 export async function transcribePublicIntakeAudio(input: { file: File }) {

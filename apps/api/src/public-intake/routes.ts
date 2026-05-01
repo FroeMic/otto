@@ -3,6 +3,7 @@ import { Hono } from "hono"
 import { getApiEnv } from "../env"
 import {
   createPublicIntakeSession as createPublicIntakeSessionInDb,
+  createWaitlistSignup as createWaitlistSignupInDb,
   transcribePublicIntakeAudio as transcribePublicIntakeAudioInDb,
 } from "./data"
 
@@ -10,6 +11,15 @@ export type PublicIntakeRouteDependencies = {
   createPublicIntakeSession: (input: {
     prompt: string
     source?: string
+  }) => Promise<{
+    id: string
+  }>
+  createWaitlistSignup: (input: {
+    company: string
+    email: string
+    heardAbout: string
+    name: string
+    useCase: string
   }) => Promise<{
     id: string
   }>
@@ -22,6 +32,7 @@ function createDefaultPublicIntakeRouteDependencies(): PublicIntakeRouteDependen
 
   return {
     createPublicIntakeSession: createPublicIntakeSessionInDb,
+    createWaitlistSignup: createWaitlistSignupInDb,
     publicBaseUrl: env.PUBLIC_APP_BASE_URL,
     transcribePublicIntakeAudio: transcribePublicIntakeAudioInDb,
   }
@@ -35,12 +46,76 @@ function normalizeReturnTo(returnTo: string | null | undefined) {
   return returnTo
 }
 
+function getTrimmedFormValue(formData: FormData, key: string) {
+  const value = formData.get(key)
+
+  return typeof value === "string" ? value.trim() : ""
+}
+
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+}
+
 export function createPublicIntakeRouter(
   dependencies: PublicIntakeRouteDependencies = createDefaultPublicIntakeRouteDependencies(),
 ) {
   const app = new Hono()
 
   return app
+    .post("/api/public/waitlist", async (context) => {
+      const formData = await context.req.formData()
+      const name = getTrimmedFormValue(formData, "name")
+      const email = normalizeEmail(getTrimmedFormValue(formData, "email"))
+      const company = getTrimmedFormValue(formData, "company")
+      const useCase = getTrimmedFormValue(formData, "useCase")
+      const heardAbout = getTrimmedFormValue(formData, "heardAbout")
+
+      if (!isValidEmail(email)) {
+        return context.json(
+          {
+            error: "Enter a valid email address.",
+          },
+          400,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
+      }
+
+      if (
+        name.length === 0 ||
+        company.length === 0 ||
+        useCase.length === 0 ||
+        heardAbout.length === 0
+      ) {
+        return context.json(
+          {
+            error: "Complete every waitlist field.",
+          },
+          400,
+          {
+            "Cache-Control": "no-store",
+          },
+        )
+      }
+
+      await dependencies.createWaitlistSignup({
+        company,
+        email,
+        heardAbout,
+        name,
+        useCase,
+      })
+
+      return Response.redirect(
+        new URL("/waitlist?joined=1", dependencies.publicBaseUrl).toString(),
+        303,
+      )
+    })
     .post("/api/public/intake", async (context) => {
       const formData = await context.req.formData()
       const prompt = String(formData.get("prompt") ?? "").trim()

@@ -160,6 +160,9 @@ describe("api app", () => {
         createPublicIntakeSession: async () => ({
           id: "3df8ce2b-7c6d-47ca-9fc1-8b57f0db0833",
         }),
+        createWaitlistSignup: async () => ({
+          id: "80bd8402-7a6b-4715-a585-a7c0d0c23f37",
+        }),
         publicBaseUrl: "https://getyourotto.com",
         transcribePublicIntakeAudio: async () => "",
       },

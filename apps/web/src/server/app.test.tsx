@@ -40,8 +40,10 @@ describe("web app", () => {
     expect(text).toContain("Why teams use Otto")
     expect(text).toContain("Works where you already work. Connect to Slack.")
     expect(text).toContain("Secure gateway for the tools you already use.")
-    expect(text).toContain("Try for free with 1000 credits")
-    expect(text).toContain("Try for free")
+    expect(text).toContain("Join the Waitlist")
+    expect(text).toContain('href="/waitlist"')
+    expect(text).not.toContain("Get started")
+    expect(text).not.toContain("Try for free")
     expect(text).toContain('aria-label="Otto avatar"')
     expect(text).toContain("/assets/workspace.css")
     expect(text).toContain("/assets/landing.js")
@@ -278,24 +280,24 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Start building for free")
+    expect(text).toContain("Join the waitlist")
+    expect(text).not.toContain("Get started")
   })
 
-  it("renders the landing auth modal and preserves the return target", async () => {
+  it("renders the waitlist page instead of a public account creation modal", async () => {
     const response = await app.request(
       "http://localhost/login?returnTo=%2Facme%2Fsettings%2Fworkspace",
     )
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Create free account")
+    expect(text).toContain("Join the Waitlist")
     expect(text).toContain("/assets/landing.js")
-    expect(text).toContain(
-      "/auth/sign-up?returnTo=%2Facme%2Fsettings%2Fworkspace",
-    )
-    expect(text).toContain(
-      "/login?mode=sign-in&amp;returnTo=%2Facme%2Fsettings%2Fworkspace",
-    )
+    expect(text).toContain('action="/api/public/waitlist"')
+    expect(text).toContain('name="useCase"')
+    expect(text).toContain('name="heardAbout"')
+    expect(text).not.toContain("Create free account")
+    expect(text).not.toContain("/auth/sign-up")
   })
 
   it("keeps a submitted landing brief visible in the auth modal", async () => {
@@ -305,7 +307,7 @@ describe("web app", () => {
     const text = await response.text()
 
     expect(response.status).toBe(200)
-    expect(text).toContain("Start building.")
+    expect(text).toContain("Join the Waitlist")
     expect(text).toContain("I need help with SaaS onboarding.")
     expect(text).toContain('aria-label="Otto avatar"')
     expect(text).not.toContain("/otto-avatar.svg")
@@ -323,7 +325,24 @@ describe("web app", () => {
     expect(text).toContain("Welcome back.")
     expect(text).toContain("Log in to Otto")
     expect(text).toContain("/auth/sign-in?returnTo=%2Facme")
-    expect(text).toContain("/login?mode=sign-up&amp;returnTo=%2Facme")
+    expect(text).toContain("/waitlist")
+    expect(text).not.toContain("Create account")
+  })
+
+  it("renders the waitlist page with the requested fields", async () => {
+    const response = await app.request("http://localhost/waitlist?joined=1")
+    const text = await response.text()
+
+    expect(response.status).toBe(200)
+    expect(text).toContain("You are on the list.")
+    expect(text).toContain("Join the Waitlist")
+    expect(text).toContain('action="/api/public/waitlist"')
+    expect(text).toContain('name="name"')
+    expect(text).toContain('name="email"')
+    expect(text).toContain('name="company"')
+    expect(text).toContain('name="useCase"')
+    expect(text).toContain('name="heardAbout"')
+    expect(text).not.toContain("/auth/sign-up")
   })
 
   it("does not own auth routes at the web layer", async () => {

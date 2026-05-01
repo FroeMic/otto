@@ -25,11 +25,12 @@ export function LandingPricingPage() {
         <div className="max-w-3xl">
           <LandingSectionEyebrow>Pricing</LandingSectionEyebrow>
           <h1 className="mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-            Start building for free
+            Join the waitlist
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground">
-            Get started with {formatCredits(FREE_PLAN_CREDITS)} free credits
-            every month. Upgrade when you need more.
+            Public account creation is paused. Join the waitlist and we will
+            follow up when your team can start with{" "}
+            {formatCredits(FREE_PLAN_CREDITS)} free credits.
           </p>
         </div>
 
@@ -69,9 +70,9 @@ export function LandingPricingPage() {
             <div>
               <a
                 className="inline-flex whitespace-nowrap rounded-full bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
-                href="/login"
+                href="/waitlist"
               >
-                Get started free
+                Join the Waitlist
               </a>
             </div>
           </div>
@@ -119,9 +120,9 @@ export function LandingPricingPage() {
               <div className="mt-auto pt-2">
                 <a
                   className="inline-flex w-full items-center justify-center rounded-full bg-foreground px-4 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90"
-                  href="/login"
+                  href="/waitlist"
                 >
-                  Get started
+                  Join the Waitlist
                 </a>
               </div>
             </article>
@@ -145,9 +146,9 @@ export function LandingPricingPage() {
             </div>
             <a
               className="inline-flex shrink-0 whitespace-nowrap rounded-full border border-border/75 bg-background px-5 py-2.5 text-sm font-medium transition-colors hover:bg-background/80"
-              href="/login"
+              href="/waitlist"
             >
-              Talk to us
+              Join the Waitlist
             </a>
           </div>
         </article>
