@@ -60,6 +60,43 @@ describe("RuntimeManager.applyTenantConfig", () => {
 })
 
 describe("RuntimeManager runtime home bootstrap", () => {
+  it("retries gateway health when a startup probe times out", async () => {
+    const execMock = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new Error(
+          "SSH command timed out after 30000ms: docker ps --filter name=openclaw-gateway",
+        ),
+      )
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stderr: "",
+        stdout: "status=running health=starting restartCount=0 exitCode=0",
+      })
+      .mockResolvedValueOnce({
+        exitCode: 0,
+        stderr: "",
+        stdout: '{"ok":true,"status":"live"}',
+      })
+    const manager = new RuntimeManager({
+      exec: execMock,
+    } as never)
+
+    await expect(
+      manager.checkGatewayHealthWithResult({
+        host: "tenant.test",
+        port: 22,
+        username: "root",
+      }),
+    ).resolves.toEqual({
+      exitCode: 0,
+      stderr: "",
+      stdout: '{"ok":true,"status":"live"}',
+    })
+
+    expect(execMock).toHaveBeenCalledTimes(3)
+  })
+
   it("verifies workspace chat runtimes include audio media config", async () => {
     const execMock = vi.fn(async () => ({
       exitCode: 0,

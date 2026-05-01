@@ -682,23 +682,32 @@ export class RuntimeManager {
       const deadline = Date.now() + GATEWAY_HEALTH_MAX_DURATION_MS
 
       for (let attempt = 1; ; attempt += 1) {
-        const result = await this.sshClient.exec(
-          connection,
-          buildShellCommand([
-            "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
-            `curl -fsS http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}/healthz`,
-          ]),
-          { timeoutMs: 30_000 },
-        )
+        let result: Awaited<
+          ReturnType<(typeof this.sshClient)["exec"]>
+        > | null = null
+        let probeError: string | null = null
 
-        if (result.exitCode === 0) {
+        try {
+          result = await this.sshClient.exec(
+            connection,
+            buildShellCommand([
+              "docker ps --filter name=openclaw-gateway --filter status=running --format '{{.Names}}' | grep -x openclaw-gateway >/dev/null",
+              `curl --max-time 10 -fsS http://127.0.0.1:${OPENCLAW_GATEWAY_HOST_PORT}/healthz`,
+            ]),
+            { timeoutMs: 30_000 },
+          )
+        } catch (error) {
+          probeError = error instanceof Error ? error.message : "unknown error"
+        }
+
+        if (result?.exitCode === 0) {
           return result
         }
 
         const status = await this.getGatewayStatusSummary(connection)
 
         console.info(
-          `[worker] gateway health check attempt ${attempt}: waiting for ${connection.host}:${OPENCLAW_GATEWAY_HOST_PORT} (container ${status})`,
+          `[worker] gateway health check attempt ${attempt}: waiting for ${connection.host}:${OPENCLAW_GATEWAY_HOST_PORT} (container ${status}${probeError ? `; probe error: ${probeError}` : ""})`,
         )
 
         const remainingMs = deadline - Date.now()
