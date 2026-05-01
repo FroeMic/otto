@@ -64,35 +64,33 @@ The system has three planes. The **control plane** (`apps/api`, `apps/web`, `app
 
 ## Repository Layout
 
-```
-apps/
-  web/      — Hono SSR + React SPA: workspace UI (sessions, files, integrations, skills, billing, settings)
-  api/      — Control plane API: Hono RPC for web, webhooks, OAuth, and runtime HTTP adapters
-  gateway/  — Integration execute gateway: isolated proxy for agent tool calls
-  worker/   — Background job processor: VPS provisioning, config apply, sync, billing
+**apps/**
+- [`web/`](apps/web) — Hono SSR + React SPA: workspace UI (sessions, files, integrations, skills, billing, settings)
+- [`api/`](apps/api/README.md) — Control plane API: Hono RPC for web, webhooks, OAuth, and runtime HTTP adapters
+- [`gateway/`](apps/gateway/README.md) — Integration execute gateway: isolated proxy for agent tool calls
+- [`worker/`](apps/worker/README.md) — Background job processor: VPS provisioning, config apply, sync, billing
 
-packages/features/
-  runtime-core/          — Runtime substrate: managed config, skills, file snapshots, session handling
-  integrations-runtime/  — Integration framework: Slack, Linear, GitHub, PostHog, Brave, Gandi
-  workspace-core/        — Workspace bootstrap, settings, and usage contracts
-  workspace-chat/        — Team workspace chat events and contracts
-  workspace-members/     — Member directory, invitations, and roles
-  workspace-onboarding/  — First-run provisioning flow
-  platform/              — Platform admin schemas: org list, tenant status, jobs, usage
-  billing/               — Usage metering, credit ledger, Stripe integration
+**packages/features/**
+- [`runtime-core/`](packages/features/runtime-core/README.md) — Runtime substrate: managed config, skills, file snapshots, session handling
+- [`integrations-runtime/`](packages/features/integrations-runtime/README.md) — Integration framework: Slack, Linear, GitHub, PostHog, Brave, Gandi
+- [`workspace-core/`](packages/features/workspace-core) — Workspace bootstrap, settings, and usage contracts
+- [`workspace-chat/`](packages/features/workspace-chat) — Team workspace chat events and contracts
+- [`workspace-members/`](packages/features/workspace-members) — Member directory, invitations, and roles
+- [`workspace-onboarding/`](packages/features/workspace-onboarding) — First-run provisioning flow
+- [`platform/`](packages/features/platform/README.md) — Platform admin schemas: org list, tenant status, jobs, usage
+- [`billing/`](packages/features/billing/README.md) — Usage metering, credit ledger, Stripe integration
 
-runtime-plugins/
-  otto-ai-provider/       — OpenAI proxy provider: LLM calls routed through control plane
-  otto-integrations/      — Integration command execution from runtime
-  otto-managed-skills/    — Skill install/remove/create tools for the agent
-  otto-managed-config/    — Instruction file management tools
-  otto-session-reporter/  — Session lifecycle and transcript reporting
-  otto-workspace-chat/    — Workspace chat channel access from runtime
-  otto-web-provider/      — Web search provider proxy
+**runtime-plugins/**
+- [`otto-ai-provider/`](runtime-plugins/otto-ai-provider/README.md) — OpenAI proxy provider: LLM calls routed through control plane
+- [`otto-integrations/`](runtime-plugins/otto-integrations/README.md) — Integration command execution from runtime
+- [`otto-managed-skills/`](runtime-plugins/otto-managed-skills) — Skill install/remove/create tools for the agent
+- [`otto-managed-config/`](runtime-plugins/otto-managed-config) — Instruction file management tools
+- [`otto-session-reporter/`](runtime-plugins/otto-session-reporter) — Session lifecycle and transcript reporting
+- [`otto-workspace-chat/`](runtime-plugins/otto-workspace-chat) — Workspace chat channel access from runtime
+- [`otto-web-provider/`](runtime-plugins/otto-web-provider) — Web search provider proxy
 
-runtime-image/
-  Dockerfile              — Extends upstream OpenClaw image with all platform plugins
-```
+**runtime-image/**
+- [`Dockerfile`](runtime-image/README.md) — Extends upstream OpenClaw image with all platform plugins
 
 ## Tech Stack
 
