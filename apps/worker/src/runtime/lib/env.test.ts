@@ -115,7 +115,9 @@ describe("getEnv legacy provisioning env shape", () => {
 
     const env = getEnv()
 
-    expect(env.RUNTIME_OPENCLAW_IMAGE).toBe("ghcr.io/openclaw/openclaw:2026.4.22")
+    expect(env.RUNTIME_OPENCLAW_IMAGE).toBe(
+      "ghcr.io/openclaw/openclaw:2026.4.22",
+    )
     expect(env.TENANT_RUNTIME_DOCKER_DOCKER_BIN).toBe("docker")
     expect(env.TENANT_RUNTIME_DOCKER_NETWORK).toBe("otto-tenant-lab")
     expect(env.TENANT_RUNTIME_DOCKER_SSH_HOST).toBe("127.0.0.1")
