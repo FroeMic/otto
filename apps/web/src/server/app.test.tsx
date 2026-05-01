@@ -46,6 +46,11 @@ describe("web app", () => {
     expect(text).not.toContain("Try for free")
     expect(text).toContain('aria-label="Otto avatar"')
     expect(text).toContain("/assets/workspace.css")
+    expect(text).toContain('rel="icon"')
+    expect(text).toContain('href="/otto-avatar.svg"')
+    expect(text).toContain('rel="preload"')
+    expect(text).toContain('as="font"')
+    expect(text).toContain("/assets/geist-latin-wght-normal-Dm3htQBi.woff2")
     expect(text).toContain("/assets/landing.js")
     expect(text).not.toContain("Product")
     expect(text).not.toContain("How it works")
@@ -310,7 +315,6 @@ describe("web app", () => {
     expect(text).toContain("Join the Waitlist")
     expect(text).toContain("I need help with SaaS onboarding.")
     expect(text).toContain('aria-label="Otto avatar"')
-    expect(text).not.toContain("/otto-avatar.svg")
     expect(text).not.toContain("Your business brief")
     expect(text).not.toContain("Otto uses WorkOS for authentication.")
   })
@@ -354,6 +358,15 @@ describe("web app", () => {
 
     expect(fetchSpy).not.toHaveBeenCalled()
     expect(response.status).toBe(404)
+  })
+
+  it("serves the legacy favicon path from the avatar asset", async () => {
+    const response = await app.request("http://localhost/favicon.ico", {
+      redirect: "manual",
+    })
+
+    expect(response.status).toBe(302)
+    expect(response.headers.get("location")).toBe("/otto-avatar.svg")
   })
 
   it("serves a workspace slug shell fallback", async () => {
