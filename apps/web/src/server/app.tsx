@@ -56,6 +56,11 @@ const SOURCE_PUBLIC_ROOT = fileURLToPath(
 const WORKSPACE_STYLE_PATH = "/assets/workspace.css"
 const LANDING_SCRIPT_PATH = "/assets/landing.js"
 const WORKSPACE_SCRIPT_PATH = "/assets/workspace.js"
+const AVATAR_ICON_PATH = "/otto-avatar.svg"
+const PRELOADED_FONT_PATHS = [
+  "/assets/geist-latin-wght-normal-Dm3htQBi.woff2",
+  "/assets/geist-latin-ext-wght-normal-DMtmJ5ZE.woff2",
+]
 const WORKSPACE_SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/
 
 function PageDocument({
@@ -82,6 +87,18 @@ function PageDocument({
           rel="canonical"
           href={`https://getyourotto.com${canonicalPath}`}
         />
+        <link rel="icon" href={AVATAR_ICON_PATH} type="image/svg+xml" />
+        <link rel="shortcut icon" href={AVATAR_ICON_PATH} />
+        {PRELOADED_FONT_PATHS.map((fontPath) => (
+          <link
+            as="font"
+            crossOrigin=""
+            href={fontPath}
+            key={fontPath}
+            rel="preload"
+            type="font/woff2"
+          />
+        ))}
         <link rel="stylesheet" href={WORKSPACE_STYLE_PATH} />
       </head>
       <body>
@@ -454,6 +471,8 @@ export function createApp(env: FrontendEnv = getEnv()) {
         },
       })
     })
+
+    app.get("/favicon.ico", (c) => c.redirect(AVATAR_ICON_PATH, 302))
   }
 
   app.get("/healthz", (c) =>
