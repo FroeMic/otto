@@ -1,7 +1,8 @@
-# Otto Runtime Image
+# runtime-image
 
-This directory defines the thin Otto-owned runtime image layer that extends the
-upstream OpenClaw image with Otto-specific runtime plugins.
+This directory defines the custom Docker image layer that extends the upstream [OpenClaw](https://github.com/openclaw/openclaw) base image with platform-specific plugins. This image is what gets deployed to each tenant VPS during provisioning and updated during `refresh_runtime_image` jobs.
+
+The image bundles all runtime plugins alongside helper processes that handle config watching, session reporting, and gateway liveness — giving each tenant runtime full control plane connectivity out of the box.
 
 ## Current contents
 
