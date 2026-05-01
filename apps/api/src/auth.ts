@@ -257,11 +257,12 @@ export function registerAuthRoutes(
     )
   })
 
-  app.get("/auth/sign-up", async (context) => {
-    return buildAuthorizationRedirect(
-      dependencies,
-      "sign-up",
-      context.req.query("returnTo"),
+  app.get("/auth/sign-up", async () => {
+    const config = dependencies.getConfig()
+
+    return Response.redirect(
+      buildAbsoluteUrl("/waitlist", config.publicBaseUrl),
+      302,
     )
   })
 

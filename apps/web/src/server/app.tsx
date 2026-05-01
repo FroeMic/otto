@@ -18,6 +18,7 @@ import {
   LandingHomePage,
   LandingPricingPage,
   LandingSecurityPage,
+  LandingWaitlistPage,
 } from "./landing"
 import {
   getBrowserPostHogConfig,
@@ -353,7 +354,6 @@ function LandingAuthModal({
   const closeHref = prompt?.trim()
     ? `/?prompt=${encodeURIComponent(prompt)}#start`
     : "/"
-  const isSignIn = mode === "sign-in"
 
   return (
     <div
@@ -374,10 +374,10 @@ function LandingAuthModal({
 
         <div className="flex flex-col gap-1">
           <p className="text-[1rem] font-medium text-muted-foreground/85">
-            {isSignIn ? "Welcome back." : "Start building."}
+            Welcome back.
           </p>
           <h1 className="text-[2rem] font-semibold tracking-tight">
-            {isSignIn ? "Log in to Otto" : "Create free account"}
+            Log in to Otto
           </h1>
         </div>
 
@@ -392,15 +392,15 @@ function LandingAuthModal({
         <div className="flex flex-col gap-3">
           <a
             className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-border/75 bg-foreground px-4 text-sm font-medium text-background transition-opacity hover:opacity-92"
-            href={`/auth/${isSignIn ? "sign-in" : "sign-up"}?returnTo=${encodeURIComponent(returnTo)}`}
+            href={`/auth/sign-in?returnTo=${encodeURIComponent(returnTo)}`}
           >
-            {isSignIn ? "Log in" : "Create account"}
+            Log in
           </a>
           <a
             className="inline-flex min-h-12 w-full items-center justify-center rounded-lg border border-border/75 bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted/45"
-            href={`/login?mode=${isSignIn ? "sign-up" : "sign-in"}&returnTo=${encodeURIComponent(returnTo)}${prompt?.trim() ? `&prompt=${encodeURIComponent(prompt)}` : ""}`}
+            href={`/waitlist${prompt?.trim() ? `?prompt=${encodeURIComponent(prompt)}` : ""}`}
           >
-            {isSignIn ? "Create account" : "Log in"}
+            Join the Waitlist
           </a>
         </div>
 
@@ -409,8 +409,8 @@ function LandingAuthModal({
         </p>
 
         <div className="border-t border-border/70 pt-4 text-xs text-muted-foreground">
-          Your workspace is created automatically after sign-up, then Otto
-          guides you through the initial setup.
+          Public account creation is paused. Join the waitlist if your team does
+          not have workspace access yet.
         </div>
       </div>
     </div>
@@ -483,6 +483,19 @@ export function createApp(env: FrontendEnv = getEnv()) {
     const returnTo = c.req.query("returnTo") ?? "/"
     const viewer = await getLandingViewer(c.req.raw, env)
 
+    if (mode === "sign-up") {
+      return c.html(
+        renderDocument({
+          browserPostHogConfig,
+          children: <LandingWaitlistPage prompt={prompt} viewer={viewer} />,
+          description: "Join the waitlist",
+          loadLandingScript: true,
+          path: "/login",
+          title: "Waitlist",
+        }),
+      )
+    }
+
     return c.html(
       renderDocument({
         browserPostHogConfig,
@@ -526,6 +539,27 @@ export function createApp(env: FrontendEnv = getEnv()) {
         loadLandingScript: true,
         path: "/",
         title: "Otto",
+      }),
+    )
+  })
+
+  app.get("/waitlist", async (c) => {
+    const viewer = await getLandingViewer(c.req.raw, env)
+
+    return c.html(
+      renderDocument({
+        browserPostHogConfig,
+        children: (
+          <LandingWaitlistPage
+            joined={c.req.query("joined") === "1"}
+            prompt={c.req.query("prompt")?.trim()}
+            viewer={viewer}
+          />
+        ),
+        description: "Join the waitlist",
+        loadLandingScript: true,
+        path: "/waitlist",
+        title: "Waitlist",
       }),
     )
   })

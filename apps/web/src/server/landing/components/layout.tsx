@@ -132,9 +132,9 @@ export function LandingHeader({ viewer = null }: LandingHeaderProps) {
                 buttonVariants({ size: "default" }),
                 "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
               )}
-              href="/login"
+              href="/waitlist"
             >
-              Get started
+              Join the Waitlist
             </a>
           </div>
         )}
@@ -238,7 +238,7 @@ export function LandingFooter({ promptSlot }: LandingFooterProps) {
 
           <div className="flex flex-col items-center gap-2 sm:items-end">
             <p className="text-xs font-medium text-muted-foreground">
-              Try for free with 1000 credits
+              Public account creation is paused
             </p>
             <div className="flex items-center gap-3">
               <a
@@ -255,9 +255,9 @@ export function LandingFooter({ promptSlot }: LandingFooterProps) {
                   buttonVariants({ size: "default" }),
                   "rounded-full bg-foreground px-4 text-background shadow-none hover:bg-foreground/92",
                 )}
-                href="/login"
+                href="/waitlist"
               >
-                Try for free
+                Join the Waitlist
               </a>
             </div>
           </div>

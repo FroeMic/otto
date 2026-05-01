@@ -435,6 +435,13 @@
       "when": 1776938400000,
       "tag": "0062_github_integration_state",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1777628346000,
+      "tag": "0063_public_waitlist_signups",
+      "breakpoints": true
     }
   ]
 }

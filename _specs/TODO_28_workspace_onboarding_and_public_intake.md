@@ -268,6 +268,12 @@ The onboarding waiting, waitlist, and unlock behavior should stay independent fr
 
 ## Waitlist model
 
+Interim public-account pause:
+
+- public sign-up CTAs may route to a pre-auth waitlist form while account creation is closed
+- those pre-auth entries are captured in `waitlist_signups`
+- this is separate from authenticated workspace onboarding waitlist decisions below
+
 Recommended values:
 
 - `pending`
